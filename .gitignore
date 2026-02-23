@@ -26,3 +26,8 @@ frontend/build/
 # Database
 *.sql
 *.db
+
+# Flutter build files
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins-dependencies
