@@ -1,15 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-class ForgotPasswordPage extends StatelessWidget {
+class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final TextEditingController emailController = TextEditingController();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
+}
 
+class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+  final TextEditingController emailController = TextEditingController();
+  bool _isLoading = false;
+  String? _message;
+  bool _isSuccess = false;
+
+  //final String baseUrl = 'http://localhost:5000/api';
+   final String baseUrl = 'http://192.168.26.155:5000/api';
+
+  Future<void> _sendResetLink() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+      _isSuccess = false;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': emailController.text.trim()}),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      print('📥 Réponse forgot-password: $data');
+
+      setState(() {
+        _message = data['message'] ?? 'Email envoyé';
+        _isSuccess = true;
+      });
+    } catch (e) {
+      setState(() {
+        _message = '❌ Erreur: $e';
+        _isSuccess = false;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Forgot Password'),
+        title: const Text('Mot de passe oublié'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -17,8 +63,9 @@ class ForgotPasswordPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'Enter your email to reset your password',
+              'Entrez votre email pour réinitialiser votre mot de passe',
               style: TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             TextField(
@@ -26,20 +73,32 @@ class ForgotPasswordPage extends StatelessWidget {
               decoration: const InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
               ),
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 20),
+            if (_message != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  _message!,
+                  style: TextStyle(
+                    color: _isSuccess ? Colors.green : Colors.red,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () async {
-                final email = emailController.text.trim();
-                // TODO: Call your backend API here to send reset email
-                // Example: await Backend.sendPasswordReset(email);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Password reset link sent to $email')),
-                );
-              },
-              child: const Text('Send Reset Link'),
+              onPressed: _isLoading ? null : _sendResetLink,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(200, 48),
+              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Envoyer le lien'),
             ),
           ],
         ),

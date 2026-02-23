@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class ResetPasswordPage extends StatefulWidget {
-  final String token; // Token from reset link
+  final String token;
 
   const ResetPasswordPage({super.key, required this.token});
 
@@ -19,51 +19,64 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _isLoading = false;
   String? _error;
 
-  // Password validation
+  //final String baseUrl = 'http://localhost:5000/api';
+   final String baseUrl = 'http://192.168.26.155:5000/api';
+
   bool _isValidPassword(String password) {
     return password.length >= 8 &&
-      RegExp(r'[a-z]').hasMatch(password) &&
-      RegExp(r'[A-Z]').hasMatch(password) &&
-      RegExp(r'[!@#\$&*~]').hasMatch(password);
+        RegExp(r'[a-z]').hasMatch(password) &&
+        RegExp(r'[A-Z]').hasMatch(password) &&
+        RegExp(r'[!@#\$&*~]').hasMatch(password);
   }
 
   Future<void> _resetPassword() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
     if (newPassword != confirmPassword) {
       setState(() {
-        _error = "Passwords do not match";
+        _error = "Les mots de passe ne correspondent pas";
         _isLoading = false;
       });
       return;
     }
     if (!_isValidPassword(newPassword)) {
       setState(() {
-        _error = "Password must be at least 8 characters, include upper/lowercase and a special character.";
+        _error = "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un caractère spécial.";
         _isLoading = false;
       });
       return;
     }
 
-    final response = await http.post(
-      Uri.parse('https://your-backend-url/reset-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'token': widget.token,
-        'newPassword': newPassword,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': widget.token,
+          'newPassword': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-    final data = jsonDecode(response.body);
-    if (data['success'] == true) {
-      setState(() { _isLoading = false; });
-      _showSuccessDialog();
-    } else {
+      final data = jsonDecode(response.body);
+      print('📥 Réponse reset-password: $data');
+
+      if (data['success'] == true) {
+        _showSuccessDialog();
+      } else {
+        setState(() {
+          _error = data['message'] ?? "Une erreur est survenue";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        _error = data['message'] ?? "An error occurred";
+        _error = "❌ Erreur: $e";
         _isLoading = false;
       });
     }
@@ -80,7 +93,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 40),
             SizedBox(height: 16),
-            Text("Password changed successfully", style: TextStyle(fontSize: 18)),
+            Text("Mot de passe modifié avec succès !", style: TextStyle(fontSize: 18)),
             SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -91,16 +104,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pushReplacementNamed('/login');
               },
-              child: Text("Log in"),
+              child: Text("Se connecter"),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
       ),
     );
   }
@@ -119,15 +126,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Create a secure password", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("Créez un mot de passe sécurisé", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             SizedBox(height: 8),
-            Text("Please enter a strong password and keep it well!", style: TextStyle(color: Colors.grey)),
+            Text("Veuillez entrer un mot de passe fort", style: TextStyle(color: Colors.grey)),
             SizedBox(height: 24),
             TextField(
               controller: _newPasswordController,
               obscureText: _obscureNew,
               decoration: InputDecoration(
-                labelText: "New password",
+                labelText: "Nouveau mot de passe",
                 suffixIcon: IconButton(
                   icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
                   onPressed: () => setState(() => _obscureNew = !_obscureNew),
@@ -140,7 +147,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               controller: _confirmPasswordController,
               obscureText: _obscureConfirm,
               decoration: InputDecoration(
-                labelText: "Confirm new password",
+                labelText: "Confirmer le mot de passe",
                 suffixIcon: IconButton(
                   icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
                   onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
@@ -149,16 +156,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               ),
             ),
             SizedBox(height: 16),
-            Text("Must contain at least:", style: TextStyle(fontWeight: FontWeight.bold)),
+            Text("Doit contenir au moins :", style: TextStyle(fontWeight: FontWeight.bold)),
             Padding(
               padding: const EdgeInsets.only(left: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("• 8 characters"),
-                  Text("• 1 lowercase character"),
-                  Text("• 1 uppercase character"),
-                  Text("• 1 special character"),
+                  Text("• 8 caractères"),
+                  Text("• 1 minuscule"),
+                  Text("• 1 majuscule"),
+                  Text("• 1 caractère spécial (!@#\$&*~)"),
                 ],
               ),
             ),
@@ -176,8 +183,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 ),
                 onPressed: _isLoading ? null : _resetPassword,
                 child: _isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text("Reset"),
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text("Réinitialiser"),
               ),
             ),
           ],

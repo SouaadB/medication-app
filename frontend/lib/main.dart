@@ -24,6 +24,7 @@ class MyApp extends StatelessWidget {
         '/resetpassword': (context) => ResetPasswordPage(token: ''), // Pass token as needed
         '/forgotpassword': (context) => ForgotPasswordPage(),
         '/patientinterface': (context) => PatientInterface(),
+        '/patient': (context) => PatientInterface(),
       },
     );
   }

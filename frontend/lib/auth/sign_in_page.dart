@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -15,44 +16,59 @@ class _SignInPageState extends State<SignInPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // IMPORTANT: Utilise la même URL que SignUpPage
+  //final String baseUrl = 'http://localhost:5000/api'; // Pour Windows
+  // final String baseUrl = 'http://10.0.2.2:5000/api'; // Pour émulateur Android
+  final String baseUrl = 'http://192.168.26.155:5000/api'; // Pour vrai téléphone
+
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final response = await http.post(
-      Uri.parse('http://YOUR_BACKEND_URL/api/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        }),
+      ).timeout(const Duration(seconds: 10));
 
-    setState(() {
-      _isLoading = false;
-    });
+      final data = jsonDecode(response.body);
+      print('📥 Réponse login: $data');
 
-    final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        // Sauvegarder le token
+        if (data['token'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('auth_token', data['token']);
+          await prefs.setString('user_name', data['user']['name'] ?? '');
+          await prefs.setString('user_email', data['user']['email'] ?? '');
+          await prefs.setString('user_role', data['user']['role'] ?? '');
+        }
 
-    if (response.statusCode == 200 && data['success'] == true) {
-      // Handle successful login (e.g., save token, navigate)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login successful!')),
-      );
-      
-      // Save token if provided
-      if (data['token'] != null) {
-        // You should use a secure storage like shared_preferences
-        // For now, we'll just navigate
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ Connexion réussie!'), backgroundColor: Colors.green),
+        );
+        
+        // Naviguer vers l'interface patient
+        Navigator.pushReplacementNamed(context, '/patientinterface');
+      } else {
+        setState(() {
+          _errorMessage = data['message'] ?? 'Email ou mot de passe incorrect';
+        });
       }
-      
-      // Navigate to patient interface
-      Navigator.pushReplacementNamed(context, '/patient');
-    } else {
+    } catch (e) {
       setState(() {
-        _errorMessage = data['message'] ?? 'Login failed';
+        _errorMessage = '❌ Erreur de connexion: Vérifie que le backend tourne sur $baseUrl';
+      });
+      print('❌ Erreur: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
