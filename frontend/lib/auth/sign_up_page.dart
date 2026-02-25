@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api_config.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -20,12 +21,6 @@ class _SignUpPageState extends State<SignUpPage> {
   String? _selectedSmartphoneSkillLevel;
   bool _isLoading = false;
 
-  // IMPORTANT: Remplace par l'URL correcte selon ta plateforme
-  //final String baseUrl = 'http://localhost:5000/api'; // Pour Windows
-  // final String baseUrl = 'http://10.0.2.2:5000/api'; // Pour émulateur Android
-   final String baseUrl = 'http://192.168.26.155:5000/api'; // Pour vrai téléphone (remplace par ton IP)
-
-  // Liste des niveaux de compétence
   final List<String> _smartphoneSkillLevels = [
     'BASIC',
     'INTERMEDIATE',
@@ -35,12 +30,11 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 20)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
     if (picked != null) {
-      // Format: DD-MM-YYYY
       String formattedDate = "${picked.day.toString().padLeft(2, '0')}-"
           "${picked.month.toString().padLeft(2, '0')}-"
           "${picked.year}";
@@ -52,75 +46,60 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (_selectedSmartphoneSkillLevel == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veuillez sélectionner votre niveau en smartphone')),
+        );
+        return;
+      }
+
+      setState(() => _isLoading = true);
 
       try {
-        // Préparer les données
         Map<String, dynamic> userData = {
-          'name': _nameController.text,
-          'email': _emailController.text,
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
           'password': _passwordController.text,
-          'phone': _phoneController.text,
-          'chifaCardRegistrationNumber': _chifaCardController.text,
+          'phone': _phoneController.text.trim(),
+          'chifaCardRegistrationNumber': _chifaCardController.text.trim(),
           'dateOfBirth': _dateOfBirthController.text,
           'smartphoneSkillLevel': _selectedSmartphoneSkillLevel,
         };
 
-        // Afficher les données envoyées (pour debug)
-        print('📤 Envoi des données: $userData');
-
-        // Appel API
         final response = await http.post(
-          Uri.parse('$baseUrl/auth/register'),
-          headers: {'Content-Type': 'application/json'},
+          Uri.parse('${ApiConfig.baseUrl}/auth/register'),
+          headers: ApiConfig.headers,
           body: jsonEncode(userData),
         ).timeout(const Duration(seconds: 10));
 
-        // Analyser la réponse
         final responseData = jsonDecode(response.body);
-        print('📥 Réponse: $responseData');
 
         if (response.statusCode == 201 && responseData['success'] == true) {
-          // Succès
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ ${responseData['message']}'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Retourner à la page de connexion après 2 secondes
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pop(context); // Retour à la page précédente (login)
-          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ ${responseData['message']}'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Future.delayed(const Duration(seconds: 2), () {
+              Navigator.pop(context);
+            });
+          }
         } else {
-          // Erreur de validation
-          throw Exception(responseData['message'] ?? 'Erreur inconnue');
+          throw Exception(responseData['message'] ?? 'Erreur lors de l\'inscription');
         }
       } catch (e) {
-        // Gestion des erreurs
-        String errorMessage = 'Erreur de connexion';
-        if (e.toString().contains('Failed host lookup')) {
-          errorMessage = '❌ Serveur inaccessible. Vérifie l\'URL: $baseUrl';
-        } else if (e.toString().contains('Timeout')) {
-          errorMessage = '❌ Délai d\'attente dépassé. Le serveur ne répond pas.';
-        } else {
-          errorMessage = '❌ $e';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
-        );
-        print('❌ Erreur: $e');
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -138,192 +117,143 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
+      backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        title: const Text('Inscription'),
+        title: const Text('Créer un compte'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // Champ Nom
+              Text(
+                'Rejoignez Aavi',
+                style: theme.textTheme.headlineMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Remplissez vos informations pour commencer',
+                style: theme.textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              
+              _buildFieldTitle('Informations personnelles'),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Nom complet',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre nom';
-                  }
-                  return null;
-                },
+                validator: (value) => (value == null || value.isEmpty) ? 'Requis' : null,
               ),
-              const SizedBox(height: 16.0),
-
-              // Champ Email
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre email';
-                  }
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    return 'Email invalide';
-                  }
+                  if (value == null || value.isEmpty) return 'Requis';
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Email invalide';
                   return null;
                 },
               ),
-              const SizedBox(height: 16.0),
-
-              // Champ Mot de passe
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Mot de passe',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un mot de passe';
-                  }
-                  if (value.length < 6) {
-                    return 'Le mot de passe doit contenir au moins 6 caractères';
-                  }
-                  return null;
-                },
+                validator: (value) => (value == null || value.length < 6) ? 'Min 6 caractères' : null,
               ),
-              const SizedBox(height: 16.0),
-
-              // Champ Téléphone
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
-                  labelText: 'Numéro de téléphone',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone),
+                  labelText: 'Téléphone',
+                  prefixIcon: Icon(Icons.phone_outlined),
                   hintText: '0612345678',
                 ),
                 keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre téléphone';
-                  }
-                  if (value.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(value)) {
-                    return 'Le téléphone doit contenir 10 chiffres';
-                  }
-                  return null;
-                },
+                validator: (value) => (value == null || value.length != 10) ? '10 chiffres requis' : null,
               ),
-              const SizedBox(height: 16.0),
-
-              // Champ CHIFA
+              
+              const SizedBox(height: 32),
+              _buildFieldTitle('Détails médicaux'),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _chifaCardController,
                 decoration: const InputDecoration(
                   labelText: 'Numéro CHIFA',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.card_membership),
-                  hintText: '123456789',
+                  prefixIcon: Icon(Icons.card_membership_outlined),
+                  hintText: '9 chiffres',
                 ),
                 keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre numéro CHIFA';
-                  }
-                  if (value.length != 9 || !RegExp(r'^[0-9]+$').hasMatch(value)) {
-                    return 'Le numéro CHIFA doit contenir exactement 9 chiffres';
-                  }
-                  return null;
-                },
+                validator: (value) => (value == null || value.length != 9) ? '9 chiffres requis' : null,
               ),
-              const SizedBox(height: 16.0),
-
-              // Champ Date de naissance
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _dateOfBirthController,
                 decoration: const InputDecoration(
                   labelText: 'Date de naissance',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
                   hintText: 'JJ-MM-AAAA',
                 ),
                 readOnly: true,
                 onTap: () => _selectDate(context),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez sélectionner votre date de naissance';
-                  }
-                  return null;
-                },
+                validator: (value) => (value == null || value.isEmpty) ? 'Requis' : null,
               ),
-              const SizedBox(height: 16.0),
-
-              // Dropdown Niveau smartphone
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedSmartphoneSkillLevel,
                 decoration: const InputDecoration(
                   labelText: 'Niveau smartphone',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone_android),
+                  prefixIcon: Icon(Icons.smartphone_outlined),
                 ),
-                hint: const Text('Sélectionnez votre niveau'),
-                items: _smartphoneSkillLevels.map((String level) {
-                  return DropdownMenuItem<String>(
-                    value: level,
-                    child: Text(level),
-                  );
+                value: _selectedSmartphoneSkillLevel,
+                items: _smartphoneSkillLevels.map((level) {
+                  return DropdownMenuItem(value: level, child: Text(level));
                 }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedSmartphoneSkillLevel = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez sélectionner votre niveau';
-                  }
-                  return null;
-                },
+                onChanged: (value) => setState(() => _selectedSmartphoneSkillLevel = value),
               ),
-              const SizedBox(height: 24.0),
-
-              // Bouton d'inscription
+              
+              const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _isLoading ? null : _signUp,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                ),
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        "S'inscrire",
-                        style: TextStyle(fontSize: 18.0),
-                      ),
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('S\'inscrire'),
               ),
-
-              // Lien vers la page de connexion
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Déjà un compte ? Se connecter'),
-              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFieldTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF1A237E),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -16,12 +17,12 @@ class _SignInPageState extends State<SignInPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // IMPORTANT: Utilise la même URL que SignUpPage
-  //final String baseUrl = 'http://localhost:5000/api'; // Pour Windows
-  // final String baseUrl = 'http://10.0.2.2:5000/api'; // Pour émulateur Android
-  final String baseUrl = 'http://192.168.26.155:5000/api'; // Pour vrai téléphone
-
   Future<void> _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _errorMessage = 'Veuillez remplir tous les champs');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -29,8 +30,8 @@ class _SignInPageState extends State<SignInPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${ApiConfig.baseUrl}/auth/login'),
+        headers: ApiConfig.headers,
         body: jsonEncode({
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
@@ -38,207 +39,164 @@ class _SignInPageState extends State<SignInPage> {
       ).timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
-      print('📥 Réponse login: $data');
 
       if (response.statusCode == 200 && data['success'] == true) {
-        // Sauvegarder le token
-        if (data['token'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('auth_token', data['token']);
-          await prefs.setString('user_name', data['user']['name'] ?? '');
-          await prefs.setString('user_email', data['user']['email'] ?? '');
-          await prefs.setString('user_role', data['user']['role'] ?? '');
-        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', data['token']);
+        await prefs.setString('user_name', data['user']['name'] ?? '');
+        await prefs.setString('user_email', data['user']['email'] ?? '');
+        await prefs.setString('user_role', data['user']['role'] ?? '');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Connexion réussie!'), backgroundColor: Colors.green),
-        );
-        
-        // Naviguer vers l'interface patient
-        Navigator.pushReplacementNamed(context, '/patientinterface');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Connexion réussie!'), backgroundColor: Colors.green),
+          );
+          
+          final role = data['user']['role'];
+          if (role == 'admin') {
+            Navigator.pushReplacementNamed(context, '/admin');
+          } else {
+            Navigator.pushReplacementNamed(context, '/patientinterface');
+          }
+        }
       } else {
         setState(() {
           _errorMessage = data['message'] ?? 'Email ou mot de passe incorrect';
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = '❌ Erreur de connexion: Vérifie que le backend tourne sur $baseUrl';
-      });
-      print('❌ Erreur: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = '❌ Erreur de connexion au serveur';
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F2027), Color(0xFF2C5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+      backgroundColor: theme.colorScheme.background,
+      body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
-              child: Container(
-                padding: EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 24,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
+            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.medical_services_rounded,
+                    size: 80,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 40),
-                    Row(
-                      children: [
-                        Icon(Icons.medical_services, color: Colors.white, size: 36),
-                        SizedBox(width: 12),
-                        Text(
-                          'Aavi',
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black26,
-                                blurRadius: 8,
-                                offset: Offset(2, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Mobile UI Kit',
-                      style: TextStyle(fontSize: 18, color: Colors.white70),
-                    ),
-                    SizedBox(height: 40),
-                    Text(
-                      'Sign in',
+                const SizedBox(height: 40),
+                
+                Text(
+                  'Bienvenue sur Aavi',
+                  style: theme.textTheme.headlineLarge,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Connectez-vous pour gérer vos médicaments',
+                  style: theme.textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 50),
+                
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: 'Email',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Mot de passe',
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                  ),
+                ),
+                
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/forgotpassword'),
+                    child: Text(
+                      'Mot de passe oublié ?',
                       style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                ),
+                
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                
+                const SizedBox(height: 30),
+                
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Se connecter'),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Text(
-                      'Welcome back! Please sign in to continue.',
-                      style: TextStyle(fontSize: 15, color: Colors.white60),
+                      'Pas encore de compte ? ',
+                      style: theme.textTheme.bodyMedium,
                     ),
-                    SizedBox(height: 32),
-                    TextField(
-                      controller: _emailController,
-                      style: TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
-                        prefixIcon: Icon(Icons.person, color: Colors.white70),
-                        hintText: 'Email',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
+                    GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/signup'),
+                      child: Text(
+                        'Inscrivez-vous',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    SizedBox(height: 16),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      style: TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
-                        prefixIcon: Icon(Icons.lock, color: Colors.white70),
-                        hintText: 'Password',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/forgotpassword');
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 18),
-                          elevation: 8,
-                          shadowColor: Colors.blueAccent,
-                        ),
-                        child: _isLoading
-                            ? CircularProgressIndicator(color: Colors.white)
-                            : Text('LOGIN', style: TextStyle(fontSize: 20, letterSpacing: 1.2)),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Don't have an account?", style: TextStyle(color: Colors.white70)),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/signup');
-                          },
-                          child: Text(
-                            'Sign Up',
-                            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ], 
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
         ),

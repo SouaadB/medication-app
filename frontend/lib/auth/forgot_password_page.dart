@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api_config.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -15,10 +16,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   String? _message;
   bool _isSuccess = false;
 
-  //final String baseUrl = 'http://localhost:5000/api';
-   final String baseUrl = 'http://192.168.26.155:5000/api';
-
   Future<void> _sendResetLink() async {
+    if (emailController.text.isEmpty) {
+      setState(() => _message = 'Veuillez entrer votre email');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _message = null;
@@ -27,80 +30,110 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/forgot-password'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${ApiConfig.baseUrl}/auth/forgot-password'),
+        headers: ApiConfig.headers,
         body: jsonEncode({'email': emailController.text.trim()}),
       ).timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
-      print('📥 Réponse forgot-password: $data');
 
       setState(() {
         _message = data['message'] ?? 'Email envoyé';
-        _isSuccess = true;
+        _isSuccess = response.statusCode == 200;
       });
     } catch (e) {
       setState(() {
-        _message = '❌ Erreur: $e';
+        _message = '❌ Erreur de connexion au serveur';
         _isSuccess = false;
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
+      backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
         title: const Text('Mot de passe oublié'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Entrez votre email pour réinitialiser votre mot de passe',
-              style: TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 20),
-            if (_message != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  _message!,
-                  style: TextStyle(
-                    color: _isSuccess ? Colors.green : Colors.red,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_reset_rounded,
+                  size: 80,
+                  color: theme.colorScheme.primary,
                 ),
               ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _sendResetLink,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(200, 48),
+              const SizedBox(height: 40),
+              Text(
+                'Réinitialisation',
+                style: theme.textTheme.headlineMedium,
               ),
-              child: _isLoading
-                  ? const CircularProgressIndicator()
-                  : const Text('Envoyer le lien'),
-            ),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                'Entrez votre email pour recevoir un lien de réinitialisation',
+                style: theme.textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 20),
+              if (_message != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    _message!,
+                    style: TextStyle(
+                      color: _isSuccess ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _sendResetLink,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Envoyer le lien'),
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Retour à la connexion',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

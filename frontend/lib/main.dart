@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-
-import 'package:flutter_app_med/auth/Sign_Up_Page.dart';
-import 'package:flutter_app_med/auth/Sign_In_Page.dart';
-import 'package:flutter_app_med/auth/reset_Password_Page_1.dart';
-import 'package:flutter_app_med/auth/Forgot_Password_Page.dart';
+import 'package:flutter_app_med/auth/sign_up_page.dart';
+import 'package:flutter_app_med/auth/sign_in_page.dart';
+import 'package:flutter_app_med/auth/reset_password_page_1.dart';
+import 'package:flutter_app_med/auth/forgot_password_page.dart';
 import 'package:flutter_app_med/patient/patient_interface.dart';
+import 'package:flutter_app_med/admin/admin_interface.dart';
+import 'package:flutter_app_med/profile/profile_page.dart';
+
 void main() {
   runApp(MyApp());
 }
@@ -13,18 +15,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Medication App',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
-      initialRoute: '/signin', // Set your initial page here
+      initialRoute: '/signin',
       routes: {
-        '/signup': (context) => SignUpPage(),
-        '/signin': (context) => SignInPage(),
-        '/resetpassword': (context) => ResetPasswordPage(token: ''), // Pass token as needed
-        '/forgotpassword': (context) => ForgotPasswordPage(),
-        '/patientinterface': (context) => PatientInterface(),
-        '/patient': (context) => PatientInterface(),
+        '/signup': (context) => const SignUpPage(),
+        '/signin': (context) => const SignInPage(),
+        '/resetpassword': (context) => const ResetPasswordPage(token: ''),
+        '/forgotpassword': (context) => const ForgotPasswordPage(),
+        '/patientinterface': (context) => const PatientInterface(),
+        '/patient': (context) => const PatientInterface(),
+        '/admin': (context) => const AdminInterface(),
+        '/profile': (context) => const ProfilePage(),
       },
     );
   }
