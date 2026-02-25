@@ -10,13 +10,13 @@ const {
 // Toutes les routes sont protégées
 router.use(protect);
 
-// Récupérer le profil
-router.get('/', getProfile);
+// GET /profile/me
+router.get('/me', getProfile);
 
-// Mettre à jour le profil
-router.put('/', updateProfile);
+// PUT /profile/update
+router.put('/update', updateProfile);
 
-// Changer le mot de passe
+// PUT /profile/password (garde celle-ci)
 router.put('/password', changePassword);
 
 module.exports = router;
