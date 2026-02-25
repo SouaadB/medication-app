@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Add this
+const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes); // Add this
+app.use('/api/profile', profileRoutes);
 
 app.get('/', (req, res) => {
     res.json({ 
