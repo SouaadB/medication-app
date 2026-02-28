@@ -8,17 +8,17 @@ class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
 
   @override
-  _SignInPageState createState() => _SignInPageState();
+  State<SignInPage> createState() => _SignInPageState();
 }
 
 class _SignInPageState extends State<SignInPage> {
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _identifierController = TextEditingController(); // ← Renommé
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
   Future<void> _login() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_identifierController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() => _errorMessage = 'Veuillez remplir tous les champs');
       return;
     }
@@ -33,7 +33,7 @@ class _SignInPageState extends State<SignInPage> {
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
         headers: ApiConfig.headers,
         body: jsonEncode({
-          'email': _emailController.text.trim(),
+          'identifier': _identifierController.text.trim(), // ← Changé
           'password': _passwordController.text,
         }),
       ).timeout(const Duration(seconds: 10));
@@ -61,7 +61,7 @@ class _SignInPageState extends State<SignInPage> {
         }
       } else {
         setState(() {
-          _errorMessage = data['message'] ?? 'Email ou mot de passe incorrect';
+          _errorMessage = data['message'] ?? 'Identifiant ou mot de passe incorrect';
         });
       }
     } catch (e) {
@@ -77,17 +77,23 @@ class _SignInPageState extends State<SignInPage> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -98,44 +104,74 @@ class _SignInPageState extends State<SignInPage> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    color: Colors.blue.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.medical_services_rounded,
                     size: 80,
-                    color: theme.colorScheme.primary,
+                    color: Colors.blue,
                   ),
                 ),
                 const SizedBox(height: 40),
                 
-                Text(
+                const Text(
                   'Bienvenue sur Aavi',
-                  style: theme.textTheme.headlineLarge,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                Text(
+                const Text(
                   'Connectez-vous pour gérer vos médicaments',
-                  style: theme.textTheme.bodyLarge,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 50),
                 
                 TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    hintText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
+                  controller: _identifierController,
+                  decoration: InputDecoration(
+                    hintText: 'Email ou téléphone',
+                    prefixIcon: const Icon(Icons.person_outline_rounded, color: Colors.blue),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.blue, width: 2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Mot de passe',
-                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.blue),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Colors.blue, width: 2),
+                    ),
                   ),
                 ),
                 
@@ -143,10 +179,10 @@ class _SignInPageState extends State<SignInPage> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pushNamed(context, '/forgotpassword'),
-                    child: Text(
+                    child: const Text(
                       'Mot de passe oublié ?',
                       style: TextStyle(
-                        color: theme.colorScheme.primary,
+                        color: Colors.blue,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -164,15 +200,30 @@ class _SignInPageState extends State<SignInPage> {
                 
                 const SizedBox(height: 30),
                 
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Text('Se connecter'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Se connecter',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                  ),
                 ),
                 
                 const SizedBox(height: 20),
@@ -180,16 +231,16 @@ class _SignInPageState extends State<SignInPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
+                    const Text(
                       'Pas encore de compte ? ',
-                      style: theme.textTheme.bodyMedium,
+                      style: TextStyle(color: Colors.grey),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pushNamed(context, '/signup'),
-                      child: Text(
+                      child: const Text(
                         'Inscrivez-vous',
                         style: TextStyle(
-                          color: theme.colorScheme.primary,
+                          color: Colors.blue,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

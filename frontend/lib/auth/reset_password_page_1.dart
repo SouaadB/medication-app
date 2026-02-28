@@ -20,6 +20,35 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _isLoading = false;
   String? _error;
 
+  // Indicateurs de force du mot de passe
+  bool _hasMinLength = false;
+  bool _hasUppercase = false;
+  bool _hasLowercase = false;
+  bool _hasNumber = false;
+  bool _hasSpecialChar = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _newPasswordController.addListener(_checkPasswordStrength);
+  }
+
+  void _checkPasswordStrength() {
+    final password = _newPasswordController.text;
+    setState(() {
+      _hasMinLength = password.length >= 8;
+      _hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
+      _hasLowercase = RegExp(r'[a-z]').hasMatch(password);
+      _hasNumber = RegExp(r'[0-9]').hasMatch(password);
+      _hasSpecialChar = RegExp(r'[!@#\$&*~]').hasMatch(password);
+    });
+  }
+
+  bool get _isPasswordStrong {
+    return _hasMinLength && _hasUppercase && _hasLowercase && 
+           _hasNumber && _hasSpecialChar;
+  }
+
   bool _isValidPassword(String password) {
     return password.length >= 8 &&
         RegExp(r'[a-z]').hasMatch(password) &&
@@ -43,6 +72,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       });
       return;
     }
+    
     if (!_isValidPassword(newPassword)) {
       setState(() {
         _error = "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un caractère spécial.";
@@ -53,10 +83,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password-code'), // ← MODIFIÉ
         headers: ApiConfig.headers,
         body: jsonEncode({
-          'token': widget.token,
+          'resetToken': widget.token, // ← MODIFIÉ
           'newPassword': newPassword,
         }),
       ).timeout(const Duration(seconds: 10));
@@ -106,6 +136,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pushReplacementNamed('/signin');
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text("Se connecter"),
             ),
           ],
@@ -116,12 +153,19 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Nouveau mot de passe'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Nouveau mot de passe',
+          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -129,15 +173,35 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.password_rounded,
+                  size: 80,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 40),
+              const Text(
                 "Sécurisez votre compte",
-                style: theme.textTheme.headlineMedium,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 "Veuillez choisir un nouveau mot de passe fort",
-                style: theme.textTheme.bodyLarge,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
@@ -145,24 +209,75 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 controller: _newPasswordController,
                 obscureText: _obscureNew,
                 decoration: InputDecoration(
-                  labelText: "Nouveau mot de passe",
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  hintText: "Nouveau mot de passe",
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.blue),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility, color: Colors.blue),
                     onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.blue, width: 2),
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              
+              // Indicateur de force
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Le mot de passe doit contenir :',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildCriteria('8 caractères minimum', _hasMinLength),
+                    _buildCriteria('Une majuscule', _hasUppercase),
+                    _buildCriteria('Une minuscule', _hasLowercase),
+                    _buildCriteria('Un chiffre', _hasNumber),
+                    _buildCriteria('Un caractère spécial (!@#\$&*~)', _hasSpecialChar),
+                  ],
+                ),
+              ),
+              
               const SizedBox(height: 20),
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirm,
                 decoration: InputDecoration(
-                  labelText: "Confirmer le mot de passe",
-                  prefixIcon: const Icon(Icons.lock_reset_rounded),
+                  hintText: "Confirmer le mot de passe",
+                  prefixIcon: const Icon(Icons.lock_reset_rounded, color: Colors.blue),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: Colors.blue),
                     onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.blue, width: 2),
                   ),
                 ),
               ),
@@ -177,19 +292,58 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   ),
                 ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _resetPassword,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('Réinitialiser'),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _resetPassword,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Réinitialiser',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCriteria(String text, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.circle_outlined,
+            size: 16,
+            color: isMet ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: isMet ? Colors.green[700] : Colors.grey[700],
+              decoration: isMet ? TextDecoration.lineThrough : null,
+            ),
+          ),
+        ],
       ),
     );
   }

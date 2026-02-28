@@ -3,75 +3,93 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config/api_config.dart';
 
-class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({super.key});
+class VerifyCodePage extends StatefulWidget {
+  final String email; // ← L'email est maintenant un paramètre obligatoire
+
+  const VerifyCodePage({super.key, required this.email});
 
   @override
-  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
+  State<VerifyCodePage> createState() => _VerifyCodePageState();
 }
 
-class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController emailController = TextEditingController();
+class _VerifyCodePageState extends State<VerifyCodePage> {
+  final TextEditingController _codeController = TextEditingController();
   bool _isLoading = false;
   String? _message;
-  bool _isSuccess = false;
 
-  Future<void> _sendResetLink() async {
-    if (emailController.text.isEmpty) {
-      setState(() => _message = 'Veuillez entrer votre email');
+  @override
+  void initState() {
+    super.initState();
+    print('📧 Email reçu dans VerifyCodePage: ${widget.email}');
+  }
+
+  Future<void> _verifyCode() async {
+    if (_codeController.text.isEmpty) {
+      setState(() => _message = 'Veuillez entrer le code reçu');
+      return;
+    }
+
+    if (_codeController.text.length != 6) {
+      setState(() => _message = 'Le code doit contenir 6 chiffres');
       return;
     }
 
     setState(() {
       _isLoading = true;
       _message = null;
-      _isSuccess = false;
     });
 
     try {
-      print('📤 Envoi à ${ApiConfig.baseUrl}/auth/request-reset-code');
-      print('📤 Email: ${emailController.text.trim()}');
+      print('📤 Envoi à ${ApiConfig.baseUrl}/auth/verify-reset-code');
+      print('📤 Email: ${widget.email}, Code: ${_codeController.text.trim()}');
       
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/request-reset-code'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/verify-reset-code'),
         headers: ApiConfig.headers,
-        body: jsonEncode({'email': emailController.text.trim()}),
+        body: jsonEncode({
+          'identifier': widget.email,
+          'code': _codeController.text.trim(),
+        }),
       ).timeout(const Duration(seconds: 10));
 
       print('📥 Statut réponse: ${response.statusCode}');
       final data = jsonDecode(response.body);
       print('📥 Données reçues: $data');
 
-      if (response.statusCode == 200 && data['success'] == true) {
-        setState(() {
-          _message = data['message'] ?? 'Code envoyé avec succès';
-          _isSuccess = true;
-        });
+      if (data['success'] == true) {
+        print('🔑 Token reçu: ${data['resetToken']}');
         
-        // ✅ Récupérer l'email et le passer à la page suivante DANS L'URL
-        String email = emailController.text.trim();
-        print('📧 Redirection vers verifycode avec email: $email');
-        
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushNamed(
-            context,
-            '/verifycode?email=$email', // ← L'email est passé dans l'URL
-          );
-        });
+        if (data['resetToken'] != null && data['resetToken'].toString().isNotEmpty) {
+          setState(() {
+            _message = '✅ Code vérifié avec succès';
+          });
+          
+          Future.delayed(const Duration(seconds: 1), () {
+            Navigator.pushNamed(
+              context,
+              '/resetpassword',
+              arguments: data['resetToken'],
+            );
+          });
+        } else {
+          setState(() {
+            _message = '❌ Token manquant dans la réponse';
+          });
+        }
       } else {
         setState(() {
-          _message = data['message'] ?? 'Erreur lors de l\'envoi';
-          _isSuccess = false;
+          _message = '❌ ${data['message'] ?? 'Code invalide'}';
         });
       }
     } catch (e) {
       print('❌ Erreur: $e');
       setState(() {
         _message = '❌ Erreur de connexion au serveur';
-        _isSuccess = false;
       });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -87,7 +105,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Mot de passe oublié',
+          'Vérification',
           style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
         ),
       ),
@@ -97,7 +115,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icône
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -105,41 +122,47 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.lock_reset_rounded,
+                  Icons.security_rounded,
                   size: 80,
                   color: Colors.blue,
                 ),
               ),
               const SizedBox(height: 40),
-              
-              // Titre
               const Text(
-                'Réinitialisation',
+                'Code de vérification',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              
-              // Sous-titre
               const Text(
-                'Entrez votre email pour recevoir un code de vérification',
+                'Un code à 6 chiffres a été envoyé à',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 8),
+              Text(
+                widget.email,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 40),
-              
-              // Champ Email
               TextField(
-                controller: emailController,
+                controller: _codeController,
                 decoration: InputDecoration(
-                  hintText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.blue),
+                  hintText: 'Code à 6 chiffres',
+                  prefixIcon: const Icon(Icons.pin_outlined, color: Colors.blue),
+                  helperText: 'Entrez le code reçu par email',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -153,30 +176,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     borderSide: const BorderSide(color: Colors.blue, width: 2),
                   ),
                 ),
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
               ),
               const SizedBox(height: 20),
-              
-              // Message (erreur ou succès)
               if (_message != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
                   child: Text(
                     _message!,
                     style: TextStyle(
-                      color: _isSuccess ? Colors.green : Colors.red,
+                      color: _message!.startsWith('✅') ? Colors.green : Colors.red,
                       fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-              
-              // Bouton Envoyer
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendResetLink,
+                  onPressed: _isLoading ? null : _verifyCode,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -192,18 +212,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
                       : const Text(
-                          'Envoyer le code',
+                          'Vérifier le code',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
               const SizedBox(height: 20),
-              
-              // Lien retour
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
-                  'Retour à la connexion',
+                  'Retour',
                   style: TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
