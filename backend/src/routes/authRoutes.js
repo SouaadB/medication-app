@@ -5,16 +5,22 @@ const {
     login, 
     getMe, 
     logout,
-    forgotPassword,  // ← Ajoute ceci
-    resetPassword    // ← Ajoute ceci (optionnel)
+    forgotPassword,
+    resetPassword,
+    requestResetCode,
+    verifyResetCode,
+    resetPasswordWithCode
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.post('/register', register);
-router.post('/login', login);
+router.post('/login', login);  // ← Maintenant accepte email OU téléphone
 router.post('/logout', logout);
-router.post('/forgot-password', forgotPassword);  // ← Ajoute ceci
-router.post('/reset-password', resetPassword);    // ← Ajoute ceci (optionnel)
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post('/request-reset-code', requestResetCode);      // ← Nouvelle
+router.post('/verify-reset-code', verifyResetCode);        // ← Nouvelle
+router.post('/reset-password-code', resetPasswordWithCode); // ← Nouvelle
 router.get('/me', protect, getMe);
 
 module.exports = router;
