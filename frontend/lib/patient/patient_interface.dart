@@ -16,6 +16,15 @@ class _PatientInterfaceState extends State<PatientInterface> {
   bool _isLoggingOut = false;
   Map<String, dynamic>? _userData;
   String? _errorMessage;
+  int _selectedIndex = 0;
+
+  // Mock data for UI demonstration
+  final double _overallAdherence = 0.87;
+  final List<Map<String, dynamic>> _conditions = [
+    {'name': 'Diabetes Type 2', 'percentage': 92, 'color': Colors.blue},
+    {'name': 'Hypertension', 'percentage': 85, 'color': Colors.green},
+    {'name': 'Cholesterol', 'percentage': 78, 'color': Colors.orange},
+  ];
 
   @override
   void initState() {
@@ -114,17 +123,25 @@ class _PatientInterfaceState extends State<PatientInterface> {
     final theme = Theme.of(context);
     
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Mon Espace Santé'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () {},
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black54),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded),
-            onPressed: () => Navigator.pushNamed(context, '/profile'),
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.favorite, color: Colors.blue, size: 24),
           ),
         ],
       ),
@@ -137,71 +154,106 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   onRefresh: _loadUserData,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(20.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildWelcomeHeader(theme),
+                        _buildDashboardHeader(theme),
                         const SizedBox(height: 32),
-                        Text(
-                          'Actions rapides',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildQuickActions(theme),
+                        _buildAdherenceCard(theme),
                         const SizedBox(height: 32),
-                        _buildMedicationSummary(theme),
+                        _buildConditionsSection(theme),
+                        const SizedBox(height: 32),
+                        _buildNextMedicationCard(theme),
+                        const SizedBox(height: 32),
+                        _buildQuickActionsGrid(theme),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
                 ),
+      bottomNavigationBar: _buildBottomNavigationBar(theme),
     );
   }
 
-  Widget _buildWelcomeHeader(ThemeData theme) {
+  Widget _buildDashboardHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dashboard',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A237E),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Track your medication adherence',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdherenceCard(ThemeData theme) {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Bonjour,',
-            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Overall Adherence',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A237E),
+                ),
+              ),
+              Text(
+                '${(_overallAdherence * 100).toInt()}%',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
           ),
-          Text(
-            _userData?['name'] ?? 'Patient',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: _overallAdherence,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+              minHeight: 12,
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'Tout semble en ordre pour aujourd\'hui',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+          Text(
+            'Great job! Keep up the good work.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
             ),
           ),
         ],
@@ -209,118 +261,271 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
-  Widget _buildQuickActions(ThemeData theme) {
-    return Row(
-      children: [
-        _buildActionCard(
-          theme,
-          'Médicaments',
-          Icons.medication_rounded,
-          Colors.blue,
-          () {},
-        ),
-        const SizedBox(width: 16),
-        _buildActionCard(
-          theme,
-          'Calendrier',
-          Icons.calendar_month_rounded,
-          Colors.orange,
-          () {},
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard(ThemeData theme, String title, IconData icon, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 30),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedicationSummary(ThemeData theme) {
+  Widget _buildConditionsSection(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Prochaines prises',
-              style: theme.textTheme.titleLarge,
+            const Text(
+              'Your Conditions',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A237E),
+              ),
             ),
             TextButton(
               onPressed: () {},
-              child: const Text('Voir tout'),
+              child: const Text(
+                'View All',
+                style: TextStyle(color: Colors.blue),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _conditions.length,
+            itemBuilder: (context, index) {
+              final condition = _conditions[index];
+              return _buildConditionCard(condition);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConditionCard(Map<String, dynamic> condition) {
+    return GestureDetector(
+      onTap: () {
+        // Handle condition click
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: condition['color'].withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.circle, color: condition['color'], size: 24),
+            ),
+            const Spacer(),
+            Text(
+              condition['name'],
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A237E),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${condition['percentage']}%',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: condition['color'],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextMedicationCard(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Next Medication',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A237E),
+          ),
+        ),
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: () {
+            // Handle next medication click
+          },
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.done_all_rounded, color: Colors.green),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Aucun médicament en attente',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      const Text(
+                        'Metformin',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        'Revenez plus tard pour vos rappels',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        'Diabetes Type 2',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        '2:00 PM',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.access_time, color: Colors.white, size: 32),
                 ),
               ],
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionsGrid(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A237E),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _buildQuickActionCard('Smart Insights', Icons.insights, Colors.blue),
+            const SizedBox(width: 16),
+            _buildQuickActionCard('View History', Icons.history, Colors.blue),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionCard(String title, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A237E),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar(ThemeData theme) {
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: (index) {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.blue,
+      unselectedItemColor: Colors.grey,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      elevation: 20,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.show_chart), label: 'Conditions'),
+        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }
@@ -356,60 +561,119 @@ class _PatientInterfaceState extends State<PatientInterface> {
     return Drawer(
       child: Column(
         children: [
-          UserAccountsDrawerHeader(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
+          _buildDrawerHeader(theme),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(Icons.home_outlined, 'Dashboard', true, () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.favorite_border, 'My Conditions', false, () {}),
+                _buildDrawerItem(Icons.insights, 'Smart Insights', false, () {}),
+                _buildDrawerItem(Icons.history, 'History', false, () {}),
+                const Divider(indent: 20, endIndent: 20, height: 40),
+                _buildDrawerItem(Icons.person_outline, 'Profile', false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/profile');
+                }),
+                _buildDrawerItem(Icons.notifications_none, 'Notifications', false, () {}),
+                _buildDrawerItem(Icons.settings_outlined, 'Settings', false, () {}),
+                _buildDrawerItem(Icons.help_outline, 'Help & Support', false, () {}),
+              ],
             ),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person_rounded, size: 40, color: theme.colorScheme.primary),
-            ),
-            accountName: Text(
-              _userData?['name'] ?? 'Patient',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            accountEmail: Text(_userData?['email'] ?? ''),
           ),
-          ListTile(
-            leading: const Icon(Icons.home_rounded),
-            title: const Text('Accueil'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.medication_rounded),
-            title: const Text('Mes Médicaments'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_today_rounded),
-            title: const Text('Calendrier'),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_outline_rounded),
-            title: const Text('Mon Profil'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/profile');
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.help_outline_rounded),
-            title: const Text('Aide & Support'),
-            onTap: () => Navigator.pop(context),
-          ),
-          const Spacer(),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.red),
-            title: const Text('Déconnexion', style: TextStyle(color: Colors.red)),
-            onTap: () {
-              Navigator.pop(context);
-              _logout();
-            },
+          _buildLogoutItem(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerHeader(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 60, bottom: 30, left: 24, right: 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.favorite, color: Colors.blue, size: 32),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
+          const Text(
+            'MediCare',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            _userData?['name'] ?? 'John Doe',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 16,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, bool selected, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: selected ? Colors.blue : Colors.grey.shade600,
+        size: 24,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: selected ? Colors.blue : const Color(0xFF1A237E),
+          fontSize: 16,
+          fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+        ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+    );
+  }
+
+  Widget _buildLogoutItem() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 30),
+      child: ListTile(
+        leading: const Icon(Icons.logout, color: Colors.red, size: 24),
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+            color: Colors.red,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        onTap: _logout,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
       ),
     );
   }
