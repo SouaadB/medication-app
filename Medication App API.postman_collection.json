@@ -1,0 +1,405 @@
+{
+  "info": {
+    "_postman_id": "55b966bd-9ca1-4890-b23d-763287028872",
+    "name": "Medication App API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "41730697",
+    "_collection_link": "https://go.postman.co/collection/41730697-55b966bd-9ca1-4890-b23d-763287028872?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01 - API Health",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Register Patient",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {\r",
+              "    const response = pm.response.json();\r",
+              "    pm.environment.set(\"patient_token\", response.token);\r",
+              "    console.log(\"Token patient sauvegardé !\");\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"name\": \"Souad Benameur\",\r\n    \"email\": \"S.Benameur@email.com\",\r\n    \"password\": \"Souad.00\",\r\n    \"phone\": \"0612345678\",\r\n    \"chifaCardRegistrationNumber\": \"123456789\",\r\n    \"dateOfBirth\": \"20-08-2003\",\r\n    \"smartphoneSkillLevel\": \"INTERMEDIATE\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Login Patient",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {\r",
+              "    const response = pm.response.json();\r",
+              "    pm.environment.set(\"patient_token\", response.token);\r",
+              "    console.log(\"Nouveau token patient:\", response.token);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"identifier\": \"0792411812\",\r\n    \"password\": \"Souad.11\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04- Login Admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {\r",
+              "    const response = pm.response.json();\r",
+              "    pm.environment.set(\"admin_token\", response.token);\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"identifier\": \"admin@medapp.com\",\r\n    \"password\": \"Admin@2026!\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "07- Logout",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "08- My Informations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjIsImVtYWlsIjoic291YWRzb3Vzc291NzEyQGdtYWlsLmNvbSIsInJvbGUiOiJwYXRpZW50IiwiaWF0IjoxNzcyMjM4MTc4LCJleHAiOjE3NzI4NDI5Nzh9.9C5JBKGc4KuMbNfjGddrM2E2hMO0dSKw6LNoXJ7P5lU",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/auth/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Complete Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjIsImVtYWlsIjoic291YWRzb3Vzc291NzEyQGdtYWlsLmNvbSIsInJvbGUiOiJwYXRpZW50IiwiaWF0IjoxNzcyMjQxNDA2LCJleHAiOjE3NzI4NDYyMDZ9.ehfasrwlok9ekFQf64HAbTLPpNh8BOgHFWW0QUYiwc0",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/profile/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "profile",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update profile",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjIsImVtYWlsIjoic291YWRzb3Vzc291NzEyQGdtYWlsLmNvbSIsInJvbGUiOiJwYXRpZW50IiwiaWF0IjoxNzcyMjQxOTYzLCJleHAiOjE3NzI4NDY3NjN9.I2iNcZghRIf448Pe1qaA2mvqX-QvzOc6PCRi8jgmavc",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \r\n    \"smartphoneSkillLevel\": \"ADVANCED\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/profile/update",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "profile",
+            "update"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Change Password",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiZW1haWwiOiJTLkJlbmFtZXVyQGVtYWlsLmNvbSIsInJvbGUiOiJwYXRpZW50IiwiaWF0IjoxNzcxODgzNDYwLCJleHAiOjE3NzI0ODgyNjB9.zIy7WS8P750v0R7JSIJXcR-RMAbVRuAkksSsvHn45Hw",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"currentPassword\": \"Souad.00\",\r\n    \"newPassword\": \"Souad.11\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/profile/password",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "profile",
+            "password"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Request Reset Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"identifier\": \"test@gmail.com\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/request-reset-code",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "request-reset-code"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Verify Reset Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"identifier\": \"test@gmail.com\", \"code\": \"123456\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/verify-reset-code",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "verify-reset-code"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reset Password with Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"resetToken\": \"token_recu\", \"newPassword\": \"NouveauPass123!@#\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/reset-password-code",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "auth",
+            "reset-password-code"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
