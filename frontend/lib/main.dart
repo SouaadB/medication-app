@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
             email = settings.name!.split('?email=')[1];
             email = Uri.decodeComponent(email);
           }
-          print('📧 Email extrait de l\'URL: $email');
+          print('� Email extrait de l\'URL: $email');
           return MaterialPageRoute(
             builder: (context) => VerifyCodePage(email: email),
           );
