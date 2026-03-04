@@ -4,7 +4,9 @@ const { protect } = require('../middleware/authMiddleware');
 const { 
     getProfile, 
     updateProfile, 
-    changePassword 
+    changePassword,
+    setupPatientProfile,
+    getAllChronicConditions
 } = require('../controllers/profileController');
 
 // Toutes les routes sont protégées
@@ -12,6 +14,12 @@ router.use(protect);
 
 // GET /profile/me
 router.get('/me', getProfile);
+
+// GET /profile/conditions
+router.get('/conditions', getAllChronicConditions);
+
+// POST /profile/setup
+router.post('/setup', setupPatientProfile);
 
 // PUT /profile/update
 router.put('/update', updateProfile);

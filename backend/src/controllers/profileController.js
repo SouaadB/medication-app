@@ -18,17 +18,21 @@ exports.getProfile = async (req, res) => {
             });
         }
 
-        let profile = null;
+        let patientData = null;
         if (user.role === 'patient') {
-            profile = await Patient.findByUserId(userId);
+            patientData = await Patient.findByUserId(userId);
             // Formater la date
-            if (profile && profile.date_of_birth) {
-                const date = new Date(profile.date_of_birth);
+            if (patientData && patientData.date_of_birth) {
+                const date = new Date(patientData.date_of_birth);
                 const day = String(date.getDate()).padStart(2, '0');
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const year = date.getFullYear();
-                profile.date_of_birth_formatted = `${day}-${month}-${year}`;
+                patientData.date_of_birth_formatted = `${day}-${month}-${year}`;
             }
+
+            // Récupérer les conditions du patient
+            const conditions = await Patient.getPatientConditions(userId);
+            patientData.conditions = conditions;
         }
 
         res.json({
@@ -39,7 +43,7 @@ exports.getProfile = async (req, res) => {
                 email: user.email,
                 phone: user.phone,
                 role: user.role,
-                ...profile
+                ...patientData
             }
         });
     } catch (error) {
@@ -47,6 +51,51 @@ exports.getProfile = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération du profil'
+        });
+    }
+};
+
+// Setup profile for patient
+exports.setupPatientProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { age, conditions } = req.body;
+
+        if (!age || !conditions) {
+            return res.status(400).json({
+                success: false,
+                message: 'L\'âge et les conditions sont requis'
+            });
+        }
+
+        const result = await Patient.setupProfile(userId, { age, conditions });
+
+        res.status(200).json({
+            success: true,
+            message: 'Profil configuré avec succès'
+        });
+    } catch (error) {
+        console.error('Erreur setupPatientProfile:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la configuration du profil'
+        });
+    }
+};
+
+// Récupérer toutes les conditions disponibles
+exports.getAllChronicConditions = async (req, res) => {
+    try {
+        const conditions = await Patient.getAllConditions();
+        res.json({
+            success: true,
+            conditions
+        });
+    } catch (error) {
+        console.error('Erreur getAllChronicConditions:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des maladies chroniques'
         });
     }
 };
