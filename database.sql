@@ -83,7 +83,7 @@ CREATE TABLE `history` (
   `scheduled_date_time` datetime DEFAULT NULL,
   `actual_date_time` datetime DEFAULT NULL,
   `status` enum('SCHEDULED','CONFIRMED','MISSED','CANCELLED') DEFAULT NULL,
-  `dosage` decimal(10,2) DEFAULT NULL,
+  `dosage` varchar(50) DEFAULT NULL,
   `archived_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `patient_id` (`patient_id`),
@@ -115,7 +115,7 @@ CREATE TABLE `medication_intakes` (
   `confirmed_date_time` datetime DEFAULT NULL,
   `status` enum('SCHEDULED','CONFIRMED','MISSED','CANCELLED') DEFAULT 'SCHEDULED',
   `medication_name` varchar(100) DEFAULT NULL,
-  `dosage` decimal(10,2) DEFAULT NULL,
+  `dosage` varchar(50) DEFAULT NULL,
   `notes` text,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -342,19 +342,20 @@ DROP TABLE IF EXISTS `treatments`;
 CREATE TABLE `treatments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `patient_id` int NOT NULL,
+  `condition_id` int DEFAULT NULL,
   `medication_name` varchar(100) NOT NULL,
-  `start_date_time` datetime NOT NULL,
-  `end_date_time` datetime NOT NULL,
-  `frequency` varchar(50) DEFAULT NULL,
   `dosage` varchar(50) DEFAULT NULL,
-  `schedule` text,
-  `duration` varchar(50) DEFAULT NULL,
+  `frequency` enum('Once daily','Twice daily','Three times daily','Four times daily','Every 12 hours','Every 8 hours','Every 6 hours','As needed') DEFAULT 'Once daily',
+  `start_date` date NOT NULL,
+  `end_date` date DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT '1',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `patient_id` (`patient_id`),
-  CONSTRAINT `treatments_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `condition_id` (`condition_id`),
+  CONSTRAINT `treatments_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `treatments_ibfk_2` FOREIGN KEY (`condition_id`) REFERENCES `chronic_conditions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

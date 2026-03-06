@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
-const adminRoutes = require('./routes/adminRoutes'); // Add this
+const adminRoutes = require('./routes/adminRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const treatmentRoutes = require('./routes/treatmentRoutes');
 
 const app = express();
 
@@ -11,8 +12,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes); // Add this
+app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/treatments', treatmentRoutes);
 
 app.get('/', (req, res) => {
     res.json({ 
