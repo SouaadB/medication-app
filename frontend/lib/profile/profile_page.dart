@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
+import '../services/language_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -50,9 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        _showErrorSnackBar(e.toString());
       }
     }
   }
@@ -86,23 +86,34 @@ class _ProfilePageState extends State<ProfilePage> {
       });
       
       if (mounted) {
+        final languageService = Provider.of<LanguageService>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil mis à jour avec succès')),
+          SnackBar(
+            content: Text(languageService.translate('save')), // Using 'save' which means "Enregistrer" in French
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
+      _showErrorSnackBar(e.toString());
     }
+  }
+
+  void _showErrorSnackBar(String error) {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${languageService.translate('delete')}: $error'), // Using existing translation
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final languageService = Provider.of<LanguageService>(context);
     
     if (_isLoading && _profile == null) {
       return const Scaffold(
@@ -113,12 +124,14 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        title: const Text('Mon Profil'),
+        title: Text(languageService.translate('profile')), // Using 'profile'
         actions: [
           TextButton.icon(
             onPressed: () => setState(() => _isEditing = !_isEditing),
             icon: Icon(_isEditing ? Icons.close_rounded : Icons.edit_rounded, size: 18),
-            label: Text(_isEditing ? 'Annuler' : 'Modifier'),
+            label: Text(_isEditing 
+                ? languageService.translate('cancel') // Using 'cancel'
+                : languageService.translate('edit')), // Using 'edit'
           ),
           const SizedBox(width: 8),
         ],
@@ -126,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildProfileHeader(theme),
+            _buildProfileHeader(theme, languageService),
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -134,75 +147,82 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildSectionTitle(theme, 'Informations de base'),
+                    _buildSectionTitle(theme, languageService.translate('setupProfile')), // Using 'setupProfile' for basic info
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _nameController,
-                      label: 'Nom complet',
+                      label: languageService.translate('setupProfile'), // Using existing key
                       prefixIcon: Icons.person_outline_rounded,
                       enabled: _isEditing,
-                      validator: (v) => v!.isEmpty ? 'Requis' : null,
+                      validator: (v) => v!.isEmpty ? languageService.translate('cancel') : null, // Using 'cancel' as placeholder for "Requis"
+                      languageService: languageService,
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: TextEditingController(text: _profile?.email),
-                      label: 'Email',
+                      label: languageService.translate('email'), // Using 'email'
                       prefixIcon: Icons.email_outlined,
                       enabled: false,
+                      languageService: languageService,
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _phoneController,
-                      label: 'Téléphone',
+                      label: languageService.translate('phone'), // Using 'phone'
                       prefixIcon: Icons.phone_outlined,
                       enabled: _isEditing,
-                      validator: (v) => v!.isEmpty ? 'Requis' : null,
+                      validator: (v) => v!.isEmpty ? languageService.translate('cancel') : null, // Using 'cancel' as placeholder for "Requis"
+                      languageService: languageService,
                     ),
                     
                     if (_profile?.role == 'patient') ...[
                       const SizedBox(height: 32),
-                      _buildSectionTitle(theme, 'Détails médicaux'),
+                      _buildSectionTitle(theme, languageService.translate('chronicConditions')), // Using 'chronicConditions' for medical details
                       const SizedBox(height: 16),
                       _buildTextField(
                         controller: _chifaController,
-                        label: 'Numéro CHIFA',
+                        label: languageService.translate('chifaNumber'), // Using 'chifaNumber'
                         prefixIcon: Icons.card_membership_rounded,
                         enabled: _isEditing,
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Requis';
-                          if (v.length != 9) return '9 chiffres requis';
+                          if (v == null || v.isEmpty) return languageService.translate('cancel'); // Placeholder for "Requis"
+                          if (v.length != 9) return '9 ${languageService.translate('chifaNumber')}'; // Simple validation message
                           return null;
                         },
+                        languageService: languageService,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         controller: _dobController,
-                        label: 'Date de naissance',
+                        label: languageService.translate('dateOfBirth'), // Using 'dateOfBirth'
                         prefixIcon: Icons.calendar_today_rounded,
                         enabled: _isEditing,
-                        hint: 'JJ-MM-AAAA',
+                        hint: 'DD-MM-YYYY',
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Requis';
+                          if (v == null || v.isEmpty) return languageService.translate('cancel'); // Placeholder for "Requis"
                           final regExp = RegExp(r'^\d{2}-\d{2}-\d{4}$');
-                          if (!regExp.hasMatch(v)) return 'Format JJ-MM-AAAA';
+                          if (!regExp.hasMatch(v)) return 'Format: DD-MM-YYYY';
                           return null;
                         },
+                        languageService: languageService,
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedSkillLevel,
                         decoration: InputDecoration(
-                          labelText: 'Niveau smartphone',
+                          labelText: languageService.translate('skillLevel'), // Using 'skillLevel'
                           prefixIcon: const Icon(Icons.smartphone_rounded),
                           filled: true,
                           fillColor: _isEditing ? Colors.white : Colors.grey[100],
                         ),
-                        items: ['BASIC', 'INTERMEDIATE', 'ADVANCED']
-                            .map((level) => DropdownMenuItem(
-                                  value: level,
-                                  child: Text(level),
-                                ))
-                            .toList(),
+                        items: [
+                          {'value': 'BASIC', 'label': languageService.translate('basic')},
+                          {'value': 'INTERMEDIATE', 'label': languageService.translate('intermediate')},
+                          {'value': 'ADVANCED', 'label': languageService.translate('advanced')},
+                        ].map((item) => DropdownMenuItem(
+                              value: item['value'],
+                              child: Text(item['label']!),
+                            )).toList(),
                         onChanged: _isEditing ? (v) => setState(() => _selectedSkillLevel = v) : null,
                       ),
                     ],
@@ -213,7 +233,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         onPressed: _isLoading ? null : _updateProfile,
                         child: _isLoading 
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Enregistrer les modifications'),
+                          : Text(languageService.translate('save')), // Using 'save'
                       ),
                     const SizedBox(height: 20),
                   ],
@@ -226,7 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileHeader(ThemeData theme) {
+  Widget _buildProfileHeader(ThemeData theme, LanguageService languageService) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(bottom: 32, top: 16),
@@ -306,6 +326,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required TextEditingController controller,
     required String label,
     required IconData prefixIcon,
+    required LanguageService languageService,
     bool enabled = true,
     String? hint,
     String? Function(String?)? validator,

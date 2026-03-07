@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -12,7 +14,7 @@ class SignInPage extends StatefulWidget {
 }
 
 class _SignInPageState extends State<SignInPage> {
-  final TextEditingController _identifierController = TextEditingController(); // ← Renommé
+  final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
@@ -33,7 +35,7 @@ class _SignInPageState extends State<SignInPage> {
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
         headers: ApiConfig.headers,
         body: jsonEncode({
-          'identifier': _identifierController.text.trim(), // ← Changé
+          'identifier': _identifierController.text.trim(),
           'password': _passwordController.text,
         }),
       ).timeout(const Duration(seconds: 10));
@@ -56,7 +58,39 @@ class _SignInPageState extends State<SignInPage> {
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, '/admin');
           } else {
-            Navigator.pushReplacementNamed(context, '/patientinterface');
+            try {
+              final profileResponse = await http.get(
+                Uri.parse('${ApiConfig.baseUrl}/profile/me'),
+                headers: ApiConfig.getAuthHeaders(data['token']),
+              ).timeout(const Duration(seconds: 5));
+
+              if (profileResponse.statusCode == 200) {
+                final profileData = jsonDecode(profileResponse.body);
+                final hasAge = profileData['profile']['age'] != null;
+                await prefs.setBool('profile_completed', hasAge);
+                
+                if (!hasAge) {
+                  Navigator.pushReplacementNamed(context, '/setupprofile');
+                } else {
+                  Navigator.pushReplacementNamed(context, '/patientinterface');
+                }
+              } else {
+                final profileCompleted = prefs.getBool('profile_completed') ?? false;
+                if (!profileCompleted) {
+                  Navigator.pushReplacementNamed(context, '/setupprofile');
+                } else {
+                  Navigator.pushReplacementNamed(context, '/patientinterface');
+                }
+              }
+            } catch (e) {
+              print('Erreur vérification profil: $e');
+              final profileCompleted = prefs.getBool('profile_completed') ?? false;
+              if (!profileCompleted) {
+                Navigator.pushReplacementNamed(context, '/setupprofile');
+              } else {
+                Navigator.pushReplacementNamed(context, '/patientinterface');
+              }
+            }
           }
         }
       } else {
@@ -84,6 +118,8 @@ class _SignInPageState extends State<SignInPage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -115,18 +151,18 @@ class _SignInPageState extends State<SignInPage> {
                 ),
                 const SizedBox(height: 40),
                 
-                const Text(
-                  'Bienvenue sur Aavi',
-                  style: TextStyle(
+                Text(
+                  languageService.translate('welcome'),
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.blue,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Connectez-vous pour gérer vos médicaments',
-                  style: TextStyle(
+                Text(
+                  languageService.translate('trackMedication'),
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
                   ),
@@ -137,7 +173,7 @@ class _SignInPageState extends State<SignInPage> {
                 TextField(
                   controller: _identifierController,
                   decoration: InputDecoration(
-                    hintText: 'Email ou téléphone',
+                    hintText: '${languageService.translate('email')} / ${languageService.translate('phone')}',
                     prefixIcon: const Icon(Icons.person_outline_rounded, color: Colors.blue),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -154,11 +190,12 @@ class _SignInPageState extends State<SignInPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    hintText: 'Mot de passe',
+                    hintText: languageService.translate('password'),
                     prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.blue),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -179,9 +216,9 @@ class _SignInPageState extends State<SignInPage> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pushNamed(context, '/forgotpassword'),
-                    child: const Text(
-                      'Mot de passe oublié ?',
-                      style: TextStyle(
+                    child: Text(
+                      languageService.translate('forgotPassword'),
+                      style: const TextStyle(
                         color: Colors.blue,
                         fontWeight: FontWeight.w600,
                       ),
@@ -219,27 +256,28 @@ class _SignInPageState extends State<SignInPage> {
                             width: 24,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text(
-                            'Se connecter',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        : Text(
+                            languageService.translate('login'),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
                 
                 const SizedBox(height: 20),
                 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
                   children: [
-                    const Text(
-                      'Pas encore de compte ? ',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      languageService.translate('noAccount'),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pushNamed(context, '/signup'),
-                      child: const Text(
-                        'Inscrivez-vous',
-                        style: TextStyle(
+                      child: Text(
+                        languageService.translate('signUp'),
+                        style: const TextStyle(
                           color: Colors.blue,
                           fontWeight: FontWeight.bold,
                         ),

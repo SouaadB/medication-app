@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -48,14 +50,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           _isSuccess = true;
         });
         
-        // ✅ Récupérer l'email et le passer à la page suivante DANS L'URL
         String email = emailController.text.trim();
         print('📧 Redirection vers verifycode avec email: $email');
         
         Future.delayed(const Duration(seconds: 2), () {
           Navigator.pushNamed(
             context,
-            '/verifycode?email=$email', // ← L'email est passé dans l'URL
+            '/verifycode?email=$email',
           );
         });
       } else {
@@ -77,6 +78,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -86,9 +89,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Mot de passe oublié',
-          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+        title: Text(
+          languageService.translate('forgotPassword'),
+          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -97,7 +100,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icône
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -112,10 +114,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               const SizedBox(height: 40),
               
-              // Titre
-              const Text(
-                'Réinitialisation',
-                style: TextStyle(
+              Text(
+                languageService.translate('resetPassword'),
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -123,10 +124,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               const SizedBox(height: 10),
               
-              // Sous-titre
-              const Text(
-                'Entrez votre email pour recevoir un code de vérification',
-                style: TextStyle(
+              Text(
+                '${languageService.translate('sendCode')}',
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -134,11 +134,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               const SizedBox(height: 40),
               
-              // Champ Email
               TextField(
                 controller: emailController,
                 decoration: InputDecoration(
-                  hintText: 'Email',
+                  hintText: languageService.translate('email'),
                   prefixIcon: const Icon(Icons.email_outlined, color: Colors.blue),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -157,7 +156,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               const SizedBox(height: 20),
               
-              // Message (erreur ou succès)
               if (_message != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
@@ -171,7 +169,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ),
                 ),
               
-              // Bouton Envoyer
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -191,20 +188,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           width: 24,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Envoyer le code',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Text(
+                          languageService.translate('sendCode'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
               const SizedBox(height: 20),
               
-              // Lien retour
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Retour à la connexion',
-                  style: TextStyle(
+                child: Text(
+                  languageService.translate('back'),
+                  style: const TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
                   ),

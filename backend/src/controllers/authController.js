@@ -8,6 +8,8 @@ const emailVerificationService = require('../services/emailVerificationService')
 const phoneVerificationService = require('../services/phoneVerificationService');
 const codeService = require('../services/codeService');
 const db = require('../config/database');
+const emailSenderService = require('../services/emailSenderService'); // ← NOUVEAU
+
 // Register new patient
 exports.register = async (req, res) => {
     try {
@@ -149,6 +151,15 @@ if (existingChifa) {
             smartphoneSkillLevel: smartphoneSkillLevel.toUpperCase()
         });
 
+        // ✅ ENVOYER L'EMAIL DE BIENVENUE (ne bloque pas l'inscription)
+        try {
+            await emailSenderService.sendWelcomeEmail(email, name);
+            console.log(`📧 Email de bienvenue envoyé à ${email}`);
+        } catch (emailError) {
+            console.error('❌ Erreur envoi email (non bloquante):', emailError);
+            // L'utilisateur est quand même inscrit
+        }
+
         // Generate JWT token
         const token = jwt.sign(
             { id: userId, email, role: 'patient' },
@@ -263,6 +274,7 @@ exports.login = async (req, res) => {
         });
     }
 };
+
 // Get current user
 exports.getMe = async (req, res) => {
     try {
@@ -303,7 +315,7 @@ exports.logout = (req, res) => {
         success: true, 
         message: 'Logged out successfully' 
     });
-};  // ← Cette accolade ferme correctement la fonction logout
+};
 
 // Forgot password - Demande de réinitialisation
 exports.forgotPassword = async (req, res) => {
@@ -344,8 +356,8 @@ exports.forgotPassword = async (req, res) => {
             success: true,
             message: 'If your email is registered, you will receive a reset link',
             // Les lignes suivantes sont POUR TESTS UNIQUEMENT :
-            debug_token: resetToken,  // À retirer en production
-            debug_link: `http://localhost:5000/api/auth/reset-password?token=${resetToken}`  // À retirer en production
+            debug_token: resetToken,
+            debug_link: `http://localhost:5000/api/auth/reset-password?token=${resetToken}`
         });
 
     } catch (error) {
@@ -419,6 +431,7 @@ exports.resetPassword = async (req, res) => {
         });
     }
 };
+
 // ===========================================
 // FONCTIONS DE RÉINITIALISATION (EMAIL UNIQUEMENT)
 // ===========================================
@@ -426,7 +439,7 @@ exports.resetPassword = async (req, res) => {
 // 1. Demander un code de réinitialisation (EMAIL UNIQUEMENT)
 exports.requestResetCode = async (req, res) => {
     try {
-        const { email } = req.body;  // ← Plus que email, plus identifier
+        const { email } = req.body;
 
         if (!email) {
             return res.status(400).json({
@@ -469,7 +482,7 @@ exports.requestResetCode = async (req, res) => {
         res.json({
             success: true,
             message: `Code de vérification envoyé à votre adresse email`,
-            debug_code: code // À retirer en production
+            debug_code: code
         });
 
     } catch (error) {

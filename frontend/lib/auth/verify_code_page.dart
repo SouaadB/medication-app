@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class VerifyCodePage extends StatefulWidget {
-  final String email; // ← L'email est maintenant un paramètre obligatoire
+  final String email;
 
   const VerifyCodePage({super.key, required this.email});
 
@@ -95,6 +97,8 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -104,9 +108,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Vérification',
-          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+        title: Text(
+          languageService.translate('verifyCode'),
+          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -128,9 +132,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text(
-                'Code de vérification',
-                style: TextStyle(
+              Text(
+                languageService.translate('verifyCode'),
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -138,9 +142,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Un code à 6 chiffres a été envoyé à',
-                style: TextStyle(
+              Text(
+                languageService.translate('codeSent'),
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -160,9 +164,9 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
               TextField(
                 controller: _codeController,
                 decoration: InputDecoration(
-                  hintText: 'Code à 6 chiffres',
+                  hintText: languageService.translate('enterCode'),
                   prefixIcon: const Icon(Icons.pin_outlined, color: Colors.blue),
-                  helperText: 'Entrez le code reçu par email',
+                  helperText: languageService.translate('enterCode'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -211,18 +215,18 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                           width: 24,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Vérifier le code',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Text(
+                          languageService.translate('verifyCode'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
               const SizedBox(height: 20),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Retour',
-                  style: TextStyle(
+                child: Text(
+                  languageService.translate('back'),
+                  style: const TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
                   ),

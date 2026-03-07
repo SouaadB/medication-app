@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   final String token;
@@ -20,7 +22,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _isLoading = false;
   String? _error;
 
-  // Indicateurs de force du mot de passe
   bool _hasMinLength = false;
   bool _hasUppercase = false;
   bool _hasLowercase = false;
@@ -83,10 +84,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password-code'), // ← MODIFIÉ
+        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password-code'),
         headers: ApiConfig.headers,
         body: jsonEncode({
-          'resetToken': widget.token, // ← MODIFIÉ
+          'resetToken': widget.token,
           'newPassword': newPassword,
         }),
       ).timeout(const Duration(seconds: 10));
@@ -110,6 +111,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   void _showSuccessDialog() {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -120,9 +123,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.green, size: 60),
             const SizedBox(height: 20),
-            const Text(
-              "Mot de passe réinitialisé !",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              languageService.translate('resetPassword'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
@@ -143,7 +146,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text("Se connecter"),
+              child: Text(languageService.translate('signIn')),
             ),
           ],
         ),
@@ -153,6 +156,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -162,9 +167,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Nouveau mot de passe',
-          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+        title: Text(
+          languageService.translate('newPassword'),
+          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -186,9 +191,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text(
-                "Sécurisez votre compte",
-                style: TextStyle(
+              Text(
+                languageService.translate('resetPassword'),
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
@@ -196,9 +201,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              const Text(
-                "Veuillez choisir un nouveau mot de passe fort",
-                style: TextStyle(
+              Text(
+                languageService.translate('helpUs'),
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.grey,
                 ),
@@ -209,7 +214,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 controller: _newPasswordController,
                 obscureText: _obscureNew,
                 decoration: InputDecoration(
-                  hintText: "Nouveau mot de passe",
+                  hintText: languageService.translate('newPassword'),
                   prefixIcon: const Icon(Icons.lock_outline_rounded, color: Colors.blue),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility, color: Colors.blue),
@@ -231,7 +236,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               ),
               const SizedBox(height: 20),
               
-              // Indicateur de force
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -242,16 +246,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Le mot de passe doit contenir :',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                    Text(
+                      languageService.translate('passwordRequirements'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
                     ),
                     const SizedBox(height: 8),
-                    _buildCriteria('8 caractères minimum', _hasMinLength),
-                    _buildCriteria('Une majuscule', _hasUppercase),
-                    _buildCriteria('Une minuscule', _hasLowercase),
-                    _buildCriteria('Un chiffre', _hasNumber),
-                    _buildCriteria('Un caractère spécial (!@#\$&*~)', _hasSpecialChar),
+                    _buildCriteria(languageService.translate('min8Chars'), _hasMinLength),
+                    _buildCriteria(languageService.translate('oneUppercase'), _hasUppercase),
+                    _buildCriteria(languageService.translate('oneLowercase'), _hasLowercase),
+                    _buildCriteria(languageService.translate('oneNumber'), _hasNumber),
+                    _buildCriteria(languageService.translate('oneSpecial'), _hasSpecialChar),
                   ],
                 ),
               ),
@@ -261,7 +265,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirm,
                 decoration: InputDecoration(
-                  hintText: "Confirmer le mot de passe",
+                  hintText: languageService.translate('confirmPassword'),
                   prefixIcon: const Icon(Icons.lock_reset_rounded, color: Colors.blue),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: Colors.blue),
@@ -311,9 +315,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           width: 24,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Réinitialiser',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Text(
+                          languageService.translate('resetPassword'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),

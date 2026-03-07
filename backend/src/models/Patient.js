@@ -57,7 +57,7 @@ class Patient {
 
     static async getPatientConditions(userId) {
         const query = `
-            SELECT c.id, c.name, c.description 
+            SELECT c.id, c.name 
             FROM chronic_conditions c
             JOIN patient_conditions pc ON c.id = pc.condition_id
             WHERE pc.patient_id = ?
@@ -67,7 +67,7 @@ class Patient {
     }
 
     static async getAllConditions() {
-        const query = 'SELECT id, name, description FROM chronic_conditions';
+        const query = 'SELECT id, name FROM chronic_conditions';
         const [rows] = await db.execute(query);
         return rows;
     }

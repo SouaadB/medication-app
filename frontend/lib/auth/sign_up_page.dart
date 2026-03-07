@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -118,11 +120,12 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final languageService = Provider.of<LanguageService>(context);
     
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        title: const Text('Créer un compte'),
+        title: Text(languageService.translate('signUp')),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -132,33 +135,33 @@ class _SignUpPageState extends State<SignUpPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Text(
-                'Rejoignez Aavi',
+                languageService.translate('welcome'),
                 style: theme.textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Remplissez vos informations pour commencer',
+                languageService.translate('helpUs'),
                 style: theme.textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               
-              _buildFieldTitle('Informations personnelles'),
+              _buildFieldTitle(languageService.translate('profile')),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nom complet',
-                  prefixIcon: Icon(Icons.person_outline),
+                decoration: InputDecoration(
+                  labelText: languageService.translate('profile'),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
                 validator: (value) => (value == null || value.isEmpty) ? 'Requis' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('email'),
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -171,8 +174,8 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Mot de passe',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('password'),
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
@@ -181,8 +184,8 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Téléphone',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('phone'),
                   prefixIcon: Icon(Icons.phone_outlined),
                   hintText: '0612345678',
                 ),
@@ -191,12 +194,12 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               
               const SizedBox(height: 32),
-              _buildFieldTitle('Détails médicaux'),
+              _buildFieldTitle(languageService.translate('medications')),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _chifaCardController,
-                decoration: const InputDecoration(
-                  labelText: 'Numéro CHIFA',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('chifaNumber'),
                   prefixIcon: Icon(Icons.card_membership_outlined),
                   hintText: '9 chiffres',
                 ),
@@ -206,8 +209,8 @@ class _SignUpPageState extends State<SignUpPage> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _dateOfBirthController,
-                decoration: const InputDecoration(
-                  labelText: 'Date de naissance',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('dateOfBirth'),
                   prefixIcon: Icon(Icons.calendar_today_outlined),
                   hintText: 'JJ-MM-AAAA',
                 ),
@@ -217,8 +220,8 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Niveau smartphone',
+                decoration: InputDecoration(
+                  labelText: languageService.translate('skillLevel'),
                   prefixIcon: Icon(Icons.smartphone_outlined),
                 ),
                 value: _selectedSmartphoneSkillLevel,
@@ -226,6 +229,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   return DropdownMenuItem(value: level, child: Text(level));
                 }).toList(),
                 onChanged: (value) => setState(() => _selectedSmartphoneSkillLevel = value),
+                validator: (value) => value == null ? 'Requis' : null,
               ),
               
               const SizedBox(height: 40),
@@ -237,9 +241,31 @@ class _SignUpPageState extends State<SignUpPage> {
                         width: 24,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
-                    : const Text('S\'inscrire'),
+                    : Text(languageService.translate('signUp')),
               ),
               const SizedBox(height: 20),
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
+                  children: [
+                    Text(
+                      languageService.translate('alreadyHaveAccount'),
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Text(
+                        languageService.translate('signIn'),
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

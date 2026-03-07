@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config/api_config.dart';
+import '../services/language_service.dart';
 
 class AdminInterface extends StatefulWidget {
   const AdminInterface({super.key});
@@ -67,11 +69,12 @@ class _AdminInterfaceState extends State<AdminInterface> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final languageService = Provider.of<LanguageService>(context);
     
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        title: const Text('Tableau de bord Admin'),
+        title: Text(languageService.translate('adminDashboard')),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -79,7 +82,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
           ),
         ],
       ),
-      drawer: _buildDrawer(context),
+      drawer: _buildDrawer(context, languageService),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -91,27 +94,27 @@ class _AdminInterfaceState extends State<AdminInterface> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Statistiques générales',
+                      languageService.translate('statistics'),
                       style: theme.textTheme.titleLarge,
                     ),
                     const SizedBox(height: 16),
-                    _buildStatsGrid(theme),
+                    _buildStatsGrid(theme, languageService),
                     const SizedBox(height: 32),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Liste des Patients',
+                          languageService.translate('patients'),
                           style: theme.textTheme.titleLarge,
                         ),
                         Text(
-                          '${patients.length} au total',
+                          '${patients.length} ${languageService.translate('total')}',
                           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildPatientList(theme),
+                    _buildPatientList(theme, languageService),
                   ],
                 ),
               ),
@@ -119,7 +122,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
     );
   }
 
-  Widget _buildStatsGrid(ThemeData theme) {
+  Widget _buildStatsGrid(ThemeData theme, LanguageService lang) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -130,29 +133,29 @@ class _AdminInterfaceState extends State<AdminInterface> {
       children: [
         _buildStatCard(
           theme,
-          'Patients',
+          lang.translate('patients'),
           stats?['totalPatients']?.toString() ?? '0',
           Icons.people_alt_rounded,
           Colors.blue,
         ),
         _buildStatCard(
           theme,
-          'Admins',
+          lang.translate('admins'),
           stats?['totalAdmins']?.toString() ?? '0',
           Icons.admin_panel_settings_rounded,
           Colors.indigo,
         ),
         _buildStatCard(
           theme,
-          'Aujourd\'hui',
+          lang.translate('today'),
           stats?['todayScheduled']?.toString() ?? '0',
           Icons.today_rounded,
           Colors.orange,
         ),
         _buildStatCard(
           theme,
-          'Alertes',
-          '0', // Placeholder
+          lang.translate('alerts'),
+          '0',
           Icons.warning_amber_rounded,
           Colors.red,
         ),
@@ -201,7 +204,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
     );
   }
 
-  Widget _buildPatientList(ThemeData theme) {
+  Widget _buildPatientList(ThemeData theme, LanguageService lang) {
     if (patients.isEmpty) {
       return Center(
         child: Padding(
@@ -210,7 +213,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
             children: [
               Icon(Icons.person_off_rounded, size: 60, color: Colors.grey[300]),
               const SizedBox(height: 16),
-              const Text('Aucun patient trouvé'),
+              Text('Aucun patient trouvé'),
             ],
           ),
         ),
@@ -245,7 +248,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
                 Text(p['email'] ?? ''),
                 const SizedBox(height: 2),
                 Text(
-                  'CHIFA: ${p['chifa_card_registration_number'] ?? 'N/A'}',
+                  '${lang.translate('chifaNumber')}: ${p['chifa_card_registration_number'] ?? 'N/A'}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
@@ -258,7 +261,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
                 border: Border.all(color: (isActive ? Colors.green : Colors.red).withOpacity(0.2)),
               ),
               child: Text(
-                isActive ? 'Actif' : 'Inactif',
+                isActive ? lang.translate('active') : lang.translate('inactive'),
                 style: TextStyle(
                   color: isActive ? Colors.green[700] : Colors.red[700],
                   fontSize: 12,
@@ -266,16 +269,14 @@ class _AdminInterfaceState extends State<AdminInterface> {
                 ),
               ),
             ),
-            onTap: () {
-              // Détails du patient (optionnel)
-            },
+            onTap: () {},
           ),
         );
       },
     );
   }
 
-  Widget _buildDrawer(BuildContext context) {
+  Widget _buildDrawer(BuildContext context, LanguageService lang) {
     final theme = Theme.of(context);
     
     return Drawer(
@@ -289,22 +290,22 @@ class _AdminInterfaceState extends State<AdminInterface> {
               backgroundColor: Colors.white,
               child: Icon(Icons.admin_panel_settings_rounded, size: 40, color: Color(0xFF2196F3)),
             ),
-            accountName: const Text(
-              'Administrateur',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            accountName: Text(
+              lang.translate('admins'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            accountEmail: const Text('admin@aavi.dz'),
+            accountEmail: const Text('admin@MediCare.dz'),
           ),
           ListTile(
             leading: const Icon(Icons.dashboard_rounded),
-            title: const Text('Tableau de bord'),
+            title: Text(lang.translate('dashboard')),
             selected: true,
             selectedColor: theme.colorScheme.primary,
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading: const Icon(Icons.person_outline_rounded),
-            title: const Text('Mon Profil'),
+            title: Text(lang.translate('profile')),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/profile');
@@ -313,13 +314,16 @@ class _AdminInterfaceState extends State<AdminInterface> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.settings_outlined),
-            title: const Text('Paramètres'),
+            title: Text(lang.translate('settings')),
             onTap: () => Navigator.pop(context),
           ),
           const Spacer(),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Colors.red),
-            title: const Text('Déconnexion', style: TextStyle(color: Colors.red)),
+            title: Text(
+              lang.translate('logout'),
+              style: const TextStyle(color: Colors.red),
+            ),
             onTap: () async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
