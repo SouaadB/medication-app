@@ -9,17 +9,19 @@ exports.processPrescriptionOCR = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No image provided' });
         }
 
+        console.log('Processing prescription image:', req.file.path);
         const rawText = await OCRService.extractText(req.file.path);
-        const parsedData = OCRService.parseMedicationText(rawText);
+        const medications = OCRService.parseMedicationText(rawText);
 
         res.json({
             success: true,
-            rawText,
-            parsedData
+            count: medications.length,
+            medications: medications,
+            rawText: rawText // Optional: send raw text for debugging
         });
     } catch (error) {
         console.error('OCR Error:', error);
-        res.status(500).json({ success: false, message: 'Error processing prescription' });
+        res.status(500).json({ success: false, message: 'Error processing prescription: ' + error.message });
     }
 };
 

@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'manual_entry_page.dart';
+import 'review_parsed_medications_page.dart';
 import '../config/api_config.dart';
 import '../services/language_service.dart';
 
@@ -54,8 +55,19 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
       if (!mounted) return;
       Navigator.pop(context); // Fermer le dialogue de chargement
 
-      if (response.statusCode == 200) {
-        _showParsedDataDialog(context, data['parsedData']);
+      if (response.statusCode == 200 && data['success'] == true) {
+        final meds = (data['medications'] as List?) ?? [];
+        if (meds.isEmpty) {
+          _showError(context, 'Aucun médicament détecté');
+        } else {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReviewParsedMedicationsPage(medications: meds),
+            ),
+          );
+        }
       } else {
         _showError(context, 'Erreur lors du scan');
       }

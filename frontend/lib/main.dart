@@ -7,6 +7,7 @@ import 'auth/reset_password_page_1.dart';
 import 'auth/forgot_password_page.dart';
 import 'auth/verify_code_page.dart';
 import 'patient/patient_interface.dart';
+import 'patient/health_overview_page.dart';
 import 'patient/setup_profile_page.dart';
 import 'patient/condition_detail_page.dart';
 import 'patient/manual_entry_page.dart';
@@ -103,6 +104,8 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const AdminInterface());
           case '/profile':
             return MaterialPageRoute(builder: (context) => const ProfilePage());
+          case '/healthoverview':
+            return MaterialPageRoute(builder: (context) => const HealthOverviewPage());
           default:
             return MaterialPageRoute(builder: (context) => const SignInPage());
         }

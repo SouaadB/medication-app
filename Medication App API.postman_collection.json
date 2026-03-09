@@ -223,6 +223,116 @@
       ]
     },
     {
+      "name": "06 - Treatments & Medication",
+      "item": [
+        {
+          "name": "Scan Prescription (Improved OCR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "prescription",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/treatments/ocr",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "api",
+                "treatments",
+                "ocr"
+              ]
+            },
+            "description": "Upload a prescription image. The backend will preprocess the image, extract all text, and return an array of all detected medications with dosage and frequency."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Treatment (Manual/Confirm OCR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"condition_id\": 1,\n    \"medication_name\": \"Metformin\",\n    \"dosage\": \"500mg\",\n    \"frequency\": \"Twice daily\",\n    \"start_date\": \"2026-03-05\",\n    \"end_date\": \"2026-03-12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/treatments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "api",
+                "treatments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Treatments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/treatments/my-treatments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "5000",
+              "path": [
+                "api",
+                "treatments",
+                "my-treatments"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "07- Logout",
       "request": {
         "method": "GET",

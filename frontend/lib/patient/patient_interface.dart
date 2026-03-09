@@ -798,20 +798,24 @@ class _PatientInterfaceState extends State<PatientInterface> {
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), true, () => Navigator.pop(context)),
-                _buildDrawerItem(Icons.favorite_border, lang.translate('myConditions'), false, () {}),
-                _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {}),
-                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {}),
+                _buildDrawerItem(Icons.timeline, lang.translate('conditions'), false, () {}),
+                _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {}),
+                _buildDrawerItem(Icons.favorite_border, 'Health Overview', false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/healthoverview');
+                }),
                 const Divider(indent: 20, endIndent: 20, height: 40),
                 
-                _buildLanguageItem(context),
-                
+                _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {}),
+                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {}),
                 _buildDrawerItem(Icons.person_outline, lang.translate('profile'), false, () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/profile');
                 }),
-                _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {}),
-                _buildDrawerItem(Icons.settings_outlined, lang.translate('settings'), false, () {}),
-                _buildDrawerItem(Icons.help_outline, lang.translate('helpSupport'), false, () {}),
+                _buildDrawerItem(Icons.settings_outlined, lang.translate('settings'), false, () {
+                  Navigator.pop(context);
+                  _showSettingsSheet(context, lang);
+                }),
               ],
             ),
           ),
@@ -908,6 +912,31 @@ class _PatientInterfaceState extends State<PatientInterface> {
         ),
         onTap: _logout,
         contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+      ),
+    );
+  }
+
+  void _showSettingsSheet(BuildContext context, LanguageService languageService) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.language, color: Colors.blue),
+              title: Text(languageService.translate('language')),
+              trailing: const Icon(Icons.chevron_right, color: Colors.blue),
+              onTap: () {
+                Navigator.pop(bottomSheetContext);
+                _showLanguageDialog(context, languageService);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
