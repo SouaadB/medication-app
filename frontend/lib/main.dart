@@ -10,6 +10,7 @@ import 'patient/patient_interface.dart';
 import 'patient/health_overview_page.dart';
 import 'patient/setup_profile_page.dart';
 import 'patient/condition_detail_page.dart';
+import 'patient/conditions_list_page.dart'; // ← ADD THIS IMPORT
 import 'patient/manual_entry_page.dart';
 import 'patient/add_medication_page.dart';
 import 'admin/admin_interface.dart';
@@ -91,6 +92,10 @@ class MyApp extends StatelessWidget {
             final condition = settings.arguments as Map<String, dynamic>;
             return MaterialPageRoute(
               builder: (context) => ConditionDetailPage(condition: condition),
+            );
+          case '/conditions': // ← ADD THIS CASE
+            return MaterialPageRoute(
+              builder: (context) => const ConditionsListPage(),
             );
           case '/manual-entry':
             return MaterialPageRoute(

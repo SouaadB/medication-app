@@ -3,11 +3,26 @@ const db = require('../config/database');
 class Treatment {
     static async create(treatmentData) {
         const { patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date } = treatmentData;
+        
+        // Ensure no undefined values (convert to null)
         const query = `
             INSERT INTO treatments (patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await db.execute(query, [patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date]);
+        
+        const values = [
+            patient_id,
+            condition_id === undefined ? null : condition_id,
+            medication_name,
+            dosage === undefined ? null : dosage,
+            frequency,
+            start_date,
+            end_date === undefined ? null : end_date
+        ];
+        
+        console.log('Executing treatment query with values:', values);
+        
+        const [result] = await db.execute(query, values);
         return result.insertId;
     }
 

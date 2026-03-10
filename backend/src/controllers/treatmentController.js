@@ -29,8 +29,12 @@ exports.processPrescriptionOCR = async (req, res) => {
 exports.createTreatment = async (req, res) => {
     try {
         const patientId = req.user.id;
-        const { condition_id, medication_name, dosage, frequency, start_date, end_date } = req.body;
+        let { condition_id, medication_name, dosage, frequency, start_date, end_date } = req.body;
 
+        // Log received data for debugging
+        console.log('Received treatment data:', req.body);
+
+        // Validate required fields
         if (!medication_name || !start_date || !frequency) {
             return res.status(400).json({
                 success: false,
@@ -38,15 +42,25 @@ exports.createTreatment = async (req, res) => {
             });
         }
 
-        const treatmentId = await Treatment.create({
+        // Handle condition_id - if it's undefined or null, set to null for database
+        if (condition_id === undefined || condition_id === null) {
+            condition_id = null;
+        }
+
+        // Ensure all values are defined (not undefined)
+        const treatmentData = {
             patient_id: patientId,
-            condition_id,
-            medication_name,
-            dosage,
-            frequency,
-            start_date,
-            end_date
-        });
+            condition_id: condition_id,
+            medication_name: medication_name || '',
+            dosage: dosage || null,
+            frequency: frequency || 'Once daily',
+            start_date: start_date,
+            end_date: end_date || null
+        };
+
+        console.log('Saving treatment:', treatmentData);
+
+        const treatmentId = await Treatment.create(treatmentData);
 
         // Automatically generate schedule
         if (frequency !== 'As needed') {
@@ -60,7 +74,11 @@ exports.createTreatment = async (req, res) => {
         });
     } catch (error) {
         console.error('Create Treatment Error:', error);
-        res.status(500).json({ success: false, message: 'Error creating treatment' });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error creating treatment',
+            error: error.message 
+        });
     }
 };
 
@@ -71,6 +89,7 @@ exports.getPatientTreatments = async (req, res) => {
         const treatments = await Treatment.findByPatientId(patientId);
         res.json({ success: true, treatments });
     } catch (error) {
+        console.error('Get Treatments Error:', error);
         res.status(500).json({ success: false, message: 'Error fetching treatments' });
     }
 };
@@ -83,6 +102,7 @@ exports.getTreatmentsByCondition = async (req, res) => {
         const treatments = await Treatment.findByConditionId(patientId, conditionId);
         res.json({ success: true, treatments });
     } catch (error) {
+        console.error('Get Treatments By Condition Error:', error);
         res.status(500).json({ success: false, message: 'Error fetching treatments' });
     }
 };
@@ -94,6 +114,7 @@ exports.getNextDose = async (req, res) => {
         const nextDose = await Treatment.getNextDose(patientId);
         res.json({ success: true, nextDose });
     } catch (error) {
+        console.error('Get Next Dose Error:', error);
         res.status(500).json({ success: false, message: 'Error fetching next dose' });
     }
 };
@@ -106,6 +127,7 @@ exports.deleteTreatment = async (req, res) => {
         await SchedulerService.clearFutureSchedules(id);
         res.json({ success: true, message: 'Treatment deleted and future schedules cleared' });
     } catch (error) {
+        console.error('Delete Treatment Error:', error);
         res.status(500).json({ success: false, message: 'Error deleting treatment' });
     }
 };

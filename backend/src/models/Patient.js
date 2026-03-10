@@ -78,6 +78,86 @@ class Patient {
         const [rows] = await db.execute(query, [chifaNumber]);
         return rows[0];
     }
+
+    // Get patient's conditions with adherence rate (FIXED: using medication_schedules)
+    static async getConditionsWithAdherence(patientId) {
+        const query = `
+            SELECT 
+                cc.id,
+                cc.name,
+                COUNT(DISTINCT t.id) as medication_count,
+                COALESCE(
+                    (
+                        SELECT 
+                            ROUND(
+                                (SUM(CASE WHEN ms.status = 'TAKEN' THEN 1 ELSE 0 END) * 100.0) / 
+                                NULLIF(COUNT(*), 0)
+                            )
+                        FROM treatments t2
+                        LEFT JOIN medication_schedules ms ON t2.id = ms.treatment_id
+                        WHERE t2.patient_id = ? AND t2.condition_id = cc.id
+                        AND ms.scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                    ), 0
+                ) as adherence_rate
+            FROM patient_conditions pc
+            JOIN chronic_conditions cc ON pc.condition_id = cc.id
+            LEFT JOIN treatments t ON t.patient_id = pc.patient_id AND t.condition_id = cc.id AND t.is_active = 1
+            WHERE pc.patient_id = ?
+            GROUP BY cc.id, cc.name
+        `;
+        const [rows] = await db.execute(query, [patientId, patientId]);
+        return rows;
+    }
+
+    // Get patient's current streak (FIXED: using medication_schedules)
+    static async getCurrentStreak(patientId) {
+        const query = `
+            WITH daily_intakes AS (
+                SELECT 
+                    DATE(scheduled_date_time) as intake_date,
+                    MAX(CASE 
+                        WHEN status = 'TAKEN' THEN 1 ELSE 0 
+                    END) as taken_on_time
+                FROM medication_schedules
+                WHERE patient_id = ?
+                GROUP BY DATE(scheduled_date_time)
+                ORDER BY intake_date DESC
+            ),
+            streak_calc AS (
+                SELECT 
+                    intake_date,
+                    taken_on_time,
+                    SUM(CASE WHEN taken_on_time = 0 THEN 1 ELSE 0 END) 
+                        OVER (ORDER BY intake_date DESC) as break_group
+                FROM daily_intakes
+                WHERE intake_date <= CURDATE()
+            )
+            SELECT COUNT(*) as current_streak
+            FROM streak_calc
+            WHERE break_group = 0 AND taken_on_time = 1
+        `;
+        const [rows] = await db.execute(query, [patientId]);
+        return rows[0]?.current_streak || 0;
+    }
+
+    // Get overall adherence percentage (FIXED: using medication_schedules)
+    static async getOverallAdherence(patientId, days = 30) {
+        const query = `
+            SELECT 
+                COUNT(*) as total_scheduled,
+                SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) as total_taken
+            FROM medication_schedules 
+            WHERE patient_id = ? 
+            AND scheduled_date_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        `;
+        const [rows] = await db.execute(query, [patientId, days]);
+        
+        const total = rows[0];
+        if (total.total_scheduled > 0) {
+            return Math.round((total.total_taken / total.total_scheduled) * 100);
+        }
+        return 0;
+    }
 }
 
 module.exports = Patient;

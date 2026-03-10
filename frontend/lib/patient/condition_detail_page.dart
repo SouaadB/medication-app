@@ -88,8 +88,8 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     
-    if (date.day == now.day) return 'Today';
-    if (date.day == tomorrow.day) return 'Tomorrow';
+    if (date.day == now.day && date.month == now.month && date.year == now.year) return "Aujourd'hui";
+    if (date.day == tomorrow.day && date.month == tomorrow.month && date.year == tomorrow.year) return "Demain";
     return '${date.day}/${date.month}';
   }
 
@@ -124,6 +124,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                // Adherence Rate Card
                 Container(
                   margin: const EdgeInsets.all(20),
                   padding: const EdgeInsets.all(24),
@@ -145,7 +146,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            languageService.translate('adherenceRate'),
+                            "Taux d'observance",
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade600,
@@ -178,14 +179,15 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                   ),
                 ),
 
+                // Médicaments Title
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        languageService.translate('medications'),
-                        style: const TextStyle(
+                      const Text(
+                        'Médicaments',
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1A237E),
@@ -195,6 +197,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                   ),
                 ),
 
+                // Medications List
                 Expanded(
                   child: _medications.isEmpty
                       ? Center(
@@ -219,6 +222,9 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                           itemCount: _medications.length,
                           itemBuilder: (context, index) {
                             final med = _medications[index];
+                            final isNextDose = _nextDose != null && 
+                                              _nextDose!['medication_name'] == med['medication_name'];
+                            
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(20),
@@ -236,68 +242,49 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              med['medication_name'],
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF1A237E),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${med['dosage'] ?? ''} • ${med['frequency']}',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.withOpacity(0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.medication,
-                                          color: Colors.blue,
-                                          size: 24,
-                                        ),
-                                      ),
-                                    ],
+                                  // Medication Name
+                                  Text(
+                                    med['medication_name'],
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1A237E),
+                                    ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 4),
+                                  
+                                  // Dosage and Frequency
+                                  Text(
+                                    '${med['dosage'] ?? ''} • ${med['frequency']}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  
+                                  // Next Dose
                                   Row(
                                     children: [
                                       Container(
-                                        width: 24,
-                                        height: 24,
+                                        width: 20,
+                                        height: 20,
                                         decoration: BoxDecoration(
                                           border: Border.all(color: Colors.grey.shade400),
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
-                                          _nextDose != null && _nextDose!['medication_name'] == med['medication_name']
-                                              ? '${languageService.translate('nextDose')}: ${_formatNextDoseText(_nextDose!)} (${_getNextDoseDay(DateTime.parse(_nextDose!['scheduled_date_time']))})'
-                                              : '${languageService.translate('nextDose')}: --:--',
+                                          isNextDose
+                                              ? 'Prochaine dose: ${_formatNextDoseText(_nextDose!)} (${_getNextDoseDay(DateTime.parse(_nextDose!['scheduled_date_time']))})'
+                                              : 'Prochaine dose: ---',
                                           style: TextStyle(
                                             fontSize: 14,
-                                            color: Colors.grey.shade700,
+                                            color: isNextDose ? Colors.blue : Colors.grey.shade600,
+                                            fontWeight: isNextDose ? FontWeight.w500 : FontWeight.normal,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],
@@ -309,6 +296,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                         ),
                 ),
 
+                // Add Medication Button
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: SizedBox(
@@ -319,9 +307,12 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AddMedicationPage(),
+                            builder: (context) => AddMedicationPage(
+                              conditionId: widget.condition['id'],
+                              conditionName: widget.condition['name'],
+                            ),
                           ),
-                        ).then((_) => _loadMedications()); // Recharger après ajout
+                        ).then((_) => _loadMedications());
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
@@ -331,16 +322,9 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                         ),
                         elevation: 0,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            languageService.translate('addMedication'),
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      child: const Text(
+                        'Ajouter un médicament',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../config/api_config.dart';
 import 'condition_detail_page.dart';
 import '../services/language_service.dart';
+import '../services/condition_service.dart';
 
 class PatientInterface extends StatefulWidget {
   const PatientInterface({super.key});
@@ -86,38 +87,22 @@ class _PatientInterfaceState extends State<PatientInterface> {
     setState(() => _loadingConditions = true);
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
-      if (token == null) {
-        _redirectToSignIn();
-        return;
-      }
-
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/profile/me'),
-        headers: ApiConfig.getAuthHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<dynamic> conditions = data['profile']?['conditions'] ?? [];
-        
-        setState(() {
-          _patientConditions = conditions.map<Map<String, dynamic>>((c) {
-            final String conditionName = c['name'] as String? ?? 'Unknown';
-            return {
-              'id': c['id'] ?? 0,
-              'name': conditionName,
-              'percentage': 85,
-              'color': _getColorForCondition(conditionName),
-            };
-          }).toList();
-        });
-      }
+      final conditions = await ConditionService.getPatientConditions();
+      
+      setState(() {
+        _patientConditions = conditions.map<Map<String, dynamic>>((c) {
+          final String conditionName = c['name'] as String? ?? 'Unknown';
+          return {
+            'id': c['id'] ?? 0,
+            'name': conditionName,
+            'percentage': c['adherence_rate'] ?? 85,
+            'color': _getColorForCondition(conditionName),
+          };
+        }).toList();
+        _loadingConditions = false;
+      });
     } catch (e) {
       print('Erreur chargement conditions: $e');
-    } finally {
       setState(() => _loadingConditions = false);
     }
   }
@@ -176,6 +161,21 @@ class _PatientInterfaceState extends State<PatientInterface> {
     final List<Color> colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal];
     final int hash = name.hashCode.abs();
     return colors[hash % colors.length];
+  }
+
+  String _translateConditionName(String name, LanguageService lang) {
+    switch(name) {
+      case 'Diabetes Type 1': return lang.translate('diabetesType1');
+      case 'Diabetes Type 2': return lang.translate('diabetesType2');
+      case 'Hypertension': return lang.translate('hypertension');
+      case 'Asthma': return lang.translate('asthma');
+      case 'Heart Disease': return lang.translate('heartDisease');
+      case 'High Cholesterol': return lang.translate('cholesterol');
+       case 'COPD': return lang.translate('copd');
+    case 'Arthritis': return lang.translate('arthritis');
+    case 'Thyroid Disorder': return lang.translate('thyroidDisorder');
+      default: return name;
+    }
   }
 
   void _redirectToSignIn() {
@@ -476,7 +476,9 @@ class _PatientInterfaceState extends State<PatientInterface> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, '/conditions');
+              },
               child: Text(
                 lang.translate('viewAll'),
                 style: const TextStyle(color: Colors.blue),
@@ -504,7 +506,20 @@ class _PatientInterfaceState extends State<PatientInterface> {
 
   Widget _buildConditionCard(Map<String, dynamic> condition, LanguageService lang) {
     final String conditionName = condition['name'] as String? ?? 'Unknown';
-    final int conditionPercentage = condition['percentage'] as int? ?? 0;
+    
+    // Fix: Handle both String and int for percentage
+    final int conditionPercentage;
+    final dynamic percentageValue = condition['percentage'];
+    if (percentageValue is String) {
+      conditionPercentage = int.tryParse(percentageValue) ?? 0;
+    } else if (percentageValue is int) {
+      conditionPercentage = percentageValue;
+    } else if (percentageValue is double) {
+      conditionPercentage = percentageValue.toInt();
+    } else {
+      conditionPercentage = 0;
+    }
+    
     final Color conditionColor = condition['color'] as Color? ?? Colors.blue;
     
     return GestureDetector(
@@ -544,7 +559,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
             ),
             const Spacer(),
             Text(
-              conditionName,
+              _translateConditionName(conditionName, lang),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -597,7 +612,9 @@ class _PatientInterfaceState extends State<PatientInterface> {
         ),
         const SizedBox(height: 16),
         GestureDetector(
-          onTap: () {},
+          onTap: () {
+            // Navigate to medication details
+          },
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -631,7 +648,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        medicationCondition,
+                        _translateConditionName(medicationCondition, lang),
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white.withOpacity(0.8),
@@ -680,9 +697,23 @@ class _PatientInterfaceState extends State<PatientInterface> {
         const SizedBox(height: 16),
         Row(
           children: [
-            _buildQuickActionCard(lang.translate('smartInsights'), Icons.insights, Colors.blue),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  // Navigate to insights
+                },
+                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.insights, Colors.blue),
+              ),
+            ),
             const SizedBox(width: 16),
-            _buildQuickActionCard(lang.translate('viewHistory'), Icons.history, Colors.blue),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  // Navigate to history
+                },
+                child: _buildQuickActionCard(lang.translate('viewHistory'), Icons.history, Colors.blue),
+              ),
+            ),
           ],
         ),
       ],
@@ -690,35 +721,33 @@ class _PatientInterfaceState extends State<PatientInterface> {
   }
 
   Widget _buildQuickActionCard(String title, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A237E),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A237E),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -727,9 +756,19 @@ class _PatientInterfaceState extends State<PatientInterface> {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
       onTap: (int index) {
-        setState(() {
-          _selectedIndex = index;
-        });
+        if (index == 3) { // Health Overview tab
+          Navigator.pushNamed(context, '/healthoverview');
+        } else if (index == 1) { // Conditions tab
+          Navigator.pushNamed(context, '/conditions');
+        } else if (index == 2) { // History tab
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('History page coming soon')),
+          );
+        } else {
+          setState(() {
+            _selectedIndex = index;
+          });
+        }
       },
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
@@ -755,7 +794,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
         BottomNavigationBarItem(
           icon: const Icon(Icons.person_outline),
           activeIcon: const Icon(Icons.person),
-          label: lang.translate('profile'),
+          label: lang.translate('healthOverview'),
         ),
       ],
     );
@@ -797,17 +836,40 @@ class _PatientInterfaceState extends State<PatientInterface> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), true, () => Navigator.pop(context)),
-                _buildDrawerItem(Icons.timeline, lang.translate('conditions'), false, () {}),
-                _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {}),
-                _buildDrawerItem(Icons.favorite_border, 'Health Overview', false, () {
+                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), true, () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _selectedIndex = 0;
+                  });
+                }),
+                _buildDrawerItem(Icons.timeline, lang.translate('conditions'), false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/conditions');
+                }),
+                _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notifications page coming soon')),
+                  );
+                }),
+                _buildDrawerItem(Icons.favorite_border, lang.translate('healthOverview'), false, () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/healthoverview');
                 }),
                 const Divider(indent: 20, endIndent: 20, height: 40),
                 
-                _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {}),
-                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {}),
+                _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Insights page coming soon')),
+                  );
+                }),
+                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('History page coming soon')),
+                  );
+                }),
                 _buildDrawerItem(Icons.person_outline, lang.translate('profile'), false, () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/profile');

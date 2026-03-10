@@ -30,4 +30,50 @@ router.delete('/:id', deleteTreatment);
 // OCR
 router.post('/ocr', upload.single('prescription'), processPrescriptionOCR);
 
+// Add medication for a specific condition
+router.post('/condition/:conditionId/add', protect, async (req, res) => {
+    try {
+        const patientId = req.user.id;
+        const conditionId = req.params.conditionId;
+        const { medication_name, dosage, frequency, start_date, end_date } = req.body;
+        
+        // Verify patient has this condition
+        const [conditionCheck] = await db.execute(
+            'SELECT * FROM patient_conditions WHERE patient_id = ? AND condition_id = ?',
+            [patientId, conditionId]
+        );
+        
+        if (conditionCheck.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Patient does not have this condition' 
+            });
+        }
+        
+        // Create treatment
+        const [result] = await db.execute(
+            `INSERT INTO treatments 
+            (patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+            [patientId, conditionId, medication_name, dosage, frequency, start_date, end_date]
+        );
+        
+        const treatmentId = result.insertId;
+        
+        // Generate schedule based on frequency
+        const SchedulerService = require('../services/schedulerService');
+        await SchedulerService.generateSchedule(patientId, treatmentId, frequency, start_date, end_date);
+        
+        res.json({ 
+            success: true, 
+            message: 'Medication added successfully',
+            treatmentId 
+        });
+        
+    } catch (error) {
+        console.error('Error adding medication:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
 module.exports = router;

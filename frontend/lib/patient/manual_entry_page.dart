@@ -23,7 +23,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   
   String? _selectedFrequency;
   int? _selectedConditionId;
+  String? _selectedConditionName;
   bool _isLoading = false;
+  bool _isConditionPreSelected = false;
 
   // French frequency options
   final List<String> _frequenciesFr = [
@@ -85,6 +87,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   @override
   void initState() {
     super.initState();
+    
+    // Check if condition is pre-selected from ConditionDetailPage
+    if (widget.prefillData != null && widget.prefillData!.containsKey('condition_id')) {
+      _selectedConditionId = widget.prefillData!['condition_id'];
+      _selectedConditionName = widget.prefillData!['condition_name'];
+      _isConditionPreSelected = true;
+    }
+    
     _loadConditions();
     
     if (widget.prefillData != null) {
@@ -195,18 +205,32 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Condition associée (NOUVEAU)
-                  _buildLabelWithIcon(
-                    Icons.medical_information,
-                    languageService.translate('conditions'),
+                  // Condition (Auto-selected if coming from condition detail)
+                  Row(
+                    children: [
+                      _buildLabelWithIcon(
+                        Icons.medical_information,
+                        languageService.translate('conditions'),
+                      ),
+                      if (!_isConditionPreSelected)
+                        const Text(
+                          ' *',
+                          style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(
+                        color: !_isConditionPreSelected && _selectedConditionId == null && !_loadingConditions
+                            ? Colors.red.shade200 
+                            : Colors.grey.shade300,
+                        width: !_isConditionPreSelected && _selectedConditionId == null && !_loadingConditions ? 2 : 1,
+                      ),
                       borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
+                      color: _isConditionPreSelected ? Colors.grey.shade50 : Colors.white,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.grey.withOpacity(0.1),
@@ -215,25 +239,68 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                         ),
                       ],
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _selectedConditionId,
-                        hint: Text(
-                          languageService.translate('selectCondition'),
-                          style: TextStyle(color: Colors.grey.shade400),
+                    child: _isConditionPreSelected
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Icon(Icons.medical_information, color: Colors.grey.shade600),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedConditionName ?? 'Unknown',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(Icons.lock, color: Colors.grey, size: 18),
+                                ),
+                              ],
+                            ),
+                          )
+                        : DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: _selectedConditionId,
+                              hint: Text(
+                                isFrench ? 'Sélectionnez une condition' : 'Select condition',
+                                style: TextStyle(
+                                  color: _selectedConditionId == null 
+                                      ? Colors.grey.shade400 
+                                      : Colors.black,
+                                ),
+                              ),
+                              icon: const Icon(Icons.arrow_drop_down, color: Colors.blue),
+                              isExpanded: true,
+                              items: _conditions.map((c) {
+                                return DropdownMenuItem<int>(
+                                  value: c['id'],
+                                  child: Text(c['name']),
+                                );
+                              }).toList(),
+                              onChanged: (value) => setState(() => _selectedConditionId = value),
+                            ),
+                          ),
+                  ),
+                  if (_isConditionPreSelected)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 12),
+                      child: Text(
+                        isFrench ? 'Condition verrouillée' : 'Locked condition',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
                         ),
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.blue),
-                        isExpanded: true,
-                        items: _conditions.map((c) {
-                          return DropdownMenuItem<int>(
-                            value: c['id'],
-                            child: Text(c['name']),
-                          );
-                        }).toList(),
-                        onChanged: (value) => setState(() => _selectedConditionId = value),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 20),
 
                   // Medication Name Field
@@ -706,6 +773,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           : 'Please enter medication name');
       return;
     }
+    
+    // Validate condition only if not pre-selected
+    if (!_isConditionPreSelected && _selectedConditionId == null) {
+      _showError(isFrench 
+          ? 'Veuillez sélectionner une condition médicale'
+          : 'Please select a medical condition');
+      return;
+    }
+    
     if (_selectedFrequency == null) {
       _showError(isFrench
           ? 'Veuillez sélectionner la fréquence'

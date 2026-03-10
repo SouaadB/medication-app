@@ -10,7 +10,14 @@ import '../config/api_config.dart';
 import '../services/language_service.dart';
 
 class AddMedicationPage extends StatefulWidget {
-  const AddMedicationPage({super.key});
+  final int? conditionId;
+  final String? conditionName;
+
+  const AddMedicationPage({
+    super.key, 
+    this.conditionId, 
+    this.conditionName
+  });
 
   @override
   State<AddMedicationPage> createState() => _AddMedicationPageState();
@@ -24,10 +31,8 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
 
     if (pickedFile == null) return;
 
-    // Check if widget is still mounted
     if (!mounted) return;
 
-    // Afficher un indicateur de chargement
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -51,9 +56,8 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
       var response = await http.Response.fromStream(streamedResponse);
       var data = jsonDecode(response.body);
 
-      // Check if widget is still mounted before closing dialog
       if (!mounted) return;
-      Navigator.pop(context); // Fermer le dialogue de chargement
+      Navigator.pop(context);
 
       if (response.statusCode == 200 && data['success'] == true) {
         final meds = (data['medications'] as List?) ?? [];
@@ -64,7 +68,11 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ReviewParsedMedicationsPage(medications: meds),
+              builder: (context) => ReviewParsedMedicationsPage(
+                medications: meds,
+                conditionId: widget.conditionId,
+                conditionName: widget.conditionName,
+              ),
             ),
           );
         }
@@ -72,52 +80,10 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
         _showError(context, 'Erreur lors du scan');
       }
     } catch (e) {
-      // Check if widget is still mounted before closing dialog
       if (!mounted) return;
       Navigator.pop(context);
       _showError(context, 'Erreur: $e');
     }
-  }
-
-  void _showParsedDataDialog(BuildContext context, Map<String, dynamic> parsedData) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Données extraites'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Médicament: ${parsedData['medication_name'] ?? 'Non détecté'}'),
-            Text('Dosage: ${parsedData['dosage'] ?? 'Non détecté'}'),
-            Text('Fréquence: ${parsedData['frequency'] ?? 'Once daily'}'),
-            if (parsedData['duration_days'] != null)
-              Text('Durée: ${parsedData['duration_days']} jours'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              // Aller à la page de saisie manuelle avec les données pré-remplies
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ManualEntryPage(
-                    prefillData: parsedData,
-                  ),
-                ),
-              );
-            },
-            child: const Text('Utiliser ces données'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showError(BuildContext context, String message) {
@@ -175,9 +141,9 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          languageService.translate('addMedication'),
-          style: const TextStyle(
+        title: const Text(
+          'Add Medication',
+          style: TextStyle(
             color: Colors.blue,
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -189,129 +155,226 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              languageService.translate('addMedication'),
-              style: const TextStyle(
-                fontSize: 24,
+            // Condition banner (only shows when coming from a condition)
+            if (widget.conditionName != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.medical_information, color: Colors.blue, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Adding medication for:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            widget.conditionName!,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Header
+            const Text(
+              'Add Medication',
+              style: TextStyle(
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Color(0xFF1A237E),
               ),
             ),
             const SizedBox(height: 8),
-            
             Text(
-              languageService.translate('helpUs'),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+              'Choose how to add your medication',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
+            // Scan Prescription Option
             Container(
-              height: 1,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 24),
-
-            GestureDetector(
-              onTap: () => _showImageSourceDialog(context),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showImageSourceDialog(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          languageService.translate('scanPrescription'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          languageService.translate('scanDescription'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.blue,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Scan Prescription',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Use your camera to scan and automatically extract medication details',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            
-            const SizedBox(height: 24),
-            
-            Container(
-              height: 1,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 24),
 
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ManualEntryPage(),
+            const SizedBox(height: 20),
+
+            // Manual Entry Option
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                );
-              },
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ManualEntryPage(
+                          prefillData: widget.conditionId != null
+                              ? {
+                                  'condition_id': widget.conditionId,
+                                  'condition_name': widget.conditionName,
+                                }
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          languageService.translate('manualEntry'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          languageService.translate('manualDescription'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.edit,
+                                color: Colors.green,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Manual Entry',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Enter medication details manually with a simple form',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            
-            const SizedBox(height: 30),
           ],
         ),
       ),
