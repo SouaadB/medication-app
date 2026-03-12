@@ -846,6 +846,10 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/conditions');
                 }),
+                _buildDrawerItem(Icons.calendar_month, 'My Planning', false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/planning');
+                }),
                 _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

@@ -177,6 +177,31 @@ class SchedulerService {
         }
     }
 
+    static async getScheduleByDate(patientId, dateYmd) {
+        try {
+            const [rows] = await db.execute(
+                `SELECT 
+                    ms.id as schedule_id,
+                    ms.scheduled_date_time,
+                    ms.status,
+                    t.medication_name,
+                    t.dosage,
+                    c.name as condition_name
+                 FROM medication_schedules ms
+                 JOIN treatments t ON ms.treatment_id = t.id
+                 LEFT JOIN chronic_conditions c ON t.condition_id = c.id
+                 WHERE ms.patient_id = ?
+                 AND DATE(ms.scheduled_date_time) = ?
+                 ORDER BY ms.scheduled_date_time ASC`,
+                [patientId, dateYmd]
+            );
+            return rows;
+        } catch (error) {
+            console.error('Error getting schedule by date:', error);
+            throw error;
+        }
+    }
+
     /**
      * Clear future schedules for a treatment
      * @param {number} treatmentId 

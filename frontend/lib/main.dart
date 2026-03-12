@@ -13,6 +13,7 @@ import 'patient/condition_detail_page.dart';
 import 'patient/conditions_list_page.dart'; // ← ADD THIS IMPORT
 import 'patient/manual_entry_page.dart';
 import 'patient/add_medication_page.dart';
+import 'patient/daily_planning_page.dart';
 import 'admin/admin_interface.dart';
 import 'profile/profile_page.dart';
 import 'services/language_service.dart';
@@ -104,6 +105,10 @@ class MyApp extends StatelessWidget {
           case '/add-medication':
             return MaterialPageRoute(
               builder: (context) => const AddMedicationPage(),
+            );
+          case '/planning':
+            return MaterialPageRoute(
+              builder: (context) => const DailyPlanningPage(),
             );
           case '/admin':
             return MaterialPageRoute(builder: (context) => const AdminInterface());

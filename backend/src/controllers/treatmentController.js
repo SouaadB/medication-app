@@ -131,3 +131,47 @@ exports.deleteTreatment = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error deleting treatment' });
     }
 };
+
+// Get schedule for a specific date (YYYY-MM-DD)
+exports.getScheduleForDate = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+        const { date } = req.query;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const requested = date ? new Date(date) : today;
+        requested.setHours(0, 0, 0, 0);
+
+        if (requested < today) {
+            return res.status(400).json({ success: false, message: 'Cannot view past days' });
+        }
+
+        const y = requested.getFullYear().toString().padStart(4, '0');
+        const m = (requested.getMonth() + 1).toString().padStart(2, '0');
+        const d = requested.getDate().toString().padStart(2, '0');
+        const ymd = `${y}-${m}-${d}`;
+
+        const rows = await SchedulerService.getScheduleByDate(patientId, ymd);
+
+        let label = ymd;
+        const diffDays = Math.floor((requested.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) label = 'Today';
+        else if (diffDays === 1) label = 'Tomorrow';
+
+        const total = rows.length;
+        const completed = rows.filter(r => r.status === 'TAKEN').length;
+        const missed = rows.filter(r => r.status === 'MISSED').length;
+        const pending = rows.filter(r => r.status === 'SCHEDULED').length;
+
+        res.json({
+            success: true,
+            date: ymd,
+            label,
+            stats: { total, completed, pending, missed },
+            medications: rows
+        });
+    } catch (error) {
+        console.error('Get Schedule For Date Error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching schedule' });
+    }
+};

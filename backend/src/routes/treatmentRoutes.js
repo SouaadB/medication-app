@@ -19,6 +19,7 @@ router.use(protect);
 // Dashboard / General
 router.get('/next-dose', getNextDose);
 router.get('/my-treatments', getPatientTreatments);
+router.get('/schedule', require('../controllers/treatmentController').getScheduleForDate);
 
 // Condition Specific
 router.get('/condition/:conditionId', getTreatmentsByCondition);
