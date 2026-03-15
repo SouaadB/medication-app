@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "mysql2": "^3.17.5",
+    "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
     "sharp": "^0.33.2",
     "tesseract.js": "^7.0.0",

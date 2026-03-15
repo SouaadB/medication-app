@@ -4,6 +4,7 @@ const result = dotenv.config();
 if (result.error) {
     console.log('⚠️  Error loading .env file:', result.error.message);
 }
+require('./src/jobs/notificationJob');
 
 const app = require('./src/app');
 
