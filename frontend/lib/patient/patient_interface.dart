@@ -368,6 +368,176 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
+  void _showMedicationActionDialog(
+    BuildContext context,
+    LanguageService lang,
+    String name,
+    String dosage,
+    String condition,
+    String time,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.8),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF3498DB),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      lang.translate('timeToTake'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content Section
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A237E),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      dosage,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _translateConditionName(condition, lang),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Action Buttons
+                    _buildActionButton(
+                      lang.translate('iveTakenIt'),
+                      Icons.check,
+                      const Color(0xFF2ECC71),
+                      () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      lang.translate('snooze10min'),
+                      Icons.access_time,
+                      const Color(0xFFF39C12),
+                      () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      lang.translate('markAsMissed'),
+                      Icons.close,
+                      const Color(0xFFE74C3C),
+                      () => Navigator.pop(context),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        lang.translate('close'),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDashboardHeader(ThemeData theme, LanguageService lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,14 +760,18 @@ class _PatientInterfaceState extends State<PatientInterface> {
   }
 
   Widget _buildNextMedicationCard(ThemeData theme, LanguageService lang) {
-    if (_nextMedications.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final medication = _nextMedications.first;
-    final String medicationName = medication['name'] as String? ?? 'No medication';
-    final String medicationCondition = medication['condition'] as String? ?? '';
-    final String medicationTime = medication['time'] as String? ?? '--:--';
+    final String medicationName = _nextMedications.isNotEmpty 
+        ? (_nextMedications.first['name'] as String? ?? 'Metformin')
+        : 'Metformin';
+    final String medicationCondition = _nextMedications.isNotEmpty 
+        ? (_nextMedications.first['condition'] as String? ?? 'Diabetes Type 2')
+        : 'Diabetes Type 2';
+    final String medicationTime = _nextMedications.isNotEmpty 
+        ? (_nextMedications.first['time'] as String? ?? '2:00 PM')
+        : '2:00 PM';
+    final String medicationDosage = _nextMedications.isNotEmpty
+        ? (_nextMedications.first['dosage'] as String? ?? '500mg')
+        : '500mg';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,20 +787,27 @@ class _PatientInterfaceState extends State<PatientInterface> {
         const SizedBox(height: 16),
         GestureDetector(
           onTap: () {
-            // Navigate to medication details
+            _showMedicationActionDialog(
+              context,
+              lang,
+              medicationName,
+              medicationDosage,
+              medicationCondition,
+              medicationTime,
+            );
           },
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
+                colors: [Color(0xFF3498DB), Color(0xFF2980B9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
+                  color: const Color(0xFF3498DB).withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -702,16 +883,16 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 onTap: () {
                   // Navigate to insights
                 },
-                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.insights, Colors.blue),
+                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.show_chart, const Color(0xFF3498DB)),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
                 onTap: () {
-                  // Navigate to history
+                  Navigator.pushNamed(context, '/history');
                 },
-                child: _buildQuickActionCard(lang.translate('viewHistory'), Icons.history, Colors.blue),
+                child: _buildQuickActionCard(lang.translate('viewHistory'), Icons.history, const Color(0xFF3498DB)),
               ),
             ),
           ],
@@ -836,7 +1017,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), true, () {
+                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), _selectedIndex == 0, () {
                   Navigator.pop(context);
                   setState(() {
                     _selectedIndex = 0;
@@ -846,15 +1027,13 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/conditions');
                 }),
-                _buildDrawerItem(Icons.calendar_month, 'My Planning', false, () {
+                _buildDrawerItem(Icons.access_time, lang.translate('myPlanning'), false, () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/planning');
                 }),
                 _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notifications page coming soon')),
-                  );
+                  Navigator.pushNamed(context, '/notifications');
                 }),
                 _buildDrawerItem(Icons.favorite_border, lang.translate('healthOverview'), false, () {
                   Navigator.pop(context);
@@ -864,15 +1043,11 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 
                 _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Insights page coming soon')),
-                  );
+                  // Placeholder for insights
                 }),
-                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {
+                _buildDrawerItem(Icons.history_outlined, lang.translate('history'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('History page coming soon')),
-                  );
+                  Navigator.pushNamed(context, '/history');
                 }),
                 _buildDrawerItem(Icons.person_outline, lang.translate('profile'), false, () {
                   Navigator.pop(context);
@@ -882,6 +1057,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pop(context);
                   _showSettingsSheet(context, lang);
                 }),
+                const Divider(indent: 20, endIndent: 20, height: 40),
               ],
             ),
           ),
@@ -894,19 +1070,22 @@ class _PatientInterfaceState extends State<PatientInterface> {
   Widget _buildDrawerHeader(ThemeData theme, LanguageService lang) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 60, bottom: 30, left: 24, right: 24),
+      padding: const EdgeInsets.only(top: 40, bottom: 30, left: 24, right: 24),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFF3498DB),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
@@ -914,29 +1093,30 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.favorite, color: Colors.blue, size: 32),
+                child: const Icon(Icons.favorite, color: Color(0xFF3498DB), size: 36),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'MediCare',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    _userData?['name']?.toString() ?? 'John Doe',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'MediCare',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            _userData?['name']?.toString() ?? 'John Doe',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 16,
-            ),
           ),
         ],
       ),

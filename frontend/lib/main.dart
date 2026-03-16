@@ -14,6 +14,8 @@ import 'patient/conditions_list_page.dart'; // ← ADD THIS IMPORT
 import 'patient/manual_entry_page.dart';
 import 'patient/add_medication_page.dart';
 import 'patient/daily_planning_page.dart';
+import 'patient/notifications_page.dart';
+import 'patient/history_page.dart';
 import 'admin/admin_interface.dart';
 import 'profile/profile_page.dart';
 import 'services/language_service.dart';
@@ -116,6 +118,10 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const ProfilePage());
           case '/healthoverview':
             return MaterialPageRoute(builder: (context) => const HealthOverviewPage());
+          case '/notifications':
+            return MaterialPageRoute(builder: (context) => const NotificationsPage());
+          case '/history':
+            return MaterialPageRoute(builder: (context) => const HistoryPage());
           default:
             return MaterialPageRoute(builder: (context) => const SignInPage());
         }
