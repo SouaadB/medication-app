@@ -6,11 +6,12 @@ const {
     getPatientTreatments, 
     getTreatmentsByCondition,
     getNextDose,
+    getNextMedication, // NOUVEAU
     deleteTreatment,
-    processPrescriptionOCR
+    processPrescriptionOCR,
+    getScheduleByDate
 } = require('../controllers/treatmentController');
 
-// Multer for OCR image upload
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
@@ -18,7 +19,9 @@ router.use(protect);
 
 // Dashboard / General
 router.get('/next-dose', getNextDose);
+router.get('/next-medication', getNextMedication); // NOUVEAU
 router.get('/my-treatments', getPatientTreatments);
+router.get('/schedule', getScheduleByDate);
 
 // Condition Specific
 router.get('/condition/:conditionId', getTreatmentsByCondition);
@@ -37,7 +40,8 @@ router.post('/condition/:conditionId/add', protect, async (req, res) => {
         const conditionId = req.params.conditionId;
         const { medication_name, dosage, frequency, start_date, end_date } = req.body;
         
-        // Verify patient has this condition
+        const db = require('../config/database');
+        
         const [conditionCheck] = await db.execute(
             'SELECT * FROM patient_conditions WHERE patient_id = ? AND condition_id = ?',
             [patientId, conditionId]
@@ -50,7 +54,6 @@ router.post('/condition/:conditionId/add', protect, async (req, res) => {
             });
         }
         
-        // Create treatment
         const [result] = await db.execute(
             `INSERT INTO treatments 
             (patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date, is_active)
@@ -60,7 +63,6 @@ router.post('/condition/:conditionId/add', protect, async (req, res) => {
         
         const treatmentId = result.insertId;
         
-        // Generate schedule based on frequency
         const SchedulerService = require('../services/schedulerService');
         await SchedulerService.generateSchedule(patientId, treatmentId, frequency, start_date, end_date);
         

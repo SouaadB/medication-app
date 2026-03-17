@@ -12,69 +12,111 @@ class SchedulerService {
      */
     static async generateSchedule(patientId, treatmentId, frequency, startDate, endDate) {
         try {
+            // IMPORTANT: Utiliser l'heure actuelle pour la première dose
+            const now = new Date();
             const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0); // Set to beginning of day
+            
+            // Si la date de début est aujourd'hui, utiliser l'heure actuelle
+            // Sinon, utiliser minuit pour les jours futurs
+            const isToday = start.toDateString() === now.toDateString();
+            
+            if (isToday) {
+                // Aujourd'hui : commencer à l'heure actuelle
+                start.setHours(now.getHours(), now.getMinutes(), 0, 0);
+                console.log(`📅 Today's treatment: starting at ${start.getHours()}:${String(start.getMinutes()).padStart(2, '0')}`);
+            } else {
+                // Jours futurs : commencer à minuit
+                start.setHours(0, 0, 0, 0);
+            }
             
             let end;
             if (endDate) {
                 end = new Date(endDate);
-                end.setHours(23, 59, 59, 999); // Set to end of day
+                end.setHours(23, 59, 59, 999);
             } else {
-                // If no end date, default to 30 days from start
                 end = new Date(start);
                 end.setDate(start.getDate() + 30);
                 end.setHours(23, 59, 59, 999);
             }
 
-            // Define times for each frequency ENUM
-            const times = {
-                'Once daily': ['08:00'],
-                'Twice daily': ['08:00', '20:00'],
-                'Three times daily': ['08:00', '14:00', '20:00'],
-                'Four times daily': ['08:00', '12:00', '18:00', '22:00'],
-                'Every 12 hours': ['08:00', '20:00'],
-                'Every 8 hours': ['08:00', '16:00', '00:00'],
-                'Every 6 hours': ['06:00', '12:00', '18:00', '00:00'],
-                'As needed': [] // No fixed schedule
-            };
+            console.log(`📅 Generating schedule from ${start.toISOString()} to ${end.toISOString()}`);
 
-            const selectedTimes = times[frequency] || [];
-            if (selectedTimes.length === 0) {
+            // Calculer les horaires en fonction de la fréquence
+            const times = this._calculateTimes(frequency, start);
+            
+            if (times.length === 0) {
                 console.log(`No schedule generated for PRN medication: ${frequency}`);
                 return 0;
             }
 
+            console.log(`📋 Times for ${frequency}:`, times);
+
             const schedules = [];
             let currentDate = new Date(start);
+            currentDate.setHours(0, 0, 0, 0); // Reset to midnight for day iteration
 
-            // Loop through each day from start to end
+            // Pour chaque jour
             while (currentDate <= end) {
-                for (const time of selectedTimes) {
-                    const [hours, minutes] = time.split(':');
+                // Pour chaque horaire du jour
+                for (const time of times) {
+                    const [hours, minutes] = time.split(':').map(Number);
                     const scheduledTime = new Date(currentDate);
-                    scheduledTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    scheduledTime.setHours(hours, minutes, 0, 0);
 
-                    // Only schedule future times or times on start date after start time
-                    const now = new Date();
-                    if (scheduledTime >= now || scheduledTime >= start) {
-                        schedules.push([
-                            patientId,
-                            treatmentId,
-                            scheduledTime,
-                            'SCHEDULED'
-                        ]);
+                    // Pour aujourd'hui, ne pas programmer des horaires passés
+                    const today = new Date();
+                    if (scheduledTime.toDateString() === today.toDateString()) {
+                        if (scheduledTime <= today) {
+                            console.log(`⏰ Skipping past time for today: ${scheduledTime.getHours()}:${String(scheduledTime.getMinutes()).padStart(2, '0')}`);
+                            continue;
+                        }
                     }
+
+                    schedules.push([
+                        patientId,
+                        treatmentId,
+                        scheduledTime,
+                        'SCHEDULED'
+                    ]);
+                    
+                    console.log(`✅ Scheduled: ${scheduledTime.toLocaleString()}`);
                 }
-                // Move to next day
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
             if (schedules.length > 0) {
-                // Use db.execute for parameterized query (safer)
                 const query = 'INSERT INTO medication_schedules (patient_id, treatment_id, scheduled_date_time, status) VALUES ?';
-                // For bulk insert with mysql2, you need to use db.query, not db.execute
                 const [result] = await db.query(query, [schedules]);
                 console.log(`✅ Generated ${schedules.length} schedules for treatment ${treatmentId}`);
+                
+                // Créer une notification pour la première dose
+                if (schedules.length > 0) {
+                    const firstSchedule = schedules[0];
+                    const firstTime = new Date(firstSchedule[2]);
+                    
+                    // Récupérer le nom du médicament
+                    const [treatmentInfo] = await db.execute(
+                        'SELECT medication_name FROM treatments WHERE id = ?',
+                        [treatmentId]
+                    );
+                    
+                    const medicationName = treatmentInfo[0]?.medication_name || 'médicament';
+                    
+                    // Créer une notification pour le rappel de la première dose
+                    const NotificationService = require('./notificationService');
+                    await NotificationService.createNotification(
+                        patientId,
+                        'reminder',
+                        '💊 Premier rappel',
+                        `Votre première dose de ${medicationName} est prévue à ${firstTime.getHours()}:${String(firstTime.getMinutes()).padStart(2, '0')}`,
+                        { 
+                            treatmentId, 
+                            schedule_id: firstSchedule[0],
+                            type: 'first_dose' 
+                        }
+                    );
+                }
+                
                 return schedules.length;
             }
             
@@ -84,6 +126,101 @@ class SchedulerService {
             console.error('❌ Error generating schedule:', error);
             throw error;
         }
+    }
+
+    /**
+     * Calculer les horaires en fonction de la fréquence
+     * @param {string} frequency 
+     * @param {Date} startDate 
+     * @returns {Array<string>} Liste des horaires au format "HH:MM"
+     */
+    static _calculateTimes(frequency, startDate) {
+        const times = [];
+        
+        // Heure de début (prendre l'heure de la première dose)
+        const startHour = startDate.getHours();
+        const startMinute = startDate.getMinutes();
+        
+        // Fonction pour formater l'heure
+        const formatTime = (hour, minute) => {
+            return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        };
+        
+        console.log(`⏰ Calculating times based on start hour: ${startHour}:${String(startMinute).padStart(2, '0')}`);
+        
+        switch (frequency) {
+            case 'Once daily':
+                times.push(formatTime(startHour, startMinute));
+                break;
+                
+            case 'Twice daily':
+                times.push(formatTime(startHour, startMinute));
+                // Deuxième dose 12 heures plus tard
+                const hour2 = (startHour + 12) % 24;
+                times.push(formatTime(hour2, startMinute));
+                break;
+                
+            case 'Three times daily':
+                times.push(formatTime(startHour, startMinute));
+                // Toutes les 8 heures
+                const hour2_3 = (startHour + 8) % 24;
+                const hour3_3 = (startHour + 16) % 24;
+                times.push(formatTime(hour2_3, startMinute));
+                times.push(formatTime(hour3_3, startMinute));
+                break;
+                
+            case 'Four times daily':
+                times.push(formatTime(startHour, startMinute));
+                // Toutes les 6 heures
+                const hour2_4 = (startHour + 6) % 24;
+                const hour3_4 = (startHour + 12) % 24;
+                const hour4_4 = (startHour + 18) % 24;
+                times.push(formatTime(hour2_4, startMinute));
+                times.push(formatTime(hour3_4, startMinute));
+                times.push(formatTime(hour4_4, startMinute));
+                break;
+                
+            case 'Every 12 hours':
+                times.push(formatTime(startHour, startMinute));
+                const hour12 = (startHour + 12) % 24;
+                times.push(formatTime(hour12, startMinute));
+                break;
+                
+            case 'Every 8 hours':
+                times.push(formatTime(startHour, startMinute));
+                const hour8_2 = (startHour + 8) % 24;
+                const hour8_3 = (startHour + 16) % 24;
+                times.push(formatTime(hour8_2, startMinute));
+                times.push(formatTime(hour8_3, startMinute));
+                break;
+                
+            case 'Every 6 hours':
+                times.push(formatTime(startHour, startMinute));
+                const hour6_2 = (startHour + 6) % 24;
+                const hour6_3 = (startHour + 12) % 24;
+                const hour6_4 = (startHour + 18) % 24;
+                times.push(formatTime(hour6_2, startMinute));
+                times.push(formatTime(hour6_3, startMinute));
+                times.push(formatTime(hour6_4, startMinute));
+                break;
+                
+            case 'As needed':
+                // Pas d'horaire fixe
+                break;
+                
+            default:
+                // Par défaut, une fois par jour à l'heure de début
+                times.push(formatTime(startHour, startMinute));
+        }
+        
+        // Trier les horaires
+        times.sort((a, b) => {
+            const [h1, m1] = a.split(':').map(Number);
+            const [h2, m2] = b.split(':').map(Number);
+            return (h1 * 60 + m1) - (h2 * 60 + m2);
+        });
+        
+        return times;
     }
 
     /**

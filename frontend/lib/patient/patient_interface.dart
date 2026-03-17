@@ -21,11 +21,12 @@ class _PatientInterfaceState extends State<PatientInterface> {
   Map<String, dynamic>? _userData;
   String? _errorMessage;
   int _selectedIndex = 0;
+  int _unreadNotificationsCount = 0;
 
   double _overallAdherence = 0.0;
   List<Map<String, dynamic>> _patientConditions = [];
   bool _loadingConditions = false;
-  List<Map<String, dynamic>> _nextMedications = [];
+  Map<String, dynamic>? _nextMedication; // Changé de List à Map
 
   @override
   void initState() {
@@ -33,7 +34,12 @@ class _PatientInterfaceState extends State<PatientInterface> {
     _loadUserData().then((_) {
       _loadPatientConditions();
       _loadAdherenceData();
-      _loadNextMedications();
+      _loadNextMedication(); // Changé
+      _loadUnreadNotificationsCount();
+    });
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUnreadNotificationsCount();
     });
   }
 
@@ -83,6 +89,62 @@ class _PatientInterfaceState extends State<PatientInterface> {
     }
   }
 
+  // NOUVELLE MÉTHODE - Charger le prochain médicament depuis le backend
+  Future<void> _loadNextMedication() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('auth_token');
+
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/next-medication'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data['success'] == true && data['medication'] != null) {
+          setState(() {
+            _nextMedication = data['medication'];
+          });
+        } else {
+          setState(() {
+            _nextMedication = null;
+          });
+        }
+      }
+    } catch (e) {
+      print('Erreur chargement prochain médicament: $e');
+      setState(() {
+        _nextMedication = null;
+      });
+    }
+  }
+
+  Future<void> _loadUnreadNotificationsCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/notifications/unread'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _unreadNotificationsCount = data['data']['count'] ?? 0;
+        });
+        print('🔔 Notifications non lues: $_unreadNotificationsCount');
+      }
+    } catch (e) {
+      print('Error loading unread count: $e');
+    }
+  }
+
   Future<void> _loadPatientConditions() async {
     setState(() => _loadingConditions = true);
     
@@ -127,32 +189,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
       }
     } catch (e) {
       print('Erreur chargement adhérence: $e');
-    }
-  }
-
-  Future<void> _loadNextMedications() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
-      if (token == null) return;
-
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/patient/next-medications'),
-        headers: ApiConfig.getAuthHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<dynamic> meds = data['medications'];
-        if (meds != null) {
-          setState(() {
-            _nextMedications = List<Map<String, dynamic>>.from(meds);
-          });
-        }
-      }
-    } catch (e) {
-      print('Erreur chargement médicaments: $e');
     }
   }
 
@@ -321,6 +357,45 @@ class _PatientInterfaceState extends State<PatientInterface> {
           ),
         ),
         actions: [
+          // NOTIFICATION ICON WITH BADGE
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: Colors.blue, size: 28),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/notifications').then((_) {
+                    _loadUnreadNotificationsCount();
+                  });
+                },
+              ),
+              if (_unreadNotificationsCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadNotificationsCount > 9 ? '9+' : '$_unreadNotificationsCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.all(8),
@@ -342,7 +417,8 @@ class _PatientInterfaceState extends State<PatientInterface> {
                     await _loadUserData();
                     await _loadPatientConditions();
                     await _loadAdherenceData();
-                    await _loadNextMedications();
+                    await _loadNextMedication(); // Changé
+                    await _loadUnreadNotificationsCount();
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -356,7 +432,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                         const SizedBox(height: 32),
                         _buildConditionsSection(theme, languageService),
                         const SizedBox(height: 32),
-                        _buildNextMedicationCard(theme, languageService),
+                        _buildNextMedicationCard(theme, languageService), // Changé
                         const SizedBox(height: 32),
                         _buildQuickActionsGrid(theme, languageService),
                         const SizedBox(height: 32),
@@ -365,6 +441,173 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   ),
                 ),
       bottomNavigationBar: _buildBottomNavigationBar(theme, languageService),
+    );
+  }
+
+  void _showMedicationActionDialog(
+    BuildContext context,
+    LanguageService lang,
+    String name,
+    String dosage,
+    String condition,
+    String time,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.8),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF3498DB),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      lang.translate('timeToTake'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A237E),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      dosage,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _translateConditionName(condition, lang),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    _buildActionButton(
+                      lang.translate('iveTakenIt'),
+                      Icons.check,
+                      const Color(0xFF2ECC71),
+                      () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      lang.translate('snooze10min'),
+                      Icons.access_time,
+                      const Color(0xFFF39C12),
+                      () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      lang.translate('markAsMissed'),
+                      Icons.close,
+                      const Color(0xFFE74C3C),
+                      () => Navigator.pop(context),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        lang.translate('close'),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -507,7 +750,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
   Widget _buildConditionCard(Map<String, dynamic> condition, LanguageService lang) {
     final String conditionName = condition['name'] as String? ?? 'Unknown';
     
-    // Fix: Handle both String and int for percentage
     final int conditionPercentage;
     final dynamic percentageValue = condition['percentage'];
     if (percentageValue is String) {
@@ -589,15 +831,18 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
+  // MODIFIÉ - Utilise _nextMedication au lieu de _nextMedications
   Widget _buildNextMedicationCard(ThemeData theme, LanguageService lang) {
-    if (_nextMedications.isEmpty) {
+    // S'il n'y a pas de prochain médicament, ne rien afficher
+    if (_nextMedication == null) {
       return const SizedBox.shrink();
     }
     
-    final medication = _nextMedications.first;
-    final String medicationName = medication['name'] as String? ?? 'No medication';
-    final String medicationCondition = medication['condition'] as String? ?? '';
-    final String medicationTime = medication['time'] as String? ?? '--:--';
+    final medication = _nextMedication!;
+    final String medicationName = medication['name']?.toString() ?? 'Médicament';
+    final String medicationCondition = medication['condition']?.toString() ?? 'Condition';
+    final String medicationTime = medication['time']?.toString() ?? '--:--';
+    final String medicationDosage = medication['dosage']?.toString() ?? '';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,20 +858,27 @@ class _PatientInterfaceState extends State<PatientInterface> {
         const SizedBox(height: 16),
         GestureDetector(
           onTap: () {
-            // Navigate to medication details
+            _showMedicationActionDialog(
+              context,
+              lang,
+              medicationName,
+              medicationDosage,
+              medicationCondition,
+              medicationTime,
+            );
           },
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
+                colors: [Color(0xFF3498DB), Color(0xFF2980B9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
+                  color: const Color(0xFF3498DB).withOpacity(0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -682,6 +934,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
+  // MODIFIÉ - Changé "viewHistory" en "viewPlanning"
   Widget _buildQuickActionsGrid(ThemeData theme, LanguageService lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,16 +955,16 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 onTap: () {
                   // Navigate to insights
                 },
-                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.insights, Colors.blue),
+                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.show_chart, const Color(0xFF3498DB)),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
                 onTap: () {
-                  // Navigate to history
+                  Navigator.pushNamed(context, '/planning'); // Changé de '/history' à '/planning'
                 },
-                child: _buildQuickActionCard(lang.translate('viewHistory'), Icons.history, Colors.blue),
+                child: _buildQuickActionCard('My Planning', Icons.calendar_month, const Color(0xFF3498DB)), // Changé
               ),
             ),
           ],
@@ -760,10 +1013,8 @@ class _PatientInterfaceState extends State<PatientInterface> {
           Navigator.pushNamed(context, '/healthoverview');
         } else if (index == 1) { // Conditions tab
           Navigator.pushNamed(context, '/conditions');
-        } else if (index == 2) { // History tab
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('History page coming soon')),
-          );
+        } else if (index == 2) { // History tab (gardé pour l'historique)
+          Navigator.pushNamed(context, '/history');
         } else {
           setState(() {
             _selectedIndex = index;
@@ -836,7 +1087,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), true, () {
+                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), _selectedIndex == 0, () {
                   Navigator.pop(context);
                   setState(() {
                     _selectedIndex = 0;
@@ -846,11 +1097,15 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/conditions');
                 }),
-                _buildDrawerItem(Icons.notifications_none, lang.translate('notifications'), false, () {
+                _buildDrawerItem(Icons.access_time, lang.translate('myPlanning'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notifications page coming soon')),
-                  );
+                  Navigator.pushNamed(context, '/planning');
+                }),
+                _buildDrawerItemWithBadge(Icons.notifications_none, lang.translate('notifications'), false, _unreadNotificationsCount, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/notifications').then((_) {
+                    _loadUnreadNotificationsCount();
+                  });
                 }),
                 _buildDrawerItem(Icons.favorite_border, lang.translate('healthOverview'), false, () {
                   Navigator.pop(context);
@@ -860,15 +1115,11 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 
                 _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Insights page coming soon')),
-                  );
+                  // Placeholder for insights
                 }),
-                _buildDrawerItem(Icons.history, lang.translate('history'), false, () {
+                _buildDrawerItem(Icons.history_outlined, lang.translate('history'), false, () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('History page coming soon')),
-                  );
+                  Navigator.pushNamed(context, '/history');
                 }),
                 _buildDrawerItem(Icons.person_outline, lang.translate('profile'), false, () {
                   Navigator.pop(context);
@@ -878,6 +1129,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pop(context);
                   _showSettingsSheet(context, lang);
                 }),
+                const Divider(indent: 20, endIndent: 20, height: 40),
               ],
             ),
           ),
@@ -890,19 +1142,22 @@ class _PatientInterfaceState extends State<PatientInterface> {
   Widget _buildDrawerHeader(ThemeData theme, LanguageService lang) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 60, bottom: 30, left: 24, right: 24),
+      padding: const EdgeInsets.only(top: 40, bottom: 30, left: 24, right: 24),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF42A5F5), Color(0xFF2196F3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFF3498DB),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
@@ -910,29 +1165,30 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.favorite, color: Colors.blue, size: 32),
+                child: const Icon(Icons.favorite, color: Color(0xFF3498DB), size: 36),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'MediCare',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    _userData?['name']?.toString() ?? 'John Doe',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'MediCare',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            _userData?['name']?.toString() ?? 'John Doe',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 16,
-            ),
           ),
         ],
       ),
@@ -953,6 +1209,64 @@ class _PatientInterfaceState extends State<PatientInterface> {
           fontSize: 16,
           fontWeight: selected ? FontWeight.bold : FontWeight.w500,
         ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+    );
+  }
+
+  // Item de drawer avec badge
+  Widget _buildDrawerItemWithBadge(IconData icon, String title, bool selected, int badgeCount, VoidCallback onTap) {
+    return ListTile(
+      leading: Stack(
+        children: [
+          Icon(icon, color: selected ? Colors.blue : Colors.grey.shade600, size: 24),
+          if (badgeCount > 0)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 12,
+                  minHeight: 12,
+                ),
+              ),
+            ),
+        ],
+      ),
+      title: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: selected ? Colors.blue : const Color(0xFF1A237E),
+              fontSize: 16,
+              fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+          if (badgeCount > 0)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badgeCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
       ),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),

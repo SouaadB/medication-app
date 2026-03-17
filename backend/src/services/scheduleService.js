@@ -7,11 +7,11 @@ class ScheduleService {
             const query = `
                 SELECT 
                     ms.id,
-                    DATE_FORMAT(ms.scheduled_date_time, '%h:%i %p') as time,
+                    DATE_FORMAT(ms.scheduled_date_time, '%H:%i') as time,
                     ms.scheduled_date_time as full_datetime,
                     ms.status,
                     ms.taken_time,
-                    TIME_FORMAT(ms.taken_time, '%h:%i %p') as taken_time_formatted,
+                    TIME_FORMAT(ms.taken_time, '%H:%i') as taken_time_formatted,
                     t.medication_name,
                     t.dosage,
                     c.name as condition_name,

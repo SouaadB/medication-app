@@ -1,6 +1,7 @@
 const Treatment = require('../models/Treatment');
 const OCRService = require('../services/ocrService');
 const SchedulerService = require('../services/schedulerService');
+const ScheduleService = require('../services/scheduleService');
 
 // OCR Extraction
 exports.processPrescriptionOCR = async (req, res) => {
@@ -17,7 +18,7 @@ exports.processPrescriptionOCR = async (req, res) => {
             success: true,
             count: medications.length,
             medications: medications,
-            rawText: rawText // Optional: send raw text for debugging
+            rawText: rawText
         });
     } catch (error) {
         console.error('OCR Error:', error);
@@ -31,10 +32,8 @@ exports.createTreatment = async (req, res) => {
         const patientId = req.user.id;
         let { condition_id, medication_name, dosage, frequency, start_date, end_date } = req.body;
 
-        // Log received data for debugging
         console.log('Received treatment data:', req.body);
 
-        // Validate required fields
         if (!medication_name || !start_date || !frequency) {
             return res.status(400).json({
                 success: false,
@@ -42,12 +41,10 @@ exports.createTreatment = async (req, res) => {
             });
         }
 
-        // Handle condition_id - if it's undefined or null, set to null for database
         if (condition_id === undefined || condition_id === null) {
             condition_id = null;
         }
 
-        // Ensure all values are defined (not undefined)
         const treatmentData = {
             patient_id: patientId,
             condition_id: condition_id,
@@ -62,7 +59,6 @@ exports.createTreatment = async (req, res) => {
 
         const treatmentId = await Treatment.create(treatmentData);
 
-        // Automatically generate schedule
         if (frequency !== 'As needed') {
             await SchedulerService.generateSchedule(patientId, treatmentId, frequency, start_date, end_date);
         }
@@ -119,6 +115,51 @@ exports.getNextDose = async (req, res) => {
     }
 };
 
+// NOUVEAU - Get Next Medication for Dashboard (format compatible avec le frontend)
+exports.getNextMedication = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+        
+        const query = `
+            SELECT 
+                ms.id,
+                ms.scheduled_date_time,
+                DATE_FORMAT(ms.scheduled_date_time, '%H:%i') as time,
+                t.medication_name as name,
+                t.dosage,
+                c.name as condition
+            FROM medication_schedules ms
+            JOIN treatments t ON ms.treatment_id = t.id
+            LEFT JOIN chronic_conditions c ON t.condition_id = c.id
+            WHERE ms.patient_id = ? 
+            AND ms.scheduled_date_time > NOW()
+            AND ms.status = 'SCHEDULED'
+            ORDER BY ms.scheduled_date_time ASC
+            LIMIT 1
+        `;
+        
+        const [rows] = await db.execute(query, [patientId]);
+        
+        if (rows.length > 0) {
+            res.json({ 
+                success: true, 
+                medication: rows[0] 
+            });
+        } else {
+            res.json({ 
+                success: true, 
+                medication: null 
+            });
+        }
+    } catch (error) {
+        console.error('Error in getNextMedication:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching next medication' 
+        });
+    }
+};
+
 // Delete Treatment
 exports.deleteTreatment = async (req, res) => {
     try {
@@ -129,5 +170,77 @@ exports.deleteTreatment = async (req, res) => {
     } catch (error) {
         console.error('Delete Treatment Error:', error);
         res.status(500).json({ success: false, message: 'Error deleting treatment' });
+    }
+};
+
+// Récupérer le planning pour une date spécifique
+exports.getScheduleByDate = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+        const { date } = req.query;
+        
+        if (!date) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Date parameter is required' 
+            });
+        }
+
+        console.log(`📅 Fetching schedule for patient ${patientId} on date ${date}`);
+        
+        const schedule = await ScheduleService.getScheduleByDate(patientId, date);
+        
+        res.json({
+            success: true,
+            medications: schedule.medications,
+            stats: {
+                total: schedule.total,
+                completed: schedule.completed,
+                pending: schedule.pending,
+                missed: schedule.missed
+            }
+        });
+    } catch (error) {
+        console.error('Error in getScheduleByDate:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur lors du chargement du planning' 
+        });
+    }
+};
+
+// Récupérer le planning du jour
+exports.getTodaySchedule = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+        const today = new Date().toISOString().split('T')[0];
+        
+        console.log(`📅 Fetching today's schedule for patient ${patientId}`);
+        
+        const schedule = await ScheduleService.getScheduleByDate(patientId, today);
+        
+        res.json({
+            success: true,
+            medications: schedule.medications,
+            stats: {
+                total: schedule.total,
+                completed: schedule.completed,
+                pending: schedule.pending,
+                missed: schedule.missed
+            },
+            date: today,
+            dayName: new Date().toLocaleDateString('fr-FR', { weekday: 'long' }),
+            formattedDate: new Date().toLocaleDateString('fr-FR', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            })
+        });
+    } catch (error) {
+        console.error('Error in getTodaySchedule:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur lors du chargement du planning' 
+        });
     }
 };

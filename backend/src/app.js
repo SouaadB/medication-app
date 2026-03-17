@@ -4,8 +4,11 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const treatmentRoutes = require('./routes/treatmentRoutes');
-const healthReviewRoutes = require('./routes/healthReviewRoutes'); // ADD THIS
-const conditionsRoutes = require('./routes/conditionsRoutes'); // ADD THIS
+const healthReviewRoutes = require('./routes/healthReviewRoutes');
+const conditionsRoutes = require('./routes/conditionsRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes'); // NOUVEAU
+const notificationRoutes = require('./routes/notificationRoutes'); // NOUVEAU
+const historyRoutes = require('./routes/historyRoutes');
 
 const app = express();
 
@@ -17,8 +20,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/treatments', treatmentRoutes);
-app.use('/api/health-review', healthReviewRoutes); // ADD THIS
-app.use('/api/conditions', conditionsRoutes); // ADD THIS
+app.use('/api/health-review', healthReviewRoutes);
+app.use('/api/conditions', conditionsRoutes);
+app.use('/api/schedule', scheduleRoutes); // NOUVEAU
+app.use('/api/notifications', notificationRoutes); // NOUVEAU
+app.use('/api/history', historyRoutes);
 
 app.get('/', (req, res) => {
     res.json({ 
@@ -29,7 +35,9 @@ app.get('/', (req, res) => {
             admin: ['/api/admin/patients', '/api/admin/statistics'],
             healthReview: ['/api/health-review/dashboard', '/api/health-review/emergency-contact'],
             conditions: ['/api/conditions', '/api/conditions/available', '/api/conditions/add', '/api/conditions/remove/:id'],
-            treatments: ['/api/treatments', '/api/treatments/condition/:conditionId/add']
+            treatments: ['/api/treatments', '/api/treatments/condition/:conditionId/add'],
+            schedule: ['/api/schedule/today', '/api/schedule/date/:date', '/api/schedule/stats', '/api/schedule/take/:scheduleId'], // NOUVEAU
+            notifications: ['/api/notifications', '/api/notifications/unread', '/api/notifications/read/:id', '/api/notifications/read-all'] // NOUVEAU
         }
     });
 });

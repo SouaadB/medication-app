@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const ScheduleService = require('./scheduleService');
 
 class NotificationService {
     // Récupérer toutes les notifications
@@ -8,15 +9,14 @@ class NotificationService {
                 SELECT * FROM notifications 
                 WHERE patient_id = ? 
                 ORDER BY created_at DESC
-                LIMIT ?
             `;
-            const [rows] = await db.execute(query, [patientId, limit]);
+            const [rows] = await db.execute(query, [patientId]);
             
-            // Compter les non lues
+            const limitedRows = rows.slice(0, limit);
             const unreadCount = rows.filter(n => !n.is_read).length;
             
             return {
-                notifications: rows,
+                notifications: limitedRows,
                 unreadCount
             };
         } catch (error) {
@@ -87,16 +87,19 @@ class NotificationService {
         }
     }
 
-    // Générer des notifications de rappel (à exécuter régulièrement)
+    // Générer des notifications de rappel 30 minutes avant chaque dose
     static async generateReminders() {
         try {
+            console.log('🔍 Checking for upcoming doses in next 30 minutes...');
+            
             const query = `
                 SELECT 
                     ms.id as schedule_id,
                     ms.patient_id,
                     ms.scheduled_date_time,
                     t.medication_name,
-                    t.dosage
+                    t.dosage,
+                    t.id as treatment_id
                 FROM medication_schedules ms
                 JOIN treatments t ON ms.treatment_id = t.id
                 WHERE ms.status = 'SCHEDULED'
@@ -112,14 +115,28 @@ class NotificationService {
             
             const [reminders] = await db.execute(query);
             
-            for (const reminder of reminders) {
-                await this.createNotification(
-                    reminder.patient_id,
-                    'reminder',
-                    '💊 Rappel de médicament',
-                    `Il est temps de prendre ${reminder.medication_name} ${reminder.dosage || ''}`,
-                    { schedule_id: reminder.schedule_id }
-                );
+            if (reminders.length > 0) {
+                console.log(`📋 Found ${reminders.length} upcoming doses`);
+                
+                for (const reminder of reminders) {
+                    const scheduledTime = new Date(reminder.scheduled_date_time);
+                    const hours = scheduledTime.getHours().toString().padStart(2, '0');
+                    const minutes = scheduledTime.getMinutes().toString().padStart(2, '0');
+                    
+                    await this.createNotification(
+                        reminder.patient_id,
+                        'reminder',
+                        '💊 Rappel de médicament',
+                        `Il est temps de prendre ${reminder.medication_name} ${reminder.dosage || ''} (${hours}:${minutes})`,
+                        { 
+                            schedule_id: reminder.schedule_id,
+                            treatment_id: reminder.treatment_id,
+                            scheduled_time: reminder.scheduled_date_time
+                        }
+                    );
+                    
+                    console.log(`✅ Reminder created for patient ${reminder.patient_id} at ${hours}:${minutes}`);
+                }
             }
             
             return reminders.length;
@@ -129,19 +146,21 @@ class NotificationService {
         }
     }
 
-    // Marquer les doses manquées et créer des notifications
+    // Marquer les doses manquées
     static async markMissedDoses() {
         try {
-            // D'abord, marquer les doses comme manquées
+            // Marquer les doses comme manquées si elles datent de plus de 1 heure
             const [missedResult] = await db.execute(
                 `UPDATE medication_schedules 
                  SET status = 'MISSED' 
                  WHERE status = 'SCHEDULED' 
-                 AND scheduled_date_time < DATE_SUB(NOW(), INTERVAL 12 HOUR)`
+                 AND scheduled_date_time < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
             );
             
-            // Ensuite, créer des notifications pour les doses manquées récentes
             if (missedResult.affectedRows > 0) {
+                console.log(`⏰ ${missedResult.affectedRows} doses marked as missed`);
+                
+                // Créer des notifications pour les doses manquées récentes
                 const query = `
                     SELECT 
                         ms.id as schedule_id,
@@ -194,40 +213,38 @@ class NotificationService {
             
             const notifications = [];
             
-            // Notification pour 7 jours de suite
-            if (streak === 7) {
+            if (streak >= 7) {
                 const exists = await this._notificationExists(patientId, 'achievement', 'streak_7');
                 if (!exists) {
-                    const id = await this.createNotification(
+                    await this.createNotification(
                         patientId,
                         'achievement',
                         '🏃‍♀️ 7 jours de suite !',
                         'Vous avez pris tous vos médicaments à l\'heure pendant 7 jours',
                         { streak: 7 }
                     );
-                    notifications.push(id);
+                    notifications.push('streak_7');
                 }
             }
             
-            // Notification pour bonne observance
-            if (stats.adherenceRate >= 90) {
+            if (stats && stats.adherenceRate >= 90) {
                 const exists = await this._notificationExists(patientId, 'achievement', 'adherence_90');
                 if (!exists) {
-                    const id = await this.createNotification(
+                    await this.createNotification(
                         patientId,
                         'achievement',
                         '🌟 Excellente observance !',
                         `Vous avez ${stats.adherenceRate}% d'observance cette semaine`,
                         { adherence: stats.adherenceRate }
                     );
-                    notifications.push(id);
+                    notifications.push('adherence_90');
                 }
             }
             
             return notifications.length;
         } catch (error) {
             console.error('Error in checkProgress:', error);
-            throw error;
+            return 0;
         }
     }
 
