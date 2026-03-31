@@ -2,6 +2,7 @@ const Treatment = require('../models/Treatment');
 const OCRService = require('../services/ocrService');
 const SchedulerService = require('../services/schedulerService');
 const ScheduleService = require('../services/scheduleService');
+const db = require('../config/database');
 
 // OCR Extraction
 exports.processPrescriptionOCR = async (req, res) => {
@@ -127,7 +128,7 @@ exports.getNextMedication = async (req, res) => {
                 DATE_FORMAT(ms.scheduled_date_time, '%H:%i') as time,
                 t.medication_name as name,
                 t.dosage,
-                c.name as condition
+                c.name as condition_name
             FROM medication_schedules ms
             JOIN treatments t ON ms.treatment_id = t.id
             LEFT JOIN chronic_conditions c ON t.condition_id = c.id

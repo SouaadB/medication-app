@@ -24,7 +24,7 @@ class ReviewParsedMedicationsPage extends StatefulWidget {
 }
 
 class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPage> {
-  final List<String> _frequencies = const [
+  final List<String> _frequenciesEn = const [
     'Once daily',
     'Twice daily',
     'Three times daily',
@@ -35,37 +35,69 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
     'As needed'
   ];
 
+  final List<String> _frequenciesFr = const [
+    'Une fois par jour',
+    'Deux fois par jour',
+    'Trois fois par jour',
+    'Quatre fois par jour',
+    'Toutes les 12 heures',
+    'Toutes les 8 heures',
+    'Toutes les 6 heures',
+    'Au besoin'
+  ];
+
+  final Map<String, String> _frToEnFrequency = {
+    'Une fois par jour': 'Once daily',
+    'Deux fois par jour': 'Twice daily',
+    'Trois fois par jour': 'Three times daily',
+    'Quatre fois par jour': 'Four times daily',
+    'Toutes les 12 heures': 'Every 12 hours',
+    'Toutes les 8 heures': 'Every 8 hours',
+    'Toutes les 6 heures': 'Every 6 hours',
+    'Au besoin': 'As needed',
+  };
+
+  final Map<String, String> _enToFrFrequency = {
+    'Once daily': 'Une fois par jour',
+    'Twice daily': 'Deux fois par jour',
+    'Three times daily': 'Trois fois par jour',
+    'Four times daily': 'Quatre fois par jour',
+    'Every 12 hours': 'Toutes les 12 heures',
+    'Every 8 hours': 'Toutes les 8 heures',
+    'Every 6 hours': 'Toutes les 6 heures',
+    'As needed': 'Au besoin',
+  };
+
   late List<_EditableMedication> _items;
   DateTime _startDate = DateTime.now();
   bool _isSubmitting = false;
   bool _isConditionPreSelected = false;
   
-  // For condition selection
   List<Map<String, dynamic>> _patientConditions = [];
   bool _loadingConditions = false;
-  Map<int, int?> _selectedConditionIds = {}; // Map medication index to condition_id
+  Map<int, int?> _selectedConditionIds = {};
 
   @override
   void initState() {
     super.initState();
     
-    // Check if condition is pre-selected
     _isConditionPreSelected = widget.conditionId != null;
     
     _items = widget.medications.map((m) {
       final freq = m['frequency'];
-      final safeFreq = _frequencies.contains(freq) ? freq : 'Once daily';
+      final safeFreq = _frequenciesEn.contains(freq) ? freq : 'Once daily';
+      final durationDays = m['duration_days'] is int ? m['duration_days'] as int : null;
+      
       return _EditableMedication(
         name: m['name']?.toString() ?? '',
         dosage: m['dosage']?.toString() ?? '',
         frequency: safeFreq,
-        durationDays: m['duration_days'] is int ? m['duration_days'] as int : null,
+        durationDays: durationDays,
       );
     }).toList();
     
-    // Initialize condition IDs
     for (int i = 0; i < _items.length; i++) {
-      _selectedConditionIds[i] = widget.conditionId; // Auto-select if provided
+      _selectedConditionIds[i] = widget.conditionId;
     }
     
     _loadPatientConditions();
@@ -83,6 +115,27 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
       print('Error loading conditions: $e');
       setState(() => _loadingConditions = false);
     }
+  }
+
+  // Obtenir la liste des fréquences selon la langue
+  List<String> _getCurrentFrequencies(LanguageService lang) {
+    return lang.getCurrentLanguage() == 'fr' ? _frequenciesFr : _frequenciesEn;
+  }
+
+  // Obtenir la valeur affichée pour le dropdown
+  String _getDisplayFrequency(String backendFreq, LanguageService lang) {
+    if (lang.getCurrentLanguage() == 'fr') {
+      return _enToFrFrequency[backendFreq] ?? backendFreq;
+    }
+    return backendFreq;
+  }
+
+  // Convertir la valeur affichée en valeur backend
+  String _getBackendFrequency(String displayedFreq, LanguageService lang) {
+    if (lang.getCurrentLanguage() == 'fr') {
+      return _frToEnFrequency[displayedFreq] ?? 'Once daily';
+    }
+    return displayedFreq;
   }
 
   Future<void> _pickStartDate() async {
@@ -108,7 +161,6 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
 
   void _showConditionSelector(int index) {
     if (_isConditionPreSelected) {
-      // Show message that condition is locked
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Condition is locked to ${widget.conditionName}'),
@@ -181,7 +233,6 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
       return;
     }
 
-    // Check if all selected medications have a condition selected
     for (int i = 0; i < _items.length; i++) {
       if (_items[i].include && _selectedConditionIds[i] == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -213,6 +264,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
         
         final start = _fmtDate(_startDate);
         String? end;
+        
         if (item.durationDays != null && item.durationDays! > 0) {
           final e = _startDate.add(Duration(days: item.durationDays! - 1));
           end = _fmtDate(e);
@@ -221,7 +273,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
         final body = {
           'medication_name': item.nameController.text.trim(),
           'dosage': item.dosageController.text.trim().isEmpty ? null : item.dosageController.text.trim(),
-          'frequency': item.frequency,
+          'frequency': _getBackendFrequency(item.frequency, languageService),
           'start_date': start,
           'end_date': end,
           'condition_id': _selectedConditionIds[i],
@@ -281,6 +333,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
   @override
   Widget build(BuildContext context) {
     final languageService = Provider.of<LanguageService>(context);
+    final currentFrequencies = _getCurrentFrequencies(languageService);
     
     return Scaffold(
       backgroundColor: Colors.white,
@@ -352,6 +405,9 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                   orElse: () => {'name': widget.conditionName ?? 'No condition selected'},
                 );
                 
+                // Convertir la fréquence pour l'affichage
+                final displayFrequency = _getDisplayFrequency(item.frequency, languageService);
+                
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
@@ -408,21 +464,75 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: item.frequency,
-                        items: _frequencies
+                        value: displayFrequency,
+                        items: currentFrequencies
                             .map((f) => DropdownMenuItem<String>(
                                   value: f,
                                   child: Text(f),
                                 ))
                             .toList(),
-                        onChanged: (v) => setState(() => item.frequency = v ?? 'Once daily'),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() {
+                              // Stocker la valeur backend
+                              item.frequency = _getBackendFrequency(v, languageService);
+                            });
+                          }
+                        },
                         decoration: InputDecoration(
                           labelText: languageService.translate('frequency'),
                           border: const OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Condition selector
+                      TextField(
+                        controller: item.durationController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Durée (en jours)',
+                          hintText: 'Optionnel - ex: 7, 30, 90',
+                          prefixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
+                          border: const OutlineInputBorder(),
+                          helperText: 'Laissez vide pour une durée illimitée',
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty) {
+                            final days = int.tryParse(value);
+                            if (days != null && days > 0) {
+                              setState(() {
+                                item.durationDays = days;
+                              });
+                            } else {
+                              setState(() {
+                                item.durationDays = null;
+                              });
+                            }
+                          } else {
+                            setState(() {
+                              item.durationDays = null;
+                            });
+                          }
+                        },
+                      ),
+                      if (item.durationDays != null && item.durationDays! > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.date_range, size: 16, color: Colors.green),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Fin prévue: ${_fmtDate(_startDate.add(Duration(days: item.durationDays! - 1)))}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       Container(
                         decoration: BoxDecoration(
                           border: Border.all(
@@ -516,9 +626,10 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
 class _EditableMedication {
   final TextEditingController nameController;
   final TextEditingController dosageController;
+  final TextEditingController durationController;
   String frequency;
   bool include;
-  final int? durationDays;
+  int? durationDays;
 
   _EditableMedication({
     required String name,
@@ -527,5 +638,6 @@ class _EditableMedication {
     required this.durationDays,
   })  : nameController = TextEditingController(text: name),
         dosageController = TextEditingController(text: dosage),
+        durationController = TextEditingController(text: durationDays != null ? durationDays.toString() : ''),
         include = true;
 }

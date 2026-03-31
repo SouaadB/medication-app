@@ -35,13 +35,13 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
     return '$y-$m-$day';
   }
 
-  String _fmtDisplay(DateTime d) {
+  String _fmtDisplay(DateTime d, LanguageService lang) {
     final today = DateTime.now();
     final t0 = DateTime(today.year, today.month, today.day);
     final d0 = DateTime(d.year, d.month, d.day);
     final diff = d0.difference(t0).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Tomorrow';
+    if (diff == 0) return lang.translate('today');
+    if (diff == 1) return lang.translate('tomorrow');
     return '${_weekdayName(d.weekday)}, ${_monthName(d.month)} ${d.day}, ${d.year}';
   }
 
@@ -85,12 +85,6 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
         final data = jsonDecode(resp.body);
         final meds = List<Map<String, dynamic>>.from(data['medications'] ?? []);
         
-        // Debug: Afficher les données reçues
-        print('📊 Données reçues pour le $ymd:');
-        meds.forEach((med) {
-          print('   - ${med['time']} | ${med['medication_name']} | ${med['status']}');
-        });
-        
         setState(() {
           _rows = meds;
           _total = data['stats']?['total'] ?? meds.length;
@@ -102,7 +96,7 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
       } else {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load schedule')),
+          SnackBar(content: Text('Failed to load schedule')),
         );
       }
     } catch (e) {
@@ -159,9 +153,9 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
           children: [
             const Icon(Icons.calendar_month, color: Colors.blue),
             const SizedBox(width: 8),
-            const Text(
-              'My Planning',
-              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+            Text(
+              lang.translate('myPlanning'),
+              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -173,8 +167,8 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Your daily medication schedule',
+                  Text(
+                    lang.translate('dailySchedule'),
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
@@ -187,7 +181,7 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
                         onPressed: _canGoPrev ? _goPrev : null,
                       ),
                       Text(
-                        _fmtDisplay(_selectedDate),
+                        _fmtDisplay(_selectedDate, lang),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
@@ -200,11 +194,11 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _statCard('Total', _total, Colors.blue),
+                      _statCard(lang.translate('total'), _total, Colors.blue, lang),
                       const SizedBox(width: 12),
-                      _statCard('Completed', _completed, Colors.green),
+                      _statCard(lang.translate('taken'), _completed, Colors.green, lang),
                       const SizedBox(width: 12),
-                      _statCard('Pending', _pending, Colors.blue),
+                      _statCard(lang.translate('pending'), _pending, Colors.orange, lang),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -235,34 +229,34 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
                             ),
                           ),
                           child: Row(
-                            children: const [
-                              Expanded(child: Text('Time', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                              Expanded(child: Text('Medication', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                              Expanded(child: Text('Condition', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                              SizedBox(width: 60, child: Text('Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                            children: [
+                              Expanded(child: Text(lang.translate('time'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                              Expanded(child: Text(lang.translate('medication'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                              Expanded(child: Text(lang.translate('condition'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                              SizedBox(width: 60, child: Text(lang.translate('status'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                             ],
                           ),
                         ),
-                        ..._rows.map((row) => _buildRow(row)).toList(),
+                        ..._rows.map((row) => _buildRow(row, lang)).toList(),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _legend(),
+                  _legend(lang),
                   const SizedBox(height: 16),
-                  _infoBanner(),
+                  _infoBanner(lang),
                 ],
               ),
             ),
     );
   }
 
-  Widget _statCard(String title, int value, Color color) {
+  Widget _statCard(String title, int value, Color color, LanguageService lang) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: title == 'Completed' ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -279,11 +273,9 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
     );
   }
 
-  Widget _buildRow(Map<String, dynamic> row) {
+  Widget _buildRow(Map<String, dynamic> row, LanguageService lang) {
     try {
-      // CORRECTION: Utiliser le champ 'time' directement de la réponse
       final timeStr = row['time'] ?? '--:--';
-      
       final name = row['medication_name']?.toString() ?? 'Unknown';
       final dosage = row['dosage']?.toString() ?? '';
       final condition = row['condition_name']?.toString() ?? 'No condition';
@@ -292,15 +284,19 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
 
       Color bg;
       Icon statusIcon;
+      String statusText;
       if (status == 'TAKEN') {
         bg = Colors.green.withOpacity(0.12);
         statusIcon = const Icon(Icons.check, color: Colors.green);
+        statusText = lang.translate('taken');
       } else if (status == 'MISSED') {
         bg = Colors.red.withOpacity(0.12);
         statusIcon = const Icon(Icons.close, color: Colors.red);
+        statusText = lang.translate('missed');
       } else {
         bg = Colors.white;
         statusIcon = Icon(Icons.access_time, color: Colors.grey.shade600);
+        statusText = lang.translate('pending');
       }
 
       return Container(
@@ -372,7 +368,20 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
               width: 60,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: statusIcon,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    statusIcon,
+                    const SizedBox(height: 2),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: status == 'TAKEN' ? Colors.green : (status == 'MISSED' ? Colors.red : Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -384,17 +393,17 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
     }
   }
 
-  Widget _legend() {
+  Widget _legend(LanguageService lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Legend', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(lang.translate('legend'), style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
-          children: const [
-            Icon(Icons.check, color: Colors.green, size: 18),
-            SizedBox(width: 6),
-            Text('Completed - Medication taken'),
+          children: [
+            const Icon(Icons.check, color: Colors.green, size: 18),
+            const SizedBox(width: 6),
+            Text(lang.translate('completedLegend')),
           ],
         ),
         const SizedBox(height: 6),
@@ -402,7 +411,7 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
           children: [
             Icon(Icons.access_time, color: Colors.grey.shade600, size: 18),
             const SizedBox(width: 6),
-            const Text('Pending - Not yet taken'),
+            Text(lang.translate('pendingLegend')),
           ],
         ),
         const SizedBox(height: 6),
@@ -417,7 +426,7 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
     );
   }
 
-  Widget _infoBanner() {
+  Widget _infoBanner(LanguageService lang) {
     final today = DateTime.now();
     final t0 = DateTime(today.year, today.month, today.day);
     final d0 = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
@@ -438,8 +447,8 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
           Expanded(
             child: Text(
               isToday
-                  ? "This is today's schedule. Use the arrows to view future days."
-                  : 'This is a future schedule. Medications will be marked as you take them.',
+                  ? lang.translate('todayScheduleInfo')
+                  : lang.translate('futureScheduleInfo'),
               style: TextStyle(color: isToday ? Colors.blue : Colors.purple),
             ),
           ),
