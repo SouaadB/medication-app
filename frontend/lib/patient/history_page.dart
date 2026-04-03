@@ -76,20 +76,37 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  String _formatDate(String dateStr) {
-    final date = DateTime.parse(dateStr);
+  String _formatDate(dynamic dateValue, LanguageService lang) {
+    DateTime date;
+    
+    // Gérer différents types de données
+    if (dateValue is DateTime) {
+      date = dateValue;
+    } else if (dateValue is String) {
+      try {
+        date = DateTime.parse(dateValue);
+      } catch (e) {
+        try {
+          date = DateTime.parse(dateValue.split('T')[0]);
+        } catch (e2) {
+          print('Erreur de parsing de la date: $dateValue');
+          return dateValue.toString();
+        }
+      }
+    } else {
+      return dateValue.toString();
+    }
+    
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
     
-    if (date.year == today.year && 
-        date.month == today.month && 
-        date.day == today.day) {
-      return "Today";
-    } else if (date.year == yesterday.year && 
-               date.month == yesterday.month && 
-               date.day == yesterday.day) {
-      return "Yesterday";
+    final dateNormalized = DateTime(date.year, date.month, date.day);
+    
+    if (dateNormalized == today) {
+      return lang.translate('today');
+    } else if (dateNormalized == yesterday) {
+      return lang.translate('yesterday');
     } else {
       return "${_getMonthName(date.month)} ${date.day}, ${date.year}";
     }
@@ -125,11 +142,38 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  // CORRECTION : Extraire l'heure directement sans parser avec DateTime
   String _formatTime(String dateStr) {
-    final date = DateTime.parse(dateStr);
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    if (dateStr.isEmpty) return '--:--';
+    
+    try {
+      // Le format attendu est "YYYY-MM-DD HH:MM:SS"
+      if (dateStr.contains(' ')) {
+        final timePart = dateStr.split(' ')[1];
+        final parts = timePart.split(':');
+        if (parts.length >= 2) {
+          return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+        }
+      }
+      
+      // Si c'est au format ISO "YYYY-MM-DDTHH:MM:SS"
+      if (dateStr.contains('T')) {
+        final timePart = dateStr.split('T')[1];
+        final parts = timePart.split(':');
+        if (parts.length >= 2) {
+          return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+        }
+      }
+      
+      // Fallback: utiliser DateTime.parse
+      final date = DateTime.parse(dateStr);
+      final hour = date.hour.toString().padLeft(2, '0');
+      final minute = date.minute.toString().padLeft(2, '0');
+      return '$hour:$minute';
+    } catch (e) {
+      print('Erreur formatage heure: $dateStr -> $e');
+      return '--:--';
+    }
   }
 
   @override
@@ -142,8 +186,8 @@ class _HistoryPageState extends State<HistoryPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black54), // ← Flèche de retour
-          onPressed: () => Navigator.pop(context), // ← Retour à la page précédente
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () => Navigator.pop(context),
         ),
         actions: [
           Container(
@@ -206,17 +250,17 @@ class _HistoryPageState extends State<HistoryPage> {
                           children: [
                             _buildStatItem(
                               '${_stats!['adherence_rate'] ?? 0}%',
-                              'Observance',
+                              lang.translate('adherenceRate'),
                               Colors.blue,
                             ),
                             _buildStatItem(
                               '${_stats!['taken_doses'] ?? 0}',
-                              'Pris',
+                              lang.translate('taken'),
                               Colors.green,
                             ),
                             _buildStatItem(
                               '${_stats!['missed_doses'] ?? 0}',
-                              'Manqués',
+                              lang.translate('missed'),
                               Colors.red,
                             ),
                           ],
@@ -238,7 +282,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Aucun historique disponible',
+                              lang.translate('noHistory'),
                               style: TextStyle(
                                 fontSize: 18,
                                 color: Colors.grey.shade600,
@@ -249,7 +293,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       )
                     else
                       ..._history.map((day) {
-                        final date = _formatDate(day['date']);
+                        final date = _formatDate(day['date'], lang);
                         final medications = day['medications'] as List;
                         
                         return _buildHistorySection(

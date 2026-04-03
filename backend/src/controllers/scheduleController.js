@@ -5,16 +5,20 @@ const NotificationService = require('../services/notificationService');
 exports.getTodaySchedule = async (req, res) => {
     try {
         const patientId = req.user.id;
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
         
-        const schedule = await ScheduleService.getScheduleByDate(patientId, today);
+        const schedule = await ScheduleService.getScheduleByDate(patientId, todayStr);
         
         res.json({
             success: true,
             data: {
                 ...schedule,
-                dayName: new Date().toLocaleDateString('fr-FR', { weekday: 'long' }),
-                formattedDate: new Date().toLocaleDateString('fr-FR', { 
+                dayName: today.toLocaleDateString('fr-FR', { weekday: 'long' }),
+                formattedDate: today.toLocaleDateString('fr-FR', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
@@ -33,11 +37,18 @@ exports.getScheduleByDate = async (req, res) => {
         const patientId = req.user.id;
         const { date } = req.params;
         
-        const schedule = await ScheduleService.getScheduleByDate(patientId, date);
-        
+        // S'assurer que la date est au bon format
         const targetDate = new Date(date);
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        
+        const schedule = await ScheduleService.getScheduleByDate(patientId, formattedDate);
+        
         const today = new Date();
-        const isToday = targetDate.toDateString() === today.toDateString();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const isToday = formattedDate === todayStr;
         const isFuture = targetDate > today;
         
         res.json({

@@ -30,7 +30,6 @@ class ScheduleService {
             
             const [rows] = await db.execute(query, [patientId, date]);
             
-            // Calculer les statistiques
             const total = rows.length;
             const completed = rows.filter(r => r.status === 'TAKEN').length;
             const pending = rows.filter(r => r.status === 'SCHEDULED').length;
@@ -80,7 +79,6 @@ class ScheduleService {
         try {
             const now = new Date();
             
-            // D'abord, récupérer les infos pour la notification
             const [scheduleInfo] = await db.execute(
                 `SELECT ms.patient_id, t.medication_name, t.dosage, ms.scheduled_date_time
                  FROM medication_schedules ms
@@ -93,7 +91,6 @@ class ScheduleService {
                 return false;
             }
             
-            // Mettre à jour le statut
             const [result] = await db.execute(
                 `UPDATE medication_schedules 
                  SET status = 'TAKEN', taken_time = ? 
@@ -102,12 +99,10 @@ class ScheduleService {
             );
             
             if (result.affectedRows > 0) {
-                // Vérifier si c'était en retard
                 const scheduledTime = new Date(scheduleInfo[0].scheduled_date_time);
                 const minutesLate = Math.round((now - scheduledTime) / (1000 * 60));
                 
                 if (minutesLate > 30) {
-                    // Créer une notification pour dose en retard
                     await db.execute(
                         `INSERT INTO notifications 
                          (patient_id, type, title, message, data, scheduled_time)

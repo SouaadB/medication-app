@@ -6,46 +6,54 @@ class HistoryService {
         try {
             const query = `
                 SELECT 
-                    DATE(ms.scheduled_date_time) as date,
-                    JSON_ARRAYAGG(
-                        JSON_OBJECT(
-                            'id', ms.id,
-                            'time', DATE_FORMAT(ms.scheduled_date_time, '%h:%i %p'),
-                            'full_datetime', ms.scheduled_date_time,
-                            'medication_name', t.medication_name,
-                            'dosage', t.dosage,
-                            'condition_name', c.name,
-                            'status', ms.status,
-                            'taken_time', ms.taken_time
-                        )
-                    ) as medications
+                    DATE_FORMAT(ms.scheduled_date_time, '%Y-%m-%d') as date,
+                    ms.id,
+                    DATE_FORMAT(ms.scheduled_date_time, '%H:%i') as time,
+                    DATE_FORMAT(ms.scheduled_date_time, '%Y-%m-%d %H:%i:%s') as full_datetime,
+                    ms.status,
+                    ms.taken_time,
+                    t.medication_name,
+                    t.dosage,
+                    c.name as condition_name
                 FROM medication_schedules ms
                 JOIN treatments t ON ms.treatment_id = t.id
                 LEFT JOIN chronic_conditions c ON t.condition_id = c.id
                 WHERE ms.patient_id = ? 
-                AND ms.scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                GROUP BY DATE(ms.scheduled_date_time)
-                ORDER BY date DESC
+                AND DATE(ms.scheduled_date_time) <= CURDATE()
+                AND DATE(ms.scheduled_date_time) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                ORDER BY date DESC, ms.scheduled_date_time ASC
             `;
             
             const [rows] = await db.execute(query, [patientId, days]);
             
-            // CORRECTION: Vérifier si medications est déjà un objet ou une chaîne
-            const history = rows.map(row => {
-                let medications = row.medications;
-                // Si c'est une chaîne JSON, la parser
-                if (typeof medications === 'string') {
-                    try {
-                        medications = JSON.parse(medications);
-                    } catch (e) {
-                        medications = [];
-                    }
+            // Grouper manuellement par date
+            const groupedByDate = {};
+            
+            for (const row of rows) {
+                const date = row.date;
+                if (!groupedByDate[date]) {
+                    groupedByDate[date] = {
+                        date: date,
+                        medications: []
+                    };
                 }
-                return {
-                    date: row.date,
-                    medications: medications || []
-                };
-            });
+                
+                groupedByDate[date].medications.push({
+                    id: row.id,
+                    time: row.time,
+                    full_datetime: row.full_datetime,
+                    medication_name: row.medication_name,
+                    dosage: row.dosage,
+                    condition_name: row.condition_name,
+                    status: row.status,
+                    taken_time: row.taken_time
+                });
+            }
+            
+            // Convertir en tableau
+            const history = Object.values(groupedByDate).sort((a, b) => 
+                new Date(b.date) - new Date(a.date)
+            );
             
             return history;
         } catch (error) {
@@ -60,11 +68,11 @@ class HistoryService {
             const query = `
                 SELECT 
                     ms.id,
-                    DATE_FORMAT(ms.scheduled_date_time, '%h:%i %p') as time,
-                    ms.scheduled_date_time as full_datetime,
+                    DATE_FORMAT(ms.scheduled_date_time, '%H:%i') as time,
+                    DATE_FORMAT(ms.scheduled_date_time, '%Y-%m-%d %H:%i:%s') as full_datetime,
                     ms.status,
                     ms.taken_time,
-                    TIME_FORMAT(ms.taken_time, '%h:%i %p') as taken_time_formatted,
+                    TIME_FORMAT(ms.taken_time, '%H:%i') as taken_time_formatted,
                     t.medication_name,
                     t.dosage,
                     c.name as condition_name
@@ -109,7 +117,8 @@ class HistoryService {
                     ROUND((SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)) * 100, 1) as adherence_rate
                 FROM medication_schedules
                 WHERE patient_id = ?
-                AND scheduled_date_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                AND DATE(scheduled_date_time) <= CURDATE()
+                AND DATE(scheduled_date_time) >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
             `;
             
             const [rows] = await db.execute(query, [patientId, days]);
@@ -138,7 +147,8 @@ class HistoryService {
                     ROUND((SUM(CASE WHEN ms.status = 'TAKEN' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)) * 100, 1) as adherence_rate
                 FROM medication_schedules ms
                 WHERE ms.patient_id = ?
-                AND ms.scheduled_date_time >= DATE_SUB(NOW(), INTERVAL ? WEEK)
+                AND DATE(ms.scheduled_date_time) <= CURDATE()
+                AND DATE(ms.scheduled_date_time) >= DATE_SUB(CURDATE(), INTERVAL ? WEEK)
                 GROUP BY DAYOFWEEK(ms.scheduled_date_time), DAYNAME(ms.scheduled_date_time)
                 ORDER BY DAYOFWEEK(ms.scheduled_date_time)
             `;

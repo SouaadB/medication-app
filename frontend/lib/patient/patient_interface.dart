@@ -26,7 +26,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
   double _overallAdherence = 0.0;
   List<Map<String, dynamic>> _patientConditions = [];
   bool _loadingConditions = false;
-  Map<String, dynamic>? _nextMedication; // Changé de List à Map
+  Map<String, dynamic>? _nextMedication;
 
   @override
   void initState() {
@@ -34,7 +34,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
     _loadUserData().then((_) {
       _loadPatientConditions();
       _loadAdherenceData();
-      _loadNextMedication(); // Changé
+      _loadNextMedication();
       _loadUnreadNotificationsCount();
     });
     
@@ -89,7 +89,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
     }
   }
 
-  // NOUVELLE MÉTHODE - Charger le prochain médicament depuis le backend
   Future<void> _loadNextMedication() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -207,9 +206,9 @@ class _PatientInterfaceState extends State<PatientInterface> {
       case 'Asthma': return lang.translate('asthma');
       case 'Heart Disease': return lang.translate('heartDisease');
       case 'High Cholesterol': return lang.translate('cholesterol');
-       case 'COPD': return lang.translate('copd');
-    case 'Arthritis': return lang.translate('arthritis');
-    case 'Thyroid Disorder': return lang.translate('thyroidDisorder');
+      case 'COPD': return lang.translate('copd');
+      case 'Arthritis': return lang.translate('arthritis');
+      case 'Thyroid Disorder': return lang.translate('thyroidDisorder');
       default: return name;
     }
   }
@@ -357,7 +356,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
           ),
         ),
         actions: [
-          // NOTIFICATION ICON WITH BADGE
           Stack(
             children: [
               IconButton(
@@ -417,7 +415,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                     await _loadUserData();
                     await _loadPatientConditions();
                     await _loadAdherenceData();
-                    await _loadNextMedication(); // Changé
+                    await _loadNextMedication();
                     await _loadUnreadNotificationsCount();
                   },
                   child: SingleChildScrollView(
@@ -432,7 +430,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                         const SizedBox(height: 32),
                         _buildConditionsSection(theme, languageService),
                         const SizedBox(height: 32),
-                        _buildNextMedicationCard(theme, languageService), // Changé
+                        _buildNextMedicationCard(theme, languageService),
                         const SizedBox(height: 32),
                         _buildQuickActionsGrid(theme, languageService),
                         const SizedBox(height: 32),
@@ -831,9 +829,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
-  // MODIFIÉ - Utilise _nextMedication au lieu de _nextMedications
   Widget _buildNextMedicationCard(ThemeData theme, LanguageService lang) {
-    // S'il n'y a pas de prochain médicament, ne rien afficher
     if (_nextMedication == null) {
       return const SizedBox.shrink();
     }
@@ -934,7 +930,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
-  // MODIFIÉ - Changé "viewHistory" en "viewPlanning"
   Widget _buildQuickActionsGrid(ThemeData theme, LanguageService lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,9 +957,9 @@ class _PatientInterfaceState extends State<PatientInterface> {
             Expanded(
               child: GestureDetector(
                 onTap: () {
-                  Navigator.pushNamed(context, '/planning'); // Changé de '/history' à '/planning'
+                  Navigator.pushNamed(context, '/planning');
                 },
-                child: _buildQuickActionCard('My Planning', Icons.calendar_month, const Color(0xFF3498DB)), // Changé
+                child: _buildQuickActionCard(lang.translate('myPlanning'), Icons.calendar_month, const Color(0xFF3498DB)),
               ),
             ),
           ],
@@ -1009,11 +1004,11 @@ class _PatientInterfaceState extends State<PatientInterface> {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
       onTap: (int index) {
-        if (index == 3) { // Health Overview tab
+        if (index == 3) {
           Navigator.pushNamed(context, '/healthoverview');
-        } else if (index == 1) { // Conditions tab
+        } else if (index == 1) {
           Navigator.pushNamed(context, '/conditions');
-        } else if (index == 2) { // History tab (gardé pour l'historique)
+        } else if (index == 2) {
           Navigator.pushNamed(context, '/history');
         } else {
           setState(() {
@@ -1115,7 +1110,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 
                 _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
                   Navigator.pop(context);
-                  // Placeholder for insights
                 }),
                 _buildDrawerItem(Icons.history_outlined, lang.translate('history'), false, () {
                   Navigator.pop(context);
@@ -1215,7 +1209,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
     );
   }
 
-  // Item de drawer avec badge
   Widget _buildDrawerItemWithBadge(IconData icon, String title, bool selected, int badgeCount, VoidCallback onTap) {
     return ListTile(
       leading: Stack(

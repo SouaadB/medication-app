@@ -6,7 +6,11 @@ exports.getGroupedHistory = async (req, res) => {
         const patientId = req.user.id;
         const days = req.query.days || 30;
         
+        console.log('📅 Requête historique - Patient:', patientId, 'Jours:', days);
+        
         const history = await HistoryService.getGroupedHistory(patientId, days);
+        
+        console.log('✅ Historique renvoyé - Nombre de jours:', history.length);
         
         res.json({
             success: true,
