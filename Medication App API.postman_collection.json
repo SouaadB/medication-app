@@ -1,17 +1,22 @@
 {
   "info": {
-    "_postman_id": "55b966bd-9ca1-4890-b23d-763287028872",
+    "_postman_id": "971d506b-35dc-4aa7-83bd-882493700640",
     "name": "Medication App API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "41730697",
-    "_collection_link": "https://go.postman.co/collection/41730697-55b966bd-9ca1-4890-b23d-763287028872?source=collection_link"
+    "_exporter_id": "41730697"
   },
   "item": [
     {
       "name": "01 - API Health",
       "request": {
         "method": "GET",
-        "header": []
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}",
+          "host": [
+            "{{base_url}}"
+          ]
+        }
       },
       "response": []
     },
@@ -22,15 +27,13 @@
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 201) {\r",
-              "    const response = pm.response.json();\r",
-              "    pm.environment.set(\"patient_token\", response.token);\r",
-              "    console.log(\"Token patient sauvegardé !\");\r",
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"patient_token\", response.token);",
+              "    console.log(\"Token patient sauvegardé !\");",
               "}"
             ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            "type": "text/javascript"
           }
         }
       ],
@@ -67,15 +70,13 @@
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 200) {\r",
-              "    const response = pm.response.json();\r",
-              "    pm.environment.set(\"patient_token\", response.token);\r",
-              "    console.log(\"Nouveau token patient:\", response.token);\r",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"patient_token\", response.token);",
+              "    console.log(\"Nouveau token patient:\", response.token);",
               "}"
             ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            "type": "text/javascript"
           }
         }
       ],
@@ -84,7 +85,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n    \"identifier\": \"0792411812\",\r\n    \"password\": \"Souad.11\"\r\n}\r\n",
+          "raw": "{\r\n    \"identifier\": \"souaadbb1@gmail.com\",\r\n    \"password\": \"Souad!11\"\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -106,20 +107,18 @@
       "response": []
     },
     {
-      "name": "04- Login Admin",
+      "name": "04 - Login Admin",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 200) {\r",
-              "    const response = pm.response.json();\r",
-              "    pm.environment.set(\"admin_token\", response.token);\r",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"admin_token\", response.token);",
               "}"
             ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
+            "type": "text/javascript"
           }
         }
       ],
@@ -164,12 +163,10 @@
               }
             ],
             "url": {
-              "raw": "http://localhost:5000/api/profile/conditions",
-              "protocol": "http",
+              "raw": "{{base_url}}/api/profile/conditions",
               "host": [
-                "localhost"
+                "{{base_url}}"
               ],
-              "port": "5000",
               "path": [
                 "api",
                 "profile",
@@ -205,12 +202,10 @@
               }
             },
             "url": {
-              "raw": "http://localhost:5000/api/profile/setup",
-              "protocol": "http",
+              "raw": "{{base_url}}/api/profile/setup",
               "host": [
-                "localhost"
+                "{{base_url}}"
               ],
-              "port": "5000",
               "path": [
                 "api",
                 "profile",
@@ -223,10 +218,263 @@
       ]
     },
     {
-      "name": "06 - Treatments & Medication",
+      "name": "06 - Health Review",
       "item": [
         {
-          "name": "Scan Prescription (Improved OCR)",
+          "name": "Get Health Review Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/health-review/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health-review",
+                "dashboard"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Emergency Contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Sara Benameur\",\n    \"relationship\": \"Sister\",\n    \"phone_number\": \"0552286570\",\n    \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/health-review/emergency-contact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health-review",
+                "emergency-contact"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Emergency Contact",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/health-review/emergency-contact/toggle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health-review",
+                "emergency-contact",
+                "toggle"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Emergency Contact",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/health-review/emergency-contact",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health-review",
+                "emergency-contact"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Conditions Management",
+      "item": [
+        {
+          "name": "Get My Conditions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conditions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conditions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Conditions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conditions/available",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conditions",
+                "available"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Condition",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"condition_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/conditions/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conditions",
+                "add"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Condition",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conditions/remove/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conditions",
+                "remove",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 - Treatments & Medication",
+      "item": [
+        {
+          "name": "Scan Prescription (OCR)",
           "request": {
             "method": "POST",
             "header": [
@@ -247,24 +495,21 @@
               ]
             },
             "url": {
-              "raw": "http://localhost:5000/api/treatments/ocr",
-              "protocol": "http",
+              "raw": "{{base_url}}/api/treatments/ocr",
               "host": [
-                "localhost"
+                "{{base_url}}"
               ],
-              "port": "5000",
               "path": [
                 "api",
                 "treatments",
                 "ocr"
               ]
-            },
-            "description": "Upload a prescription image. The backend will preprocess the image, extract all text, and return an array of all detected medications with dosage and frequency."
+            }
           },
           "response": []
         },
         {
-          "name": "Add Treatment (Manual/Confirm OCR)",
+          "name": "Add Treatment (Manual)",
           "request": {
             "method": "POST",
             "header": [
@@ -281,7 +526,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"condition_id\": 1,\n    \"medication_name\": \"Metformin\",\n    \"dosage\": \"500mg\",\n    \"frequency\": \"Twice daily\",\n    \"start_date\": \"2026-03-05\",\n    \"end_date\": \"2026-03-12\"\n}",
+              "raw": "{\n    \"condition_id\": 1,\n    \"medication_name\": \"Metformin\",\n    \"dosage\": \"500mg\",\n    \"frequency\": \"Twice daily\",\n    \"start_date\": \"2026-03-08\",\n    \"end_date\": \"2026-04-08\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -289,15 +534,104 @@
               }
             },
             "url": {
-              "raw": "http://localhost:5000/api/treatments",
-              "protocol": "http",
+              "raw": "{{base_url}}/api/treatments",
               "host": [
-                "localhost"
+                "{{base_url}}"
               ],
-              "port": "5000",
               "path": [
                 "api",
                 "treatments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Medication for Specific Condition",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"medication_name\": \"Lisinopril\",\n    \"dosage\": \"10mg\",\n    \"frequency\": \"Once daily\",\n    \"start_date\": \"2026-03-08\",\n    \"end_date\": \"2026-04-08\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/treatments/condition/3/add",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "treatments",
+                "condition",
+                "3",
+                "add"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Next Dose",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/treatments/next-dose",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "treatments",
+                "next-dose"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Next Medication (New for Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/treatments/next-medication",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "treatments",
+                "next-medication"
               ]
             }
           },
@@ -315,12 +649,10 @@
               }
             ],
             "url": {
-              "raw": "http://localhost:5000/api/treatments/my-treatments",
-              "protocol": "http",
+              "raw": "{{base_url}}/api/treatments/my-treatments",
               "host": [
-                "localhost"
+                "{{base_url}}"
               ],
-              "port": "5000",
               "path": [
                 "api",
                 "treatments",
@@ -333,252 +665,721 @@
       ]
     },
     {
-      "name": "07- Logout",
-      "request": {
-        "method": "GET",
-        "header": []
-      },
-      "response": []
-    },
-    {
-      "name": "08- My Informations",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{patient_token}}",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "http://localhost:5000/api/auth/me",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
-          "path": [
-            "api",
-            "auth",
-            "me"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Get Complete Profile",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{patient_token}}",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "http://localhost:5000/api/profile/me",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
-          "path": [
-            "api",
-            "profile",
-            "me"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Update profile",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{patient_token}}",
-            "type": "text"
+      "name": "09 - SCHEDULE & PLANNING (NEW)",
+      "item": [
+        {
+          "name": "Get Today's Schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/schedule/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedule",
+                "today"
+              ]
+            }
           },
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n    \r\n    \"smartphoneSkillLevel\": \"ADVANCED\"\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:5000/api/profile/update",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
-          "path": [
-            "api",
-            "profile",
-            "update"
-          ]
+        {
+          "name": "Get Schedule by Date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/schedule/date/2026-03-17",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedule",
+                "date",
+                "2026-03-17"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Schedule Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/schedule/stats?days=30",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedule",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Medication as Taken",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/schedule/take/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schedule",
+                "take",
+                "1"
+              ]
+            }
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "Change Password",
+      "name": "10 - NOTIFICATIONS (NEW)",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/unread",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/read/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/read-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 - HISTORY (NEW)",
+      "item": [
+        {
+          "name": "Get Grouped History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history/grouped?days=30",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history",
+                "grouped"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get History by Date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history/date/2026-03-17",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history",
+                "date",
+                "2026-03-17"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Adherence Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history/stats?days=30",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Weekly Trends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history/trends?weeks=4",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history",
+                "trends"
+              ],
+              "query": [
+                {
+                  "key": "weeks",
+                  "value": "4"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Most Missed Medications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/history/missed?limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "history",
+                "missed"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 - User Information",
+      "item": [
+        {
+          "name": "Get My Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Complete Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/profile/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"smartphoneSkillLevel\": \"ADVANCED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"Souad.00\",\n    \"newPassword\": \"Souad.11\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13 - Password Reset",
+      "item": [
+        {
+          "name": "Request Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"identifier\": \"S.Benameur@email.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/request-reset-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "request-reset-code"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"identifier\": \"S.Benameur@email.com\", \"code\": \"123456\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify-reset-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-reset-code"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password with Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"resetToken\": \"token_recu\", \"newPassword\": \"NouveauPass123!@#\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password-code"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 - SETTINGS & DAILY SCHEDULE (NEW)",
+      "item": [
+        {
+          "name": "Update Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"all_notifications\": true,\n    \"medication_reminders\": true,\n    \"adherence_alerts\": true,\n    \"smart_insights\": true,\n    \"sound_enabled\": true,\n    \"vibration_enabled\": true,\n    \"dark_mode\": false,\n    \"auto_refill_reminders\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Daily Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"smart_scheduling_enabled\": true,\n    \"bedtime\": \"23:00\",\n    \"wake_time\": \"07:00\",\n    \"breakfast_time\": \"08:00\",\n    \"lunch_time\": \"12:30\",\n    \"dinner_time\": \"18:30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/daily-schedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "daily-schedule"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14 - Logout",
       "request": {
-        "method": "PUT",
+        "method": "POST",
         "header": [
           {
             "key": "Authorization",
             "value": "Bearer {{patient_token}}",
             "type": "text"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
           }
         ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n    \"currentPassword\": \"Souad.00\",\r\n    \"newPassword\": \"Souad.11\"\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
         "url": {
-          "raw": "http://localhost:5000/api/profile/password",
-          "protocol": "http",
+          "raw": "{{base_url}}/api/auth/logout",
           "host": [
-            "localhost"
+            "{{base_url}}"
           ],
-          "port": "5000",
-          "path": [
-            "api",
-            "profile",
-            "password"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Request Reset Code",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\"identifier\": \"test@gmail.com\"}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://localhost:5000/api/auth/request-reset-code",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
           "path": [
             "api",
             "auth",
-            "request-reset-code"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Verify Reset Code",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\"identifier\": \"test@gmail.com\", \"code\": \"123456\"}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://localhost:5000/api/auth/verify-reset-code",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
-          "path": [
-            "api",
-            "auth",
-            "verify-reset-code"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Reset Password with Code",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\"resetToken\": \"token_recu\", \"newPassword\": \"NouveauPass123!@#\"}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "http://localhost:5000/api/auth/reset-password-code",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5000",
-          "path": [
-            "api",
-            "auth",
-            "reset-password-code"
+            "logout"
           ]
         }
       },

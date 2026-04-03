@@ -1127,7 +1127,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
                 }),
                 _buildDrawerItem(Icons.settings_outlined, lang.translate('settings'), false, () {
                   Navigator.pop(context);
-                  _showSettingsSheet(context, lang);
+                  Navigator.pushNamed(context, '/settings');
                 }),
                 const Divider(indent: 20, endIndent: 20, height: 40),
               ],
@@ -1288,31 +1288,6 @@ class _PatientInterfaceState extends State<PatientInterface> {
         ),
         onTap: _logout,
         contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-      ),
-    );
-  }
-
-  void _showSettingsSheet(BuildContext context, LanguageService languageService) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (bottomSheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.language, color: Colors.blue),
-              title: Text(languageService.translate('language')),
-              trailing: const Icon(Icons.chevron_right, color: Colors.blue),
-              onTap: () {
-                Navigator.pop(bottomSheetContext);
-                _showLanguageDialog(context, languageService);
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -10,9 +10,64 @@ class Patient {
     }
 
     static async findByUserId(userId) {
-        const query = 'SELECT id, chifa_card_registration_number, date_of_birth, smartphone_skill_level, is_active, age FROM patients WHERE id = ?';
+        const query = `
+            SELECT 
+                id, chifa_card_registration_number, date_of_birth, smartphone_skill_level, is_active, age,
+                all_notifications, medication_reminders, adherence_alerts, smart_insights,
+                sound_enabled, vibration_enabled, dark_mode, auto_refill_reminders,
+                smart_scheduling_enabled, bedtime, wake_time, breakfast_time, lunch_time, dinner_time
+            FROM patients 
+            WHERE id = ?
+        `;
         const [rows] = await db.execute(query, [userId]);
         return rows[0];
+    }
+
+    static async updateSettings(userId, settings) {
+        const fields = [];
+        const values = [];
+
+        const allowedSettings = [
+            'all_notifications', 'medication_reminders', 'adherence_alerts', 'smart_insights',
+            'sound_enabled', 'vibration_enabled', 'dark_mode', 'auto_refill_reminders'
+        ];
+
+        for (const key of allowedSettings) {
+            if (settings[key] !== undefined) {
+                fields.push(`${key} = ?`);
+                values.push(settings[key]);
+            }
+        }
+
+        if (fields.length === 0) return null;
+
+        values.push(userId);
+        const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
+        const [result] = await db.execute(query, values);
+        return result;
+    }
+
+    static async updateDailySchedule(userId, schedule) {
+        const fields = [];
+        const values = [];
+
+        const allowedFields = [
+            'smart_scheduling_enabled', 'bedtime', 'wake_time', 'breakfast_time', 'lunch_time', 'dinner_time'
+        ];
+
+        for (const key of allowedFields) {
+            if (schedule[key] !== undefined) {
+                fields.push(`${key} = ?`);
+                values.push(schedule[key]);
+            }
+        }
+
+        if (fields.length === 0) return null;
+
+        values.push(userId);
+        const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
+        const [result] = await db.execute(query, values);
+        return result;
     }
 
     static async setupProfile(userId, profileData) {

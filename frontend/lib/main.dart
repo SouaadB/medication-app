@@ -16,6 +16,8 @@ import 'patient/add_medication_page.dart';
 import 'patient/daily_planning_page.dart';
 import 'patient/notifications_page.dart';
 import 'patient/history_page.dart';
+import 'patient/settings_page.dart';
+import 'patient/daily_schedule_page.dart';
 import 'admin/admin_interface.dart';
 import 'profile/profile_page.dart';
 import 'services/language_service.dart';
@@ -122,6 +124,10 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const NotificationsPage());
           case '/history':
             return MaterialPageRoute(builder: (context) => const HistoryPage());
+          case '/settings':
+            return MaterialPageRoute(builder: (context) => const SettingsPage());
+          case '/daily-schedule':
+            return MaterialPageRoute(builder: (context) => const DailySchedulePage());
           default:
             return MaterialPageRoute(builder: (context) => const SignInPage());
         }

@@ -37,6 +37,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Toutes les 8 heures',
     'Toutes les 6 heures',
     'Au besoin',
+    'Avant le petit-déjeuner',
+    'Après le petit-déjeuner',
+    'Avant le déjeuner',
+    'Après le déjeuner',
+    'Avant le dîner',
+    'Après le dîner',
+    'Avant de dormir',
   ];
 
   // English frequency options
@@ -49,6 +56,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Every 8 hours',
     'Every 6 hours',
     'As needed',
+    'Before breakfast',
+    'After breakfast',
+    'Before lunch',
+    'After lunch',
+    'Before dinner',
+    'After dinner',
+    'Before sleeping',
   ];
 
   // Map French to English frequencies for backend
@@ -61,6 +75,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Toutes les 8 heures': 'Every 8 hours',
     'Toutes les 6 heures': 'Every 6 hours',
     'Au besoin': 'As needed',
+    'Avant le petit-déjeuner': 'Before breakfast',
+    'Après le petit-déjeuner': 'After breakfast',
+    'Avant le déjeuner': 'Before lunch',
+    'Après le déjeuner': 'After lunch',
+    'Avant le dîner': 'Before dinner',
+    'Après le dîner': 'After dinner',
+    'Avant de dormir': 'Before sleeping',
   };
 
   List<Map<String, dynamic>> _conditions = [];

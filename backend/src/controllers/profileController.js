@@ -297,3 +297,59 @@ exports.changePassword = async (req, res) => {
         });
     }
 };
+
+// Update patient settings
+exports.updateSettings = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const settings = req.body;
+
+        const result = await Patient.updateSettings(userId, settings);
+
+        if (!result) {
+            return res.status(400).json({
+                success: false,
+                message: 'Aucun paramètre valide fourni'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Paramètres mis à jour avec succès'
+        });
+    } catch (error) {
+        console.error('Erreur updateSettings:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la mise à jour des paramètres'
+        });
+    }
+};
+
+// Update daily schedule
+exports.updateDailySchedule = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const schedule = req.body;
+
+        const result = await Patient.updateDailySchedule(userId, schedule);
+
+        if (!result) {
+            return res.status(400).json({
+                success: false,
+                message: 'Aucune donnée de planning valide fournie'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Planning quotidien mis à jour avec succès'
+        });
+    } catch (error) {
+        console.error('Erreur updateDailySchedule:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la mise à jour du planning quotidien'
+        });
+    }
+};

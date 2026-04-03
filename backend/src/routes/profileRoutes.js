@@ -6,7 +6,9 @@ const {
     updateProfile, 
     changePassword,
     setupPatientProfile,
-    getAllChronicConditions
+    getAllChronicConditions,
+    updateSettings,
+    updateDailySchedule
 } = require('../controllers/profileController');
 
 // Toutes les routes sont protégées
@@ -26,5 +28,11 @@ router.put('/update', updateProfile);
 
 // PUT /profile/password (garde celle-ci)
 router.put('/password', changePassword);
+
+// PUT /profile/settings
+router.put('/settings', updateSettings);
+
+// PUT /profile/daily-schedule
+router.put('/daily-schedule', updateDailySchedule);
 
 module.exports = router;
