@@ -9,9 +9,4 @@ router.use(protect);
 // Dashboard
 router.get('/dashboard', healthReviewController.getDashboard);
 
-// Emergency contact routes
-router.post('/emergency-contact', healthReviewController.saveEmergencyContact);
-router.put('/emergency-contact/toggle', healthReviewController.toggleEmergencyContact);
-router.delete('/emergency-contact', healthReviewController.deleteEmergencyContact);
-
 module.exports = router;

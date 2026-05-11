@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/language_service.dart';
+import '../services/settings_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -10,198 +10,294 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _allNotifications = true;
-  bool _medicationReminders = true;
-  bool _adherenceAlerts = true;
-  bool _smartInsights = true;
-  bool _sound = true;
-  bool _vibration = true;
-  bool _darkMode = false;
-  bool _autoRefill = true;
-
   @override
   Widget build(BuildContext context) {
-    final lang = Provider.of<LanguageService>(context);
-    
+    final settings = Provider.of<SettingsService>(context);
+    final isDark = settings.isDarkMode;
+    final theme = Theme.of(context);
+    final textColor = isDark ? Colors.white : const Color(0xFF1A237E);
+    final subTextColor = isDark ? Colors.white70 : Colors.grey.shade600;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Color(0xFF3498DB),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.settings, color: Colors.white, size: 24),
+          IconButton(
+            icon: Icon(Icons.help_outline, color: Colors.blue.shade400),
+            onPressed: () {},
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              lang.translate('settings'),
-              style: const TextStyle(
+              settings.translate('settings'),
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A237E),
+                color: textColor,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
-              lang.translate('customizeExperience'),
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
+              isDark ? 'Personnalisez votre expérience' : 'Customize your app experience',
+              style: TextStyle(fontSize: 14, color: subTextColor),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
 
             // Notifications Section
-            _buildSectionHeader(Icons.notifications_none, lang.translate('notifications'), Colors.blue),
-            _buildSettingsContainer([
-              _buildSwitchTile(
-                lang.translate('allNotifications'),
-                lang.translate('enableAllNotifications'),
-                _allNotifications,
-                (v) => setState(() => _allNotifications = v),
-              ),
-              _buildSwitchTile(
-                lang.translate('medicationReminders'),
-                lang.translate('getReminded'),
-                _medicationReminders,
-                (v) => setState(() => _medicationReminders = v),
-              ),
-              _buildSwitchTile(
-                lang.translate('adherenceAlerts'),
-                lang.translate('trackProgress'),
-                _adherenceAlerts,
-                (v) => setState(() => _adherenceAlerts = v),
-              ),
-              _buildSwitchTile(
-                lang.translate('smartInsightsLong'),
-                lang.translate('aiPowered'),
-                _smartInsights,
-                (v) => setState(() => _smartInsights = v),
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // Sound & Alerts Section
-            _buildSectionHeader(Icons.volume_up_outlined, lang.translate('soundAlerts'), Colors.green),
-            _buildSettingsContainer([
-              _buildSwitchTile(
-                lang.translate('sound'),
-                lang.translate('playSound'),
-                _sound,
-                (v) => setState(() => _sound = v),
-              ),
-              _buildSwitchTile(
-                lang.translate('vibration'),
-                lang.translate('vibrateOnNotifications'),
-                _vibration,
-                (v) => setState(() => _vibration = v),
-              ),
-              _buildNavigationTile(
-                lang.translate('quietHours'),
-                lang.translate('quietHoursSubtitle'),
-                Icons.access_time,
-                () {},
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // Appearance Section
-            _buildSectionHeader(Icons.wb_sunny_outlined, lang.translate('appearance'), Colors.orange),
-            _buildSettingsContainer([
-              _buildSwitchTile(
-                lang.translate('darkMode'),
-                lang.translate('useDarkTheme'),
-                _darkMode,
-                (v) => setState(() => _darkMode = v),
-              ),
-              _buildNavigationTile(
-                lang.translate('language'),
-                lang.getCurrentLanguage() == 'en' ? 'English (US)' : 'Français (FR)',
-                Icons.language,
-                () {
-                  // Re-use language selection logic
-                },
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // Medication Section
-            _buildSectionHeader(Icons.medical_services_outlined, lang.translate('medication'), Colors.purple),
-            _buildSettingsContainer([
-              _buildSwitchTile(
-                lang.translate('autoRefillReminders'),
-                lang.translate('remindWhenLow'),
-                _autoRefill,
-                (v) => setState(() => _autoRefill = v),
-              ),
-              _buildNavigationTile(
-                lang.translate('dailySchedule'),
-                lang.translate('sleepWakeMeal'),
-                Icons.calendar_today,
-                () => Navigator.pushNamed(context, '/daily-schedule'),
-              ),
-              _buildNavigationTile(
-                lang.translate('exportData'),
-                null,
-                Icons.file_download_outlined,
-                () {},
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // Support Section
-            _buildSettingsContainer([
-              _buildNavigationTile(lang.translate('helpSupport'), null, Icons.help_outline, () {}),
-              _buildNavigationTile(lang.translate('privacyPolicy'), null, Icons.privacy_tip_outlined, () {}),
-              _buildNavigationTile(lang.translate('termsOfService'), null, Icons.description_outlined, () {}),
-              _buildNavigationTile(
-                lang.translate('aboutMediCare'),
-                lang.translate('version'),
-                Icons.info_outline,
-                () {},
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-            // Danger Zone Section
-            Text(
-              lang.translate('dangerZone'),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
+            _buildSectionHeader(
+              icon: Icons.notifications_none_outlined,
+              title: settings.translate('notifications'),
+              color: Colors.blue,
+              isDark: isDark,
             ),
-            const SizedBox(height: 12),
+            _buildSettingCard(
+              children: [
+                _buildSwitchTile(
+                  title: 'All Notifications',
+                  subtitle: 'Enable all notifications',
+                  value: settings.allNotifications,
+                  onChanged: (v) => settings.setAllNotifications(v),
+                  isDark: isDark,
+                ),
+                _buildSwitchTile(
+                  title: 'Medication Reminders',
+                  subtitle: 'Get reminded to take meds',
+                  value: settings.medReminders,
+                  onChanged: settings.allNotifications ? (v) => settings.setMedReminders(v) : null,
+                  isDark: isDark,
+                ),
+                _buildSwitchTile(
+                  title: 'Adherence Alerts',
+                  subtitle: 'Track your progress',
+                  value: settings.adherenceAlerts,
+                  onChanged: settings.allNotifications ? (v) => settings.setAdherenceAlerts(v) : null,
+                  isDark: isDark,
+                ),
+                _buildSwitchTile(
+                  title: 'Smart Insights',
+                  subtitle: 'AI-powered recommendations',
+                  value: settings.smartInsights,
+                  onChanged: settings.allNotifications ? (v) => settings.setSmartInsights(v) : null,
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Sound & Alerts Section
+            _buildSectionHeader(
+              icon: Icons.volume_up_outlined,
+              title: 'Sound & Alerts',
+              color: Colors.green,
+              isDark: isDark,
+            ),
+            _buildSettingCard(
+              children: [
+                _buildSwitchTile(
+                  title: 'Sound',
+                  subtitle: 'Play notification sounds',
+                  value: settings.soundEnabled,
+                  onChanged: (v) => settings.setSoundEnabled(v),
+                  isDark: isDark,
+                ),
+                _buildSwitchTile(
+                  title: 'Vibration',
+                  subtitle: 'Vibrate on notifications',
+                  value: settings.vibrationEnabled,
+                  onChanged: (v) => settings.setVibrationEnabled(v),
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.access_time,
+                  title: 'Quiet Hours',
+                  subtitle: '${settings.quietHoursStart} - ${settings.quietHoursEnd}',
+                  onTap: () => Navigator.pushNamed(context, '/quiet-hours'),
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Appearance Section
+            _buildSectionHeader(
+              icon: Icons.wb_sunny_outlined,
+              title: 'Appearance',
+              color: Colors.orange,
+              isDark: isDark,
+            ),
+            _buildSettingCard(
+              children: [
+                _buildSwitchTile(
+                  title: 'Dark Mode',
+                  subtitle: 'Use dark theme',
+                  value: settings.isDarkMode,
+                  onChanged: (v) => settings.setDarkMode(v),
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.language,
+                  title: settings.translate('language'),
+                  subtitle: settings.getCurrentLanguage() == 'en' ? 'English (US)' : 'Français',
+                  onTap: () => _showLanguageDialog(context, settings),
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Medication Section
+            _buildSectionHeader(
+              icon: Icons.medical_services_outlined,
+              title: 'Medication',
+              color: Colors.purple,
+              isDark: isDark,
+            ),
+            _buildSettingCard(
+              children: [
+                _buildSwitchTile(
+                  title: 'Auto-Refill Reminders',
+                  subtitle: 'Remind when supply is low',
+                  value: settings.autoRefillReminders,
+                  onChanged: (v) => settings.setAutoRefillReminders(v),
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.calendar_today_outlined,
+                  title: 'Daily Schedule',
+                  subtitle: 'Sleep, wake & meal times',
+                  onTap: () => Navigator.pushNamed(context, '/daily-schedule'),
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.file_download_outlined,
+                  title: 'Export Data',
+                  onTap: () {},
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Family & Care Section
+            _buildSectionHeader(
+              icon: Icons.people_outline,
+              title: 'Family & Care',
+              color: Colors.teal,
+              isDark: isDark,
+            ),
+            _buildSettingCard(
+              children: [
+                _buildNavigationTile(
+                  icon: Icons.shield_outlined,
+                  title: 'Caregiver Access',
+                  subtitle: 'Manage who can monitor you',
+                  onTap: () => Navigator.pushNamed(context, '/caregiver-access'),
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Support Section
+            _buildSettingCard(
+              children: [
+                _buildNavigationTile(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  onTap: () {},
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.lock_outline,
+                  title: 'Privacy Policy',
+                  onTap: () {},
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.description_outlined,
+                  title: 'Terms of Service',
+                  onTap: () {},
+                  isDark: isDark,
+                ),
+                _buildNavigationTile(
+                  icon: Icons.info_outline,
+                  title: 'About MediCare',
+                  subtitle: 'Version 1.0.0',
+                  onTap: () {},
+                  isDark: isDark,
+                ),
+              ],
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Danger Zone
             Container(
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.red.withOpacity(0.1)),
+                color: isDark ? Colors.red.withOpacity(0.1) : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.red.shade200.withOpacity(0.5)),
               ),
-              child: _buildNavigationTile(
-                lang.translate('deleteAccount'),
-                lang.translate('permanentlyDelete'),
-                Icons.delete_outline,
-                () {},
-                textColor: Colors.red,
-                iconColor: Colors.red,
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.delete_outline, color: Colors.red),
+                ),
+                title: const Text(
+                  'Delete Account',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Permanently delete your data',
+                  style: TextStyle(color: Colors.red, fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: Colors.red),
+                onTap: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+                      content: const Text('Are you sure you want to permanently delete your account? This action cannot be undone.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    final success = await settings.deleteAccount();
+                    if (success && mounted) {
+                      Navigator.pushNamedAndRemoveUntil(context, '/signin', (route) => false);
+                    }
+                  }
+                },
               ),
             ),
             const SizedBox(height: 40),
@@ -211,26 +307,31 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSectionHeader(IconData icon, String title, Color color) {
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required bool isDark,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
+              color: isDark ? Colors.white : const Color(0xFF1A237E),
             ),
           ),
         ],
@@ -238,53 +339,123 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSettingsContainer(List<Widget> children) {
+  Widget _buildSettingCard({required List<Widget> children, required bool isDark}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
         ],
       ),
       child: Column(children: children),
     );
   }
 
-  Widget _buildSwitchTile(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildSwitchTile({
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+    required bool isDark,
+  }) {
     return ListTile(
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: isDark ? Colors.white : const Color(0xFF1A237E),
+        ),
       ),
-      subtitle: Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-      trailing: Switch(
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.grey.shade600),
+            )
+          : null,
+      trailing: Switch.adaptive(
         value: value,
         onChanged: onChanged,
         activeColor: Colors.blue,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
 
-  Widget _buildNavigationTile(String title, String? subtitle, IconData icon, VoidCallback onTap, {Color? textColor, Color? iconColor}) {
+  Widget _buildNavigationTile({
+    IconData? icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
     return ListTile(
-      leading: Icon(icon, color: iconColor ?? Colors.blue, size: 24),
+      leading: icon != null ? Icon(icon, color: isDark ? Colors.white70 : Colors.grey.shade400, size: 22) : null,
       title: Text(
         title,
         style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: textColor ?? const Color(0xFF1A237E),
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: isDark ? Colors.white : const Color(0xFF1A237E),
         ),
       ),
-      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)) : null,
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.grey.shade600),
+            )
+          : null,
+      trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    );
+  }
+
+  Future<void> _showLanguageDialog(BuildContext context, SettingsService settings) async {
+    final currentLang = settings.getCurrentLanguage();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: settings.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          title: Text(
+            settings.translate('language'),
+            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text('English', style: TextStyle(color: settings.isDarkMode ? Colors.white : Colors.black)),
+                leading: Radio<String>(
+                  value: 'en',
+                  groupValue: currentLang,
+                  onChanged: (String? value) {
+                    Navigator.pop(context);
+                    settings.setLanguage('en');
+                  },
+                ),
+              ),
+              ListTile(
+                title: Text('Français', style: TextStyle(color: settings.isDarkMode ? Colors.white : Colors.black)),
+                leading: Radio<String>(
+                  value: 'fr',
+                  groupValue: currentLang,
+                  onChanged: (String? value) {
+                    Navigator.pop(context);
+                    settings.setLanguage('fr');
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

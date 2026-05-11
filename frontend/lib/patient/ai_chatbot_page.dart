@@ -1,0 +1,380 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/language_service.dart';
+import '../config/api_config.dart';
+
+class AIChatbotPage extends StatefulWidget {
+  const AIChatbotPage({super.key});
+
+  @override
+  State<AIChatbotPage> createState() => _AIChatbotPageState();
+}
+
+class _AIChatbotPageState extends State<AIChatbotPage> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoading = false;
+  
+  final List<Map<String, dynamic>> _messages = [
+    {
+      'isBot': true,
+      'text': 'Hello! I\'m your MediCare AI assistant. I\'m here to help you with medication questions, first-aid guidance, and health concerns. How can I assist you today?',
+      'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+    }
+  ];
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+
+    setState(() {
+      _messages.add({
+        'isBot': false,
+        'text': text,
+        'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+      });
+      _isLoading = true;
+    });
+    _messageController.clear();
+    _scrollToBottom();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/ai/chat'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'message': text}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _messages.add({
+            'isBot': true,
+            'text': data['reply'],
+            'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+          });
+        });
+      } else {
+        throw Exception('Failed to get AI response');
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add({
+          'isBot': true,
+          'text': 'I am sorry, I am having trouble connecting to my brain right now. Please check your internet and try again.',
+          'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+        });
+      });
+    } finally {
+      setState(() => _isLoading = false);
+      _scrollToBottom();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageService>(context);
+    
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF3498DB),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  lang.translate('aiHealthAssistant'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFE74C3C),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.call, color: Colors.white, size: 20),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Subheader
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF3498DB),
+            ),
+            child: const Text(
+              'Your trusted AI companion for health guidance',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+          
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(20),
+              children: [
+                // Messages
+                ..._messages.map((msg) => _buildMessageBubble(msg)),
+                
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                
+                const SizedBox(height: 24),
+                const Center(
+                  child: Text(
+                    'Try asking:',
+                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Suggested Prompts Grid
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.5,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  children: [
+                    _buildPromptCard('I missed my medication', '💊', Colors.orange.shade50, onTap: () => _sendMessage('I missed my medication')),
+                    _buildPromptCard('What should I do if I feel dizzy?', '😵‍💫', Colors.blue.shade50, onTap: () => _sendMessage('What should I do if I feel dizzy?')),
+                    _buildPromptCard('Explain this medication', '📋', Colors.grey.shade50, onTap: () => _sendMessage('Explain this medication')),
+                    _buildPromptCard('Emergency help', '🚨', Colors.red.shade50, isEmergency: true, onTap: () => _sendMessage('Emergency help')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Emergency Banner (Now also a Disclaimer)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            color: Colors.blue.shade50,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This assistant does not replace professional medical advice.',
+                        style: TextStyle(color: Colors.blue.shade900, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'For medical emergencies, call 911 immediately',
+                        style: TextStyle(color: Colors.red.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Input Area
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.mic, color: Colors.blueGrey),
+                    onPressed: () {},
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: const InputDecoration(
+                        hintText: 'Type your question...',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.blueGrey, size: 20),
+                    onPressed: () => _sendMessage(_messageController.text),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(Map<String, dynamic> msg) {
+    final isBot = msg['isBot'] ?? true;
+    return Align(
+      alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+        decoration: BoxDecoration(
+          color: isBot ? Colors.white : const Color(0xFF3498DB),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isBot ? 0 : 20),
+            bottomRight: Radius.circular(isBot ? 20 : 0),
+          ),
+          border: isBot ? Border.all(color: Colors.grey.shade100) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: isBot ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+          children: [
+            Text(
+              msg['text'],
+              style: TextStyle(
+                fontSize: 16,
+                color: isBot ? const Color(0xFF2C3E50) : Colors.white,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              msg['time'],
+              style: TextStyle(
+                color: isBot ? Colors.grey.shade400 : Colors.white70,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromptCard(String text, String emoji, Color bgColor, {bool isEmergency = false, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isEmergency ? Colors.red.shade100 : Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 8),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isEmergency ? Colors.red.shade700 : const Color(0xFF2C3E50),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

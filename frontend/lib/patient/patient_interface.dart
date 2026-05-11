@@ -1107,6 +1107,20 @@ class _PatientInterfaceState extends State<PatientInterface> {
                   Navigator.pushNamed(context, '/healthoverview');
                 }),
                 const Divider(indent: 20, endIndent: 20, height: 40),
+
+                _buildDrawerItem(Icons.chat_bubble_outline, lang.translate('aiHealthAssistant'), false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/ai-chatbot');
+                }),
+                _buildDrawerItem(Icons.menu_book_outlined, lang.translate('medicationDictionary'), false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/med-dictionary');
+                }),
+                _buildDrawerItem(Icons.workspace_premium_outlined, lang.translate('rewardsAchievements'), false, () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/rewards');
+                }),
+                const Divider(indent: 20, endIndent: 20, height: 40),
                 
                 _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
                   Navigator.pop(context);

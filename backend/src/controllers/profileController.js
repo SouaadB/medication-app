@@ -83,20 +83,80 @@ exports.setupPatientProfile = async (req, res) => {
     }
 };
 
-// Récupérer toutes les conditions disponibles
-exports.getAllChronicConditions = async (req, res) => {
+// Update patient daily schedule
+exports.updateDailySchedule = async (req, res) => {
     try {
-        const conditions = await Patient.getAllConditions();
-        res.json({
-            success: true,
-            conditions
-        });
+        const userId = req.user.id;
+        const scheduleData = req.body;
+        
+        const result = await Patient.updateDailySchedule(userId, scheduleData);
+        
+        if (!result) {
+            return res.status(400).json({ success: false, message: 'No valid fields to update' });
+        }
+
+        res.json({ success: true, message: 'Daily schedule updated successfully' });
     } catch (error) {
-        console.error('Erreur getAllChronicConditions:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la récupération des maladies chroniques'
-        });
+        console.error('Error updating daily schedule:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// Update patient settings
+exports.updateSettings = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const settings = req.body;
+        
+        // Allowed settings fields
+        const allowedFields = [
+            'all_notifications', 'medication_reminders', 'adherence_alerts', 
+            'smart_insights', 'sound_enabled', 'vibration_enabled', 
+            'dark_mode', 'auto_refill_reminders',
+            'quiet_hours_enabled', 'quiet_hours_start', 'quiet_hours_end', 
+            'quiet_hours_days', 'critical_alerts_enabled'
+        ];
+
+        const updates = [];
+        const values = [];
+
+        for (const field of allowedFields) {
+            if (settings[field] !== undefined) {
+                updates.push(`${field} = ?`);
+                values.push(settings[field]);
+            }
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ success: false, message: 'No settings to update' });
+        }
+
+        values.push(userId);
+        const query = `UPDATE patients SET ${updates.join(', ')} WHERE id = ?`;
+        
+        const db = require('../config/database');
+        await db.execute(query, values);
+
+        res.json({ success: true, message: 'Settings updated successfully' });
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// Delete patient account
+exports.deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const db = require('../config/database');
+        
+        // Deleting from users table will cascade delete from patients, treatments, etc.
+        await db.execute('DELETE FROM users WHERE id = ?', [userId]);
+
+        res.json({ success: true, message: 'Account deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -222,6 +282,23 @@ exports.updateProfile = async (req, res) => {
             success: false,
             message: 'Erreur lors de la mise à jour du profil',
             error: error.message
+        });
+    }
+};
+
+// Récupérer toutes les conditions disponibles
+exports.getAllChronicConditions = async (req, res) => {
+    try {
+        const conditions = await Patient.getAllConditions();
+        res.json({
+            success: true,
+            conditions
+        });
+    } catch (error) {
+        console.error('Erreur getAllChronicConditions:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des maladies chroniques'
         });
     }
 };

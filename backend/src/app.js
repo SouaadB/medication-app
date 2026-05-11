@@ -9,6 +9,10 @@ const conditionsRoutes = require('./routes/conditionsRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes'); // NOUVEAU
 const notificationRoutes = require('./routes/notificationRoutes'); // NOUVEAU
 const historyRoutes = require('./routes/historyRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const educationRoutes = require('./routes/educationRoutes');
+const rewardsRoutes = require('./routes/rewardsRoutes');
+const caregiverRoutes = require('./routes/caregiverRoutes');
 
 const app = express();
 
@@ -25,6 +29,10 @@ app.use('/api/conditions', conditionsRoutes);
 app.use('/api/schedule', scheduleRoutes); // NOUVEAU
 app.use('/api/notifications', notificationRoutes); // NOUVEAU
 app.use('/api/history', historyRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/education', educationRoutes);
+app.use('/api/rewards', rewardsRoutes);
+app.use('/api/caregivers', caregiverRoutes);
 
 app.get('/', (req, res) => {
     res.json({ 
@@ -33,7 +41,7 @@ app.get('/', (req, res) => {
         endpoints: {
             auth: ['/api/auth/register', '/api/auth/login', '/api/auth/me', '/api/auth/logout'],
             admin: ['/api/admin/patients', '/api/admin/statistics'],
-            healthReview: ['/api/health-review/dashboard', '/api/health-review/emergency-contact'],
+            healthReview: ['/api/health-review/dashboard'],
             conditions: ['/api/conditions', '/api/conditions/available', '/api/conditions/add', '/api/conditions/remove/:id'],
             treatments: ['/api/treatments', '/api/treatments/condition/:conditionId/add'],
             schedule: ['/api/schedule/today', '/api/schedule/date/:date', '/api/schedule/stats', '/api/schedule/take/:scheduleId'], // NOUVEAU

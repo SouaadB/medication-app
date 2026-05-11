@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'translation_service.dart';
 
+import 'settings_service.dart';
+
 class LanguageService extends ChangeNotifier {
   static const String _localeKey = 'app_locale';
   Locale _locale = const Locale('en');
 
-  LanguageService() {
-    _loadSavedLanguage();
+  void updateFromSettings(SettingsService settings) {
+    if (_locale != settings.locale) {
+      _locale = settings.locale;
+      notifyListeners();
+    }
   }
 
   Locale get locale => _locale;

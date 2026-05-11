@@ -244,110 +244,6 @@
             }
           },
           "response": []
-        },
-        {
-          "name": "Create Emergency Contact",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{patient_token}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Sara Benameur\",\n    \"relationship\": \"Sister\",\n    \"phone_number\": \"0552286570\",\n    \"is_active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/health-review/emergency-contact",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "health-review",
-                "emergency-contact"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Toggle Emergency Contact",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{patient_token}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"is_active\": false\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/health-review/emergency-contact/toggle",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "health-review",
-                "emergency-contact",
-                "toggle"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Emergency Contact",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{patient_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/health-review/emergency-contact",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "health-review",
-                "emergency-contact"
-              ]
-            }
-          },
-          "response": []
         }
       ]
     },
@@ -657,6 +553,57 @@
                 "api",
                 "treatments",
                 "my-treatments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Treatments by Condition",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/treatments/condition/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "treatments",
+                "condition",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Treatment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/treatments/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "treatments",
+                "1"
               ]
             }
           },
@@ -1174,6 +1121,74 @@
       "name": "13 - Password Reset",
       "item": [
         {
+          "name": "Forgot Password (Email Link)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"S.Benameur@email.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password (with Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"some_token\",\n    \"password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Request Reset Code",
           "request": {
             "method": "POST",
@@ -1278,7 +1293,7 @@
       ]
     },
     {
-      "name": "12 - SETTINGS & DAILY SCHEDULE (NEW)",
+      "name": "14 - SETTINGS & DAILY SCHEDULE (NEW)",
       "item": [
         {
           "name": "Update Settings",
@@ -1298,7 +1313,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"all_notifications\": true,\n    \"medication_reminders\": true,\n    \"adherence_alerts\": true,\n    \"smart_insights\": true,\n    \"sound_enabled\": true,\n    \"vibration_enabled\": true,\n    \"dark_mode\": false,\n    \"auto_refill_reminders\": true\n}",
+              "raw": "{\n    \"all_notifications\": true,\n    \"medication_reminders\": true,\n    \"adherence_alerts\": true,\n    \"smart_insights\": true,\n    \"sound_enabled\": true,\n    \"vibration_enabled\": true,\n    \"dark_mode\": false,\n    \"auto_refill_reminders\": true,\n    \"quiet_hours_enabled\": true,\n    \"quiet_hours_start\": \"22:00\",\n    \"quiet_hours_end\": \"07:00\",\n    \"quiet_hours_days\": \"[\\\"Mon\\\",\\\"Tue\\\",\\\"Wed\\\",\\\"Thu\\\",\\\"Fri\\\",\\\"Sat\\\",\\\"Sun\\\"]\",\n    \"critical_alerts_enabled\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1357,11 +1372,242 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/profile/account",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "account"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "14 - Logout",
+      "name": "15 - AI Assistant & Education",
+      "item": [
+        {
+          "name": "AI Chatbot Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"I missed my medication, what should I do?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ai/chat",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "chat"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Medication Dictionary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/education/dictionary?query=Aspirin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "education",
+                "dictionary"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "Aspirin"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Medication Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/education/dictionary/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "education",
+                "dictionary",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "16 - Rewards & Gamification",
+      "item": [
+        {
+          "name": "Get Patient Rewards Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rewards/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "rewards",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Achievements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rewards/achievements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "rewards",
+                "achievements"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "17 - Admin Dashboard",
+      "item": [
+        {
+          "name": "Get All Patients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/patients",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/statistics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "statistics"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "18 - Logout",
       "request": {
         "method": "POST",
         "header": [
@@ -1384,6 +1630,138 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "19 - Family & Care",
+      "item": [
+        {
+          "name": "Get Caregivers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/caregivers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "caregivers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Caregiver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Sarah Johnson\",\n    \"relationship\": \"Daughter\",\n    \"email\": \"sarah.j@email.com\",\n    \"view_location\": true,\n    \"view_medications\": true,\n    \"receive_alerts\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/caregivers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "caregivers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Caregiver Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/caregivers/1/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "caregivers",
+                "1",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Caregiver",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/caregivers/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "caregivers",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

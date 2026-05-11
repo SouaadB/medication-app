@@ -10,22 +10,35 @@ import 'patient/patient_interface.dart';
 import 'patient/health_overview_page.dart';
 import 'patient/setup_profile_page.dart';
 import 'patient/condition_detail_page.dart';
-import 'patient/conditions_list_page.dart'; // ← ADD THIS IMPORT
+import 'patient/conditions_list_page.dart';
 import 'patient/manual_entry_page.dart';
 import 'patient/add_medication_page.dart';
 import 'patient/daily_planning_page.dart';
 import 'patient/notifications_page.dart';
 import 'patient/history_page.dart';
 import 'patient/settings_page.dart';
+import 'patient/quiet_hours_page.dart';
+import 'patient/rewards_page.dart';
+import 'patient/medication_dictionary_page.dart';
+import 'patient/ai_chatbot_page.dart';
 import 'patient/daily_schedule_page.dart';
 import 'admin/admin_interface.dart';
 import 'profile/profile_page.dart';
 import 'services/language_service.dart';
+import 'services/settings_service.dart';
+
+import 'patient/caregiver_access_page.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => LanguageService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsService()),
+        ChangeNotifierProxyProvider<SettingsService, LanguageService>(
+          create: (_) => LanguageService(),
+          update: (_, settings, language) => language!..updateFromSettings(settings),
+        ),
+      ],
       child: const MyApp(),
     ),
   );
@@ -36,6 +49,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsService = Provider.of<SettingsService>(context);
     final languageService = Provider.of<LanguageService>(context);
     
     return MaterialApp(
@@ -44,7 +58,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: Colors.white,
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+      ),
+      themeMode: settingsService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       locale: languageService.locale,
       supportedLocales: const [
         Locale('en', ''),
@@ -98,7 +121,7 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(
               builder: (context) => ConditionDetailPage(condition: condition),
             );
-          case '/conditions': // ← ADD THIS CASE
+          case '/conditions':
             return MaterialPageRoute(
               builder: (context) => const ConditionsListPage(),
             );
@@ -126,6 +149,16 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const HistoryPage());
           case '/settings':
             return MaterialPageRoute(builder: (context) => const SettingsPage());
+          case '/ai-chatbot':
+            return MaterialPageRoute(builder: (context) => const AIChatbotPage());
+          case '/caregiver-access':
+            return MaterialPageRoute(builder: (context) => const CaregiverAccessPage());
+          case '/med-dictionary':
+            return MaterialPageRoute(builder: (context) => const MedicationDictionaryPage());
+          case '/rewards':
+            return MaterialPageRoute(builder: (context) => const RewardsPage());
+          case '/quiet-hours':
+            return MaterialPageRoute(builder: (context) => const QuietHoursPage());
           case '/daily-schedule':
             return MaterialPageRoute(builder: (context) => const DailySchedulePage());
           default:

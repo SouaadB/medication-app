@@ -8,7 +8,8 @@ const {
     setupPatientProfile,
     getAllChronicConditions,
     updateSettings,
-    updateDailySchedule
+    updateDailySchedule,
+    deleteAccount
 } = require('../controllers/profileController');
 
 // Toutes les routes sont protégées
@@ -34,5 +35,8 @@ router.put('/settings', updateSettings);
 
 // PUT /profile/daily-schedule
 router.put('/daily-schedule', updateDailySchedule);
+
+// DELETE /profile/account
+router.delete('/account', deleteAccount);
 
 module.exports = router;
