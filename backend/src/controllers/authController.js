@@ -19,6 +19,7 @@ exports.register = async (req, res) => {
 
 // 1. Check required fields
 if (!name || !email || !password || !phone || !chifaCardRegistrationNumber || !dateOfBirth || !smartphoneSkillLevel) {
+    console.log('❌ Registration failed: Missing fields', { name: !!name, email: !!email, password: !!password, phone: !!phone, chifa: !!chifaCardRegistrationNumber, dob: !!dateOfBirth, skill: !!smartphoneSkillLevel });
     return res.status(400).json({ 
         success: false, 
         message: 'All fields are required: name, email, password, phone, chifaCardRegistrationNumber, dateOfBirth, smartphoneSkillLevel' 
@@ -28,6 +29,7 @@ if (!name || !email || !password || !phone || !chifaCardRegistrationNumber || !d
 // 2. Validate email format
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 if (!emailRegex.test(email)) {
+    console.log('❌ Registration failed: Invalid email format', email);
     return res.status(400).json({ 
         success: false, 
         message: 'Please provide a valid email address' 
@@ -35,7 +37,7 @@ if (!emailRegex.test(email)) {
 }
 
 // 3. Validate email existence (Mailboxlayer)
-console.log('🔍 Vérification email avec Mailboxlayer...');
+console.log('🔍 Vérification email avec DNS...');
 const emailVerification = await emailVerificationService.verifyEmail(email);
 if (!emailVerification.isValid) {
     let message = "L'adresse email semble invalide.";
@@ -50,6 +52,7 @@ if (!emailVerification.isValid) {
 // 4. Validate password strength
 const passwordValidation = RegisterRequest.isValidPassword(password);
 if (!passwordValidation.valid) {
+    console.log('❌ Registration failed: Weak password', passwordValidation.message);
     return res.status(400).json({ 
         success: false, 
         message: passwordValidation.message 
@@ -58,6 +61,7 @@ if (!passwordValidation.valid) {
 
 // 5. Validate phone format (10 digits, starts with 05/06/07)
 if (!RegisterRequest.isValidPhoneNumber(phone)) {
+    console.log('❌ Registration failed: Invalid phone format', phone);
     return res.status(400).json({ 
         success: false, 
         message: 'Phone number must be exactly 10 digits and start with 05, 06, or 07' 
@@ -76,6 +80,7 @@ if (!phoneVerification.isValid) {
 
 // 7. Validate CHIFA number (exactly 9 digits)
 if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
+    console.log('❌ Registration failed: Invalid CHIFA number', chifaCardRegistrationNumber);
     return res.status(400).json({ 
         success: false, 
         message: 'CHIFA registration number must be exactly 9 digits' 
@@ -84,6 +89,7 @@ if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
 
 // 8. Validate date format (DD-MM-YYYY)
 if (!RegisterRequest.isValidDateFormat(dateOfBirth)) {
+    console.log('❌ Registration failed: Invalid date format', dateOfBirth);
     return res.status(400).json({ 
         success: false, 
         message: 'Date of birth must be in format DD-MM-YYYY (example: 15-05-1990)' 
@@ -92,6 +98,7 @@ if (!RegisterRequest.isValidDateFormat(dateOfBirth)) {
 
 // 9. Validate smartphone skill level
 if (!RegisterRequest.isValidSkillLevel(smartphoneSkillLevel)) {
+    console.log('❌ Registration failed: Invalid skill level', smartphoneSkillLevel);
     return res.status(400).json({ 
         success: false, 
         message: 'Smartphone skill level must be one of: BASIC, INTERMEDIATE, ADVANCED' 

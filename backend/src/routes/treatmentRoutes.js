@@ -38,7 +38,7 @@ router.post('/condition/:conditionId/add', protect, async (req, res) => {
     try {
         const patientId = req.user.id;
         const conditionId = req.params.conditionId;
-        const { medication_name, dosage, frequency, start_date, end_date } = req.body;
+        const { medication_name, dosage, frequency, priority, start_date, end_date } = req.body;
         
         const db = require('../config/database');
         
@@ -56,9 +56,9 @@ router.post('/condition/:conditionId/add', protect, async (req, res) => {
         
         const [result] = await db.execute(
             `INSERT INTO treatments 
-            (patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-            [patientId, conditionId, medication_name, dosage, frequency, start_date, end_date]
+            (patient_id, condition_id, medication_name, dosage, frequency, priority, start_date, end_date, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [patientId, conditionId, medication_name, dosage, frequency, priority || 'MEDIUM', start_date, end_date]
         );
         
         const treatmentId = result.insertId;

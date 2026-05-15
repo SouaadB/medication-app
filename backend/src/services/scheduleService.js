@@ -28,6 +28,8 @@ class ScheduleService {
                 ORDER BY ms.scheduled_date_time ASC
             `;
             
+            // Critical: Force the session timezone for this specific query
+            await db.execute("SET time_zone = '+01:00'");
             const [rows] = await db.execute(query, [patientId, date]);
             
             const total = rows.length;
@@ -77,6 +79,9 @@ class ScheduleService {
     // Marquer une dose comme prise (avec taken_time)
     static async markAsTaken(scheduleId) {
         try {
+            // Set timezone for the current connection session
+            await db.execute("SET time_zone = '+01:00'");
+            
             const now = new Date();
             
             const [scheduleInfo] = await db.execute(

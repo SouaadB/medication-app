@@ -61,5 +61,6 @@
   "language": "Language",
   "english": "English",
   "french": "Français",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "confirm": "Confirm"
 }

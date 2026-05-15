@@ -1,25 +1,25 @@
 const cron = require('node-cron');
 const NotificationService = require('../services/notificationService');
 
-// Exécuter toutes les 15 minutes
-cron.schedule('*/15 * * * *', async () => {
-    console.log('🔄 Génération des notifications...');
+// Exécuter chaque minute pour une précision accrue des rappels
+cron.schedule('* * * * *', async () => {
+    console.log('🔄 [Job] Vérification des rappels de médicaments...');
     
     try {
-        // Générer les rappels
-        const reminders = await NotificationService.generateReminders();
+        // 1. Générer les différents stages de rappels (Early, Main, Missed)
+        const reminders = await NotificationService.generateSmartReminders();
         if (reminders > 0) {
-            console.log(`✅ ${reminders} rappels générés`);
+            console.log(`✅ [Job] ${reminders} notifications générées`);
         }
         
-        // Marquer les doses manquées
+        // 2. Traitement automatique des doses manquées (si pas déjà fait)
         const missed = await NotificationService.markMissedDoses();
         if (missed > 0) {
-            console.log(`✅ ${missed} doses marquées comme manquées`);
+            console.log(`✅ [Job] ${missed} doses marquées comme manquées`);
         }
         
     } catch (error) {
-        console.error('❌ Erreur dans le job:', error);
+        console.error('❌ [Job] Erreur:', error);
     }
 });
 

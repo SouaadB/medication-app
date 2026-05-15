@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../services/language_service.dart';
 import '../config/api_config.dart';
 
@@ -22,7 +23,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
     {
       'isBot': true,
       'text': 'Hello! I\'m your MediCare AI assistant. I\'m here to help you with medication questions, first-aid guidance, and health concerns. How can I assist you today?',
-      'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+      'time': DateFormat('HH:mm').format(DateTime.now())
     }
   ];
 
@@ -45,7 +46,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
       _messages.add({
         'isBot': false,
         'text': text,
-        'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+        'time': DateFormat('HH:mm').format(DateTime.now())
       });
       _isLoading = true;
     });
@@ -67,26 +68,32 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _messages.add({
-            'isBot': true,
-            'text': data['reply'],
-            'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+        if (data['success']) {
+          setState(() {
+            _messages.add({
+              'isBot': true,
+              'text': data['reply'],
+              'time': DateFormat('HH:mm').format(DateTime.now()),
+            });
+            _isLoading = false;
           });
-        });
+          _scrollToBottom();
+        } else {
+          throw Exception(data['message'] ?? 'Unknown error');
+        }
       } else {
-        throw Exception('Failed to get AI response');
+        final data = jsonDecode(response.body);
+        throw Exception(data['message'] ?? 'Server error (${response.statusCode})');
       }
     } catch (e) {
       setState(() {
         _messages.add({
           'isBot': true,
-          'text': 'I am sorry, I am having trouble connecting to my brain right now. Please check your internet and try again.',
-          'time': '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}'
+          'text': 'I am sorry, I am having trouble connecting to my brain right now. (${e.toString().replaceAll('Exception: ', '')})',
+          'time': DateFormat('HH:mm').format(DateTime.now()),
         });
+        _isLoading = false;
       });
-    } finally {
-      setState(() => _isLoading = false);
       _scrollToBottom();
     }
   }

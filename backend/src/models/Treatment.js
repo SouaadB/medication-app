@@ -2,12 +2,12 @@ const db = require('../config/database');
 
 class Treatment {
     static async create(treatmentData) {
-        const { patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date } = treatmentData;
+        const { patient_id, condition_id, medication_name, dosage, frequency, priority, start_date, end_date } = treatmentData;
         
         // Ensure no undefined values (convert to null)
         const query = `
-            INSERT INTO treatments (patient_id, condition_id, medication_name, dosage, frequency, start_date, end_date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO treatments (patient_id, condition_id, medication_name, dosage, frequency, priority, start_date, end_date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         const values = [
@@ -16,6 +16,7 @@ class Treatment {
             medication_name,
             dosage === undefined ? null : dosage,
             frequency,
+            priority || 'MEDIUM',
             start_date,
             end_date === undefined ? null : end_date
         ];

@@ -9,7 +9,8 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    timezone: '+01:00' // ← AJOUTER CETTE LIGNE (fuseau horaire Algérie UTC+1)
+    timezone: 'local', // Use the machine's local timezone
+    dateStrings: true  // Critical: return dates as raw strings, NOT Date objects
 });
 
 const promisePool = pool.promise();

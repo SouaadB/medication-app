@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'manual_entry_page.dart';
 import 'review_parsed_medications_page.dart';
+import 'qr_scanner_page.dart';
 import '../config/api_config.dart';
 import '../services/language_service.dart';
 
@@ -63,6 +64,19 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
         final meds = (data['medications'] as List?) ?? [];
         if (meds.isEmpty) {
           _showError(context, 'Aucun médicament détecté');
+        } else if (meds.length == 1) {
+          if (!mounted) return;
+          final prefill = Map<String, dynamic>.from(meds[0]);
+          if (widget.conditionId != null) {
+            prefill['condition_id'] = widget.conditionId;
+            prefill['condition_name'] = widget.conditionName;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ManualEntryPage(prefillData: prefill),
+            ),
+          );
         } else {
           if (!mounted) return;
           Navigator.push(
@@ -83,6 +97,41 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
       if (!mounted) return;
       Navigator.pop(context);
       _showError(context, 'Erreur: $e');
+    }
+  }
+
+  Future<void> _scanQRCode(BuildContext context) async {
+    final dynamic result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const QRScannerPage()),
+    );
+
+    if (result != null) {
+      if (!mounted) return;
+      
+      Map<String, dynamic> prefill;
+      if (result is List && result.isNotEmpty) {
+        prefill = Map<String, dynamic>.from(result[0]);
+      } else if (result is Map<String, dynamic>) {
+        prefill = Map<String, dynamic>.from(result);
+      } else {
+        return;
+      }
+
+      // Add condition info if available
+      if (widget.conditionId != null) {
+        prefill['condition_id'] = widget.conditionId;
+        prefill['condition_name'] = widget.conditionName;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ManualEntryPage(
+            prefillData: prefill,
+          ),
+        ),
+      );
     }
   }
 
@@ -269,6 +318,81 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Use your camera to scan and automatically extract medication details',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Scan QR Code Option
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _scanQRCode(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.qr_code_scanner,
+                                color: Colors.purple,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Scan QR Code',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Instantly add medication details by scanning a pharmacy QR code',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey.shade600,

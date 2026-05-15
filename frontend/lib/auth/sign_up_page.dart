@@ -220,13 +220,20 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: languageService.translate('skillLevel'),
                   prefixIcon: Icon(Icons.smartphone_outlined),
                 ),
                 value: _selectedSmartphoneSkillLevel,
                 items: _smartphoneSkillLevels.map((level) {
-                  return DropdownMenuItem(value: level, child: Text(level));
+                  return DropdownMenuItem(
+                    value: level, 
+                    child: Text(
+                      level,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  );
                 }).toList(),
                 onChanged: (value) => setState(() => _selectedSmartphoneSkillLevel = value),
                 validator: (value) => value == null ? 'Requis' : null,

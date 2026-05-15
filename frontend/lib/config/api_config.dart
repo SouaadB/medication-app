@@ -9,7 +9,7 @@ class ApiConfig {
   static const String baseUrlAndroidEmulator = 'http://10.0.2.2:5000/api';
   
   // Pour Android (vrai téléphone) - MIS À JOUR AVEC TON IP ACTUELLE
-  static const String baseUrlAndroidPhone = 'http://192.168.1.5:5000/api';
+  static const String baseUrlAndroidPhone = 'http://192.168.1.4:5000/api';
   
   // Détection automatique de la plateforme
   static String get baseUrl {
@@ -18,9 +18,10 @@ class ApiConfig {
     }
     
     if (Platform.isAndroid) {
-      // Détecter si c'est un émulateur ou un vrai téléphone
-      // Par défaut, on utilise l'IP du PC
-      return baseUrlAndroidPhone; // Change ici si besoin
+      // Pour les émulateurs, l'adresse standard est 10.0.2.2
+      // Mais Flutter ne peut pas facilement détecter si c'est un émulateur sans package additionnel
+      // On utilise donc l'IP du réseau par défaut
+      return baseUrlAndroidPhone;
     }
     
     if (Platform.isWindows) {

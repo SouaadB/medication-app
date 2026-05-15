@@ -93,6 +93,67 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
     return '${date.day}/${date.month}';
   }
 
+  Future<void> _deleteMedication(int treatmentId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/$treatmentId'),
+        headers: ApiConfig.getAuthHeaders(token!),
+      );
+
+      if (response.statusCode == 200) {
+        _loadMedications();
+        _loadNextDose();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Médicament supprimé avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to delete medication');
+      }
+    } catch (e) {
+      print('Error deleting medication: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la suppression'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeleteConfirmation(int treatmentId, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le médicament'),
+        content: Text('Êtes-vous sûr de vouloir supprimer $name ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteMedication(treatmentId);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final languageService = Provider.of<LanguageService>(context);
@@ -242,14 +303,27 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Medication Name
-                                  Text(
-                                    med['medication_name'],
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1A237E),
-                                    ),
+                                  // Medication Name & Delete Action
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          med['medication_name'],
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1A237E),
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+                                        onPressed: () => _showDeleteConfirmation(med['id'], med['medication_name']),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   

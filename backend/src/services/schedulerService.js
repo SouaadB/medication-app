@@ -1,194 +1,213 @@
 const db = require('../config/database');
 
+/**
+ * Production-grade Medication Scheduling Engine
+ * Separates concerns into Rules, Calculation, and Generation
+ */
 class SchedulerService {
+    // --- 1. CONFIGURATION & CONSTANTS ---
+    static DEFAULT_SCHEDULE = {
+        wake_time: '07:00',
+        breakfast_time: '08:00',
+        lunch_time: '12:30',
+        dinner_time: '18:30',
+        bedtime: '23:00'
+    };
+
+    static FREQUENCY_CONFIG = {
+        'Once daily': { count: 1, type: 'daily' },
+        'Twice daily': { count: 2, type: 'daily' },
+        'Three times daily': { count: 3, type: 'daily' },
+        'Four times daily': { count: 4, type: 'daily' },
+        'Every 4 hours': { interval: 4, type: 'interval' },
+        'Every 6 hours': { interval: 6, type: 'interval' },
+        'Every 8 hours': { interval: 8, type: 'interval' },
+        'Every 12 hours': { interval: 12, type: 'interval' },
+        'Weekly': { type: 'periodic', days: 7 },
+        'Monthly': { type: 'periodic', days: 30 },
+        'As needed': { type: 'prn' }
+    };
+
+    // --- 2. PUBLIC API ---
+
     /**
-     * Generate medication schedules based on frequency
-     * @param {number} patientId 
-     * @param {number} treatmentId 
-     * @param {string} frequency - enum('Once daily', 'Twice daily', etc.)
-     * @param {string} startDate - YYYY-MM-DD
-     * @param {string} endDate - YYYY-MM-DD (optional)
-     * @returns {Promise<number>} Number of schedules created
+     * Generates a full schedule for a treatment
      */
     static async generateSchedule(patientId, treatmentId, frequency, startDate, endDate) {
         try {
-            const now = new Date();
-            const start = new Date(startDate);
+            console.log(`🚀 Starting smart generation for Treatment #${treatmentId}`);
             
-            const isToday = start.toDateString() === now.toDateString();
-            
-            if (isToday) {
-                start.setHours(now.getHours(), now.getMinutes(), 0, 0);
-            } else {
-                start.setHours(0, 0, 0, 0);
-            }
-            
-            let end;
-            if (endDate) {
-                end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-            } else {
-                end = new Date(start);
-                end.setDate(start.getDate() + 30);
-                end.setHours(23, 59, 59, 999);
-            }
-
-            // Récupérer le profil du patient pour les horaires personnalisés
-            const [patientRows] = await db.execute(
-                'SELECT bedtime, wake_time, breakfast_time, lunch_time, dinner_time FROM patients WHERE id = ?',
+            // Fetch patient preferences
+            const [patients] = await db.execute(
+                'SELECT wake_time, bedtime, breakfast_time, lunch_time, dinner_time FROM patients WHERE id = ?',
                 [patientId]
             );
-            const patientSchedule = patientRows[0] || {};
-
-            console.log(`📅 Generating schedule from ${start.toISOString()} to ${end.toISOString()}`);
-
-            // Calculer les horaires en fonction de la fréquence et du planning du patient
-            const times = this._calculateTimes(frequency, start, patientSchedule);
             
-            if (times.length === 0) {
-                console.log(`No schedule generated for frequency: ${frequency}`);
-                return 0;
-            }
+            const preferences = patients[0] || this.DEFAULT_SCHEDULE;
+            const times = this._calculateSmartTimes(frequency, preferences);
 
-            console.log(`📋 Times for ${frequency}:`, times);
+            if (times.length === 0) return;
 
-            const schedules = [];
-            let currentDate = new Date(start);
-            currentDate.setHours(0, 0, 0, 0);
+            // Generate daily doses between start and end date
+            const start = new Date(startDate);
+            const end = endDate ? new Date(endDate) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
+            
+            const doses = [];
+            let current = new Date(start);
 
-            while (currentDate <= end) {
-                for (const time of times) {
-                    const [hours, minutes] = time.split(':').map(Number);
-                    const scheduledTime = new Date(currentDate);
-                    scheduledTime.setHours(hours, minutes, 0, 0);
+            while (current <= end) {
+                const year = current.getFullYear();
+                const month = String(current.getMonth() + 1).padStart(2, '0');
+                const day = String(current.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
 
-                    const today = new Date();
-                    if (scheduledTime.toDateString() === today.toDateString()) {
-                        if (scheduledTime <= today) {
-                            continue;
-                        }
+                for (const timeStr of times) {
+                    const scheduledDateTimeStr = `${dateStr} ${timeStr}:00`;
+                    
+                    // Use simple arithmetic for future check
+                    const [h, m] = timeStr.split(':').map(Number);
+                    const checkDate = new Date(year, current.getMonth(), current.getDate(), h, m);
+
+                    if (checkDate > new Date()) {
+                        doses.push([
+                            patientId,
+                            treatmentId,
+                            scheduledDateTimeStr,
+                            'SCHEDULED'
+                        ]);
                     }
-
-                    schedules.push([
-                        patientId,
-                        treatmentId,
-                        scheduledTime,
-                        'SCHEDULED'
-                    ]);
                 }
-                currentDate.setDate(currentDate.getDate() + 1);
+                current.setDate(current.getDate() + 1);
             }
 
-            if (schedules.length > 0) {
+            if (doses.length > 0) {
                 const query = 'INSERT INTO medication_schedules (patient_id, treatment_id, scheduled_date_time, status) VALUES ?';
-                await db.query(query, [schedules]);
-                return schedules.length;
+                await db.query(query, [doses]);
+                console.log(`✅ Generated ${doses.length} doses for Treatment #${treatmentId}`);
             }
-            
-            return 0;
-            
         } catch (error) {
-            console.error('❌ Error generating schedule:', error);
+            console.error('❌ Scheduling Engine Error:', error);
             throw error;
         }
     }
 
+    // --- 3. CORE CALCULATION ENGINE (PRIVATE) ---
+
     /**
-     * Calculer les horaires en fonction de la fréquence et du planning patient
-     * @param {string} frequency 
-     * @param {Date} startDate 
-     * @param {Object} patientSchedule
-     * @returns {Array<string>} Liste des horaires au format "HH:MM"
+     * Internal logic to calculate exact HH:MM times based on rules
      */
-    static _calculateTimes(frequency, startDate, patientSchedule = {}) {
-        const times = [];
-        const startHour = startDate.getHours();
-        const startMinute = startDate.getMinutes();
+    static _calculateSmartTimes(frequencyStr, prefs) {
+        const parts = frequencyStr.split('+').map(p => p.trim());
+        const resultTimes = new Set();
         
-        const formatTime = (hour, minute) => {
-            return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-        };
+        let mainFreq = null;
+        const mealAnchors = [];
 
-        const getMealTime = (mealKey, defaultTime, offsetMinutes = 0) => {
-            let timeStr = patientSchedule[mealKey] || defaultTime;
-            // timeStr est souvent au format "HH:MM:SS" depuis MySQL
-            const [h, m] = timeStr.split(':').map(Number);
-            let date = new Date();
-            date.setHours(h, m + offsetMinutes, 0, 0);
-            return formatTime(date.getHours(), date.getMinutes());
-        };
-        
-        switch (frequency) {
-            case 'Once daily':
-                times.push(formatTime(startHour, startMinute));
-                break;
-            case 'Twice daily':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 12) % 24, startMinute));
-                break;
-            case 'Three times daily':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 8) % 24, startMinute));
-                times.push(formatTime((startHour + 16) % 24, startMinute));
-                break;
-            case 'Four times daily':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 6) % 24, startMinute));
-                times.push(formatTime((startHour + 12) % 24, startMinute));
-                times.push(formatTime((startHour + 18) % 24, startMinute));
-                break;
-            case 'Every 12 hours':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 12) % 24, startMinute));
-                break;
-            case 'Every 8 hours':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 8) % 24, startMinute));
-                times.push(formatTime((startHour + 16) % 24, startMinute));
-                break;
-            case 'Every 6 hours':
-                times.push(formatTime(startHour, startMinute));
-                times.push(formatTime((startHour + 6) % 24, startMinute));
-                times.push(formatTime((startHour + 12) % 24, startMinute));
-                times.push(formatTime((startHour + 18) % 24, startMinute));
-                break;
-
-            // Nouveaux horaires basés sur les repas
-            case 'Before breakfast':
-                times.push(getMealTime('breakfast_time', '08:00', -30));
-                break;
-            case 'After breakfast':
-                times.push(getMealTime('breakfast_time', '08:00', 30));
-                break;
-            case 'Before lunch':
-                times.push(getMealTime('lunch_time', '12:30', -30));
-                break;
-            case 'After lunch':
-                times.push(getMealTime('lunch_time', '12:30', 30));
-                break;
-            case 'Before dinner':
-                times.push(getMealTime('dinner_time', '18:30', -30));
-                break;
-            case 'After dinner':
-                times.push(getMealTime('dinner_time', '18:30', 30));
-                break;
-            case 'Before sleeping':
-                times.push(getMealTime('bedtime', '23:00', -30));
-                break;
-
-            case 'As needed':
-                break;
-            default:
-                times.push(formatTime(startHour, startMinute));
+        // Parse parts
+        for (const part of parts) {
+            if (this.FREQUENCY_CONFIG[part]) mainFreq = part;
+            else mealAnchors.push(part);
         }
-        
-        times.sort((a, b) => {
+
+        // Rule 1: Specific meal anchors take absolute priority
+        if (mealAnchors.length > 0) {
+            for (const anchor of mealAnchors) {
+                const t = this._resolveAnchorToTime(anchor, prefs);
+                if (t) resultTimes.add(t);
+            }
+        }
+
+        // Rule 2: If we have a frequency, ensure we meet the count
+        if (mainFreq) {
+            const config = this.FREQUENCY_CONFIG[mainFreq];
+            if (config.type === 'interval') {
+                this._fillIntervalTimes(config.interval, prefs, resultTimes);
+            } else if (config.type === 'daily') {
+                this._fillDailyTimes(config.count, mealAnchors, prefs, resultTimes);
+            }
+        }
+
+        const sorted = Array.from(resultTimes).sort((a, b) => {
             const [h1, m1] = a.split(':').map(Number);
             const [h2, m2] = b.split(':').map(Number);
             return (h1 * 60 + m1) - (h2 * 60 + m2);
         });
+
+        console.log(`[Scheduler] Calculated times for "${frequencyStr}":`, sorted);
+        return sorted;
+    }
+
+    /**
+     * Resolve meal instructions to exact times with offsets
+     */
+    static _resolveAnchorToTime(anchor, prefs) {
+        const format = (timeStr, offsetMin) => {
+            if (!timeStr) return null;
+            // timeStr can be HH:MM:SS from MySQL
+            const parts = timeStr.split(':');
+            const h = parseInt(parts[0]);
+            const m = parseInt(parts[1]);
+            
+            let totalMinutes = h * 60 + m + offsetMin;
+            // Handle wrapping around midnight
+            totalMinutes = (totalMinutes + 1440) % 1440;
+            
+            const newH = Math.floor(totalMinutes / 60);
+            const newM = totalMinutes % 60;
+            
+            return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+        };
+
+        switch (anchor) {
+            case 'Before breakfast': return format(prefs.breakfast_time || '08:00', -30);
+            case 'After breakfast':  return format(prefs.breakfast_time || '08:00', 15);
+            case 'Before lunch':     return format(prefs.lunch_time || '12:30', -30);
+            case 'After lunch':      return format(prefs.lunch_time || '12:30', 15);
+            case 'Before dinner':    return format(prefs.dinner_time || '18:30', -30);
+            case 'After dinner':     return format(prefs.dinner_time || '18:30', 15);
+            case 'Before sleeping':
+            case 'Bedtime':          return format(prefs.bedtime || '23:00', -30);
+            case 'Empty stomach':    return format(prefs.breakfast_time || '08:00', -60);
+            default: return null;
+        }
+    }
+
+    /**
+     * Smart distribution for daily counts (1x, 2x, etc.)
+     */
+    static _fillDailyTimes(count, existingAnchors, prefs, resultTimes) {
+        // If anchors already satisfy the count, do nothing
+        if (resultTimes.size >= count) return;
+
+        const defaults = [];
+        if (count === 1) defaults.push('After breakfast');
+        else if (count === 2) defaults.push('After breakfast', 'After dinner');
+        else if (count === 3) defaults.push('After breakfast', 'After lunch', 'After dinner');
+        else if (count === 4) {
+            resultTimes.add(prefs.wake_time || '07:00');
+            defaults.push('After lunch', 'After dinner', 'Bedtime');
+        }
+
+        for (const def of defaults) {
+            if (resultTimes.size < count) {
+                const t = this._resolveAnchorToTime(def, prefs);
+                if (t) resultTimes.add(t);
+            }
+        }
+    }
+
+    /**
+     * Interval scheduling respecting the waking window
+     */
+    static _fillIntervalTimes(interval, prefs, resultTimes) {
+        const wakeTime = prefs.wake_time || '07:00';
+        const [wakeH, wakeM] = wakeTime.split(':').map(Number);
         
-        return times;
+        // Interval doses are usually fixed from wake-up
+        for (let i = 0; i < (24 / interval); i++) {
+            const h = (wakeH + (i * interval)) % 24;
+            resultTimes.add(`${String(h).padStart(2, '0')}:${String(wakeM).padStart(2, '0')}`);
+        }
     }
 
     /**

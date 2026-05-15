@@ -1,12 +1,11 @@
 const db = require('../config/database');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// Initialize Groq AI
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
- * Handle Chatbot queries with Real AI (Gemini)
+ * Handle Chatbot queries with Groq AI
  */
 exports.handleChatQuery = async (req, res) => {
     try {
@@ -19,11 +18,11 @@ exports.handleChatQuery = async (req, res) => {
 
         const lowerMsg = message.toLowerCase();
 
-        // 1. EMERGENCY DETECTION (STOP Normal Chat)
+        // 1. EMERGENCY DETECTION
         const emergencyKeywords = [
-            'chest pain', 'difficulty breathing', 'breath', 'stroke', 
+            'chest pain', 'difficulty breathing', 'breath', 'stroke',
             'unconscious', 'fainted', 'seizure', 'heavy bleeding',
-            'can\'t breathe', 'heart attack'
+            "can't breathe", 'heart attack'
         ];
 
         const isEmergency = emergencyKeywords.some(keyword => lowerMsg.includes(keyword));
@@ -37,7 +36,7 @@ exports.handleChatQuery = async (req, res) => {
             });
         }
 
-        // 2. Fetch user context (medications and conditions) to make the AI "smart"
+        // 2. Fetch user medications for context
         const [treatments] = await db.execute(
             'SELECT medication_name, dosage, frequency FROM treatments WHERE patient_id = ? AND is_active = true',
             [userId]
@@ -45,33 +44,38 @@ exports.handleChatQuery = async (req, res) => {
 
         const medContext = treatments.map(t => `${t.medication_name} (${t.dosage}) taken ${t.frequency}`).join(', ');
 
-        // 3. Define the System Prompt & Rules
-        const prompt = `
-            SYSTEM RULES (MANDATORY):
-            - You are "MediCare AI", a supportive assistant for elderly patients.
-            - ALWAYS start or end with: "Disclaimer: This assistant does not replace professional medical advice."
-            - Use simple, human-readable, non-technical language.
-            - NO long paragraphs. Use short sentences and bullet points if needed.
-            - Context: The patient is taking: ${medContext || 'No medications currently listed'}.
-            - If they ask about a missed dose, give calm advice based on general safety (don't double dose).
-            - Be empathetic, patient, and calm.
+        // 3. Call Groq AI
+        console.log('--- AI Assistant Request ---');
+        console.log('User ID:', userId);
 
-            USER MESSAGE: "${message}"
-        `;
+        const completion = await groq.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            max_tokens: 500,
+            messages: [
+                {
+                    role: "system",
+                    content: `You are "MediCare AI", a supportive assistant for elderly patients.
+- ALWAYS end with: "Disclaimer: This assistant does not replace professional medical advice."
+- Use simple, non-technical language.
+- NO long paragraphs. Use short sentences and bullet points.
+- The patient is currently taking: ${medContext || 'No medications listed'}.
+- If they ask about a missed dose, advise them not to double dose and to contact their doctor.
+- Be empathetic, patient, and calm.`
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ]
+        });
 
-        // 4. Call Gemini AI
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let aiText = response.text();
+        let aiText = completion.choices[0].message.content;
 
-        // Clean up response if it's too long or complex (Gemini is usually good with short prompts)
-        // Ensure disclaimer is there (Safety check)
         if (!aiText.includes("professional medical advice")) {
             aiText += "\n\nDisclaimer: This assistant does not replace professional medical advice.";
         }
 
-        // Return structured response
-        res.json({
+        return res.json({
             success: true,
             reply: aiText,
             timestamp: new Date().toISOString(),
@@ -79,12 +83,11 @@ exports.handleChatQuery = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('AI Chatbot Error:', error);
-        // Fallback for API Key missing or other errors
-        res.status(500).json({ 
-            success: false, 
-            message: 'I am having trouble connecting to my brain right now. Please ensure your AI API Key is configured.' 
+        console.error('AI Chatbot Error:', error.message);
+
+        res.status(500).json({
+            success: false,
+            message: "The assistant is temporarily unavailable. Please try again later."
         });
     }
 };
-

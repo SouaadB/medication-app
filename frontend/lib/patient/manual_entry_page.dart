@@ -21,22 +21,40 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
   
-  String? _selectedFrequency;
+  List<String> _selectedFrequencies = [];
+  String? _mainFrequency; // "Once daily", "Twice daily", etc.
+  List<String> _mealAnchors = []; // "Before breakfast", "After lunch", etc.
+  String _priority = 'MEDIUM'; // LOW, MEDIUM, HIGH
   int? _selectedConditionId;
   String? _selectedConditionName;
   bool _isLoading = false;
   bool _isConditionPreSelected = false;
 
-  // French frequency options
-  final List<String> _frequenciesFr = [
+  final List<String> _frequencyBaseFr = [
     'Une fois par jour',
     'Deux fois par jour',
     'Trois fois par jour',
     'Quatre fois par jour',
-    'Toutes les 12 heures',
-    'Toutes les 8 heures',
+    'Toutes les 4 heures',
     'Toutes les 6 heures',
+    'Toutes les 8 heures',
+    'Toutes les 12 heures',
     'Au besoin',
+  ];
+
+  final List<String> _frequencyBaseEn = [
+    'Once daily',
+    'Twice daily',
+    'Three times daily',
+    'Four times daily',
+    'Every 4 hours',
+    'Every 6 hours',
+    'Every 8 hours',
+    'Every 12 hours',
+    'As needed',
+  ];
+
+  final List<String> _mealAnchorsFr = [
     'Avant le petit-déjeuner',
     'Après le petit-déjeuner',
     'Avant le déjeuner',
@@ -46,16 +64,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Avant de dormir',
   ];
 
-  // English frequency options
-  final List<String> _frequenciesEn = [
-    'Once daily',
-    'Twice daily',
-    'Three times daily',
-    'Four times daily',
-    'Every 12 hours',
-    'Every 8 hours',
-    'Every 6 hours',
-    'As needed',
+  final List<String> _mealAnchorsEn = [
     'Before breakfast',
     'After breakfast',
     'Before lunch',
@@ -65,15 +74,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Before sleeping',
   ];
 
-  // Map French to English frequencies for backend
-  final Map<String, String> _frToEnFrequency = {
+  final Map<String, String> _frToEnMap = {
     'Une fois par jour': 'Once daily',
     'Deux fois par jour': 'Twice daily',
     'Trois fois par jour': 'Three times daily',
     'Quatre fois par jour': 'Four times daily',
-    'Toutes les 12 heures': 'Every 12 hours',
-    'Toutes les 8 heures': 'Every 8 hours',
+    'Toutes les 4 heures': 'Every 4 hours',
     'Toutes les 6 heures': 'Every 6 hours',
+    'Toutes les 8 heures': 'Every 8 hours',
+    'Toutes les 12 heures': 'Every 12 hours',
     'Au besoin': 'As needed',
     'Avant le petit-déjeuner': 'Before breakfast',
     'Après le petit-déjeuner': 'After breakfast',
@@ -88,10 +97,16 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   bool _loadingConditions = true;
 
   // Get current frequency list based on language
-  List<String> _getCurrentFrequencies(LanguageService languageService) {
+  List<String> _getCurrentFrequencyBase(LanguageService languageService) {
     return languageService.getCurrentLanguage() == 'fr' 
-        ? _frequenciesFr 
-        : _frequenciesEn;
+        ? _frequencyBaseFr 
+        : _frequencyBaseEn;
+  }
+
+  List<String> _getCurrentMealAnchors(LanguageService languageService) {
+    return languageService.getCurrentLanguage() == 'fr' 
+        ? _mealAnchorsFr 
+        : _mealAnchorsEn;
   }
 
   // Check if current language is French
@@ -100,9 +115,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   // Convert to backend format (always English)
-  String _getBackendFrequency(String? selectedFr) {
-    if (selectedFr == null) return 'Once daily';
-    return _frToEnFrequency[selectedFr] ?? selectedFr;
+  String _getBackendFrequency() {
+    List<String> finalParts = [];
+    if (_mainFrequency != null) {
+      finalParts.add(_frToEnMap[_mainFrequency] ?? _mainFrequency!);
+    }
+    for (var anchor in _mealAnchors) {
+      finalParts.add(_frToEnMap[anchor] ?? anchor);
+    }
+    
+    if (finalParts.isEmpty) return 'Once daily';
+    return finalParts.join(' + ');
   }
 
   @override
@@ -121,7 +144,44 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (widget.prefillData != null) {
       _medicationController.text = widget.prefillData!['medication_name'] ?? '';
       _dosageController.text = widget.prefillData!['dosage'] ?? '';
-      _selectedFrequency = widget.prefillData!['frequency'] ?? 'Once daily';
+      
+      final freq = widget.prefillData!['frequency'];
+      if (freq != null && freq is String) {
+        final parts = freq.split('+').map((s) => s.trim()).toList();
+        
+        // Try to identify main frequency and meal anchors
+        for (var part in parts) {
+          // Check if it's a base frequency
+          String? matchingBase;
+          for (var base in _frequencyBaseEn) {
+            if (part == base) {
+              matchingBase = _isFrench(Provider.of<LanguageService>(context, listen: false)) 
+                  ? _frequencyBaseFr[_frequencyBaseEn.indexOf(base)]
+                  : base;
+              break;
+            }
+          }
+          
+          if (matchingBase != null) {
+            _mainFrequency = matchingBase;
+          } else {
+            // Check if it's a meal anchor
+            String? matchingAnchor;
+            for (var anchor in _mealAnchorsEn) {
+              if (part == anchor) {
+                matchingAnchor = _isFrench(Provider.of<LanguageService>(context, listen: false))
+                    ? _mealAnchorsFr[_mealAnchorsEn.indexOf(anchor)]
+                    : anchor;
+                break;
+              }
+            }
+            if (matchingAnchor != null) {
+              _mealAnchors.add(matchingAnchor);
+            }
+          }
+        }
+      }
+      
       if (widget.prefillData!['duration_days'] != null) {
         final start = DateTime.now();
         final end = start.add(Duration(days: widget.prefillData!['duration_days']));
@@ -141,7 +201,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/profile/conditions'),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: ApiConfig.getAuthHeaders(token!),
       );
 
       if (response.statusCode == 200) {
@@ -168,8 +228,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   @override
   Widget build(BuildContext context) {
     final languageService = Provider.of<LanguageService>(context);
+    final currentFrequencyBase = _getCurrentFrequencyBase(languageService);
+    final currentMealAnchors = _getCurrentMealAnchors(languageService);
     final isFrench = _isFrench(languageService);
-    final currentFrequencies = _getCurrentFrequencies(languageService);
     
     return Scaffold(
       backgroundColor: Colors.white,
@@ -356,7 +417,16 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     languageService.translate('frequency'),
                   ),
                   const SizedBox(height: 8),
-                  _buildFrequencySelector(languageService, currentFrequencies),
+                  _buildFrequencySelector(languageService, currentFrequencyBase, currentMealAnchors),
+                  const SizedBox(height: 20),
+
+                  // Priority Field
+                  _buildLabelWithIcon(
+                    Icons.priority_high,
+                    isFrench ? 'Priorité' : 'Priority',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildPrioritySelector(isFrench),
                   const SizedBox(height: 20),
 
                   // Start Date Field
@@ -435,6 +505,216 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  // Frequency selector
+  Widget _buildFrequencySelector(LanguageService languageService, List<String> baseFreqs, List<String> anchors) {
+    String displayText;
+    if (_mainFrequency == null && _mealAnchors.isEmpty) {
+      displayText = languageService.translate('selectFrequency');
+    } else {
+      List<String> parts = [];
+      if (_mainFrequency != null) parts.add(_mainFrequency!);
+      parts.addAll(_mealAnchors);
+      displayText = parts.join(', ');
+    }
+
+    return GestureDetector(
+      onTap: () => _showSmartFrequencySelector(languageService, baseFreqs, anchors),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: Colors.blue.shade300),
+            const SizedBox(width: 8),
+            Expanded(child: Text(displayText, maxLines: 2, overflow: TextOverflow.ellipsis)),
+            const Icon(Icons.arrow_drop_down, color: Colors.blue),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSmartFrequencySelector(LanguageService languageService, List<String> baseFreqs, List<String> anchors) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final mainFreqEn = _mainFrequency != null ? _frToEnMap[_mainFrequency] ?? _mainFrequency : null;
+          
+          final isInterval = mainFreqEn != null && 
+              (mainFreqEn.contains('Every') || mainFreqEn == 'As needed' || mainFreqEn == 'Four times daily');
+          
+          final isThreeTimes = mainFreqEn == 'Three times daily';
+          
+          int maxAnchors = 99;
+          if (mainFreqEn == 'Once daily') maxAnchors = 1;
+          else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 20),
+                Text(languageService.translate('selectFrequency'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Divider(),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _buildSectionTitle(_isFrench(languageService) ? 'Fréquence' : 'Frequency'),
+                      ...baseFreqs.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final f = entry.value;
+                        return RadioListTile<String>(
+                          secondary: Icon(_getFrequencyIcon(idx), color: _mainFrequency == f ? Colors.blue : Colors.grey),
+                          title: Text(f),
+                          value: f,
+                          groupValue: _mainFrequency,
+                          activeColor: Colors.blue,
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setModalState(() {
+                              _mainFrequency = val;
+                              final valEn = _frToEnMap[val] ?? val;
+                              // Rule: 3 times daily auto-selects all meals
+                              if (valEn == 'Three times daily') {
+                                _mealAnchors = [anchors[1], anchors[3], anchors[5]]; // After breakfast, lunch, dinner
+                              } else {
+                                final isNowInterval = valEn.contains('Every') || valEn == 'As needed' || valEn == 'Four times daily';
+                                if (isNowInterval) {
+                                  _mealAnchors = [];
+                                } else {
+                                  // Trim anchors if they exceed max allowed for new frequency
+                                  int newMax = 99;
+                                  if (valEn == 'Once daily') newMax = 1;
+                                  else if (valEn == 'Twice daily') newMax = 2;
+                                  if (_mealAnchors.length > newMax) {
+                                    _mealAnchors = _mealAnchors.sublist(0, newMax);
+                                  }
+                                }
+                              }
+                            });
+                            setState(() {});
+                          },
+                        );
+                      }),
+                      const SizedBox(height: 20),
+                      _buildSectionTitle(_isFrench(languageService) ? 'Moment (Repas)' : 'Timing (Meals)'),
+                      if (isInterval) 
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            _isFrench(languageService) ? 'Indisponible pour cette fréquence' : 'Unavailable for this frequency',
+                            style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                          ),
+                        )
+                      else if (isThreeTimes)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            _isFrench(languageService) ? 'Auto-sélectionné pour 3 fois/jour' : 'Auto-selected for 3 times/day',
+                            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      else
+                        ...anchors.map((a) {
+                          final isSelected = _mealAnchors.contains(a);
+                          final isDisabled = !isSelected && _mealAnchors.length >= maxAnchors;
+                          return CheckboxListTile(
+                            title: Text(a, style: TextStyle(color: isDisabled ? Colors.grey : Colors.black)),
+                            value: isSelected,
+                            activeColor: Colors.blue,
+                            onChanged: isDisabled ? null : (val) {
+                              setModalState(() {
+                                if (val == true) _mealAnchors.add(a);
+                                else _mealAnchors.remove(a);
+                              });
+                              setState(() {});
+                            },
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      child: Text(languageService.translate('confirm'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPrioritySelector(bool isFrench) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildPriorityOption('LOW', isFrench ? 'Basse' : 'Low', Colors.green),
+          _buildPriorityOption('MEDIUM', isFrench ? 'Moyenne' : 'Medium', Colors.orange),
+          _buildPriorityOption('HIGH', isFrench ? 'Haute' : 'High', Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriorityOption(String value, String label, Color color) {
+    bool isSelected = _priority == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _priority = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected ? [
+              BoxShadow(color: color.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))
+            ] : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey.shade600,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
     );
   }
 
@@ -558,180 +838,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     );
   }
 
-  // Frequency selector
-  Widget _buildFrequencySelector(LanguageService languageService, List<String> frequencies) {
-    return GestureDetector(
-      onTap: () => _showFrequencySelector(languageService, frequencies),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              child: Icon(Icons.access_time, color: Colors.blue.shade300),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _selectedFrequency ?? languageService.translate('selectFrequency'),
-                style: TextStyle(
-                  color: _selectedFrequency == null ? Colors.grey.shade400 : Colors.black,
-                  fontSize: 16,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.arrow_drop_down, color: Colors.blue),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Frequency selector modal
-  void _showFrequencySelector(LanguageService languageService, List<String> frequencies) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.access_time, color: Colors.blue),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        languageService.translate('selectFrequency'),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A237E),
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            // Frequency list
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: frequencies.length,
-                separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
-                itemBuilder: (context, index) {
-                  final freq = frequencies[index];
-                  final isSelected = _selectedFrequency == freq;
-                  
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        _getFrequencyIcon(index),
-                        color: isSelected ? Colors.blue : Colors.grey.shade600,
-                        size: 24,
-                      ),
-                    ),
-                    title: Text(
-                      freq,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? Colors.blue : Colors.black87,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Colors.blue,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          )
-                        : null,
-                    onTap: () {
-                      setState(() {
-                        _selectedFrequency = freq;
-                      });
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Helper method to get icon for each frequency
   IconData _getFrequencyIcon(int index) {
     switch (index) {
@@ -803,7 +909,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       return;
     }
     
-    if (_selectedFrequency == null) {
+    if (_mainFrequency == null && _mealAnchors.isEmpty) {
       _showError(isFrench
           ? 'Veuillez sélectionner la fréquence'
           : 'Please select frequency');
@@ -833,19 +939,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       }
 
       // Convert frequency to backend format (English)
-      final backendFrequency = _getBackendFrequency(_selectedFrequency);
+      final backendFrequency = _getBackendFrequency();
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/treatments'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: ApiConfig.getAuthHeaders(token!),
         body: jsonEncode({
           'condition_id': _selectedConditionId,
           'medication_name': _medicationController.text.trim(),
           'dosage': _dosageController.text.trim(),
           'frequency': backendFrequency,
+          'priority': _priority,
           'start_date': startDate,
           'end_date': endDate,
         }),

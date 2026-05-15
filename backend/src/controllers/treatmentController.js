@@ -2,6 +2,7 @@ const Treatment = require('../models/Treatment');
 const OCRService = require('../services/ocrService');
 const SchedulerService = require('../services/schedulerService');
 const ScheduleService = require('../services/scheduleService');
+const NotificationService = require('../services/notificationService');
 const db = require('../config/database');
 
 // OCR Extraction
@@ -31,7 +32,7 @@ exports.processPrescriptionOCR = async (req, res) => {
 exports.createTreatment = async (req, res) => {
     try {
         const patientId = req.user.id;
-        let { condition_id, medication_name, dosage, frequency, start_date, end_date } = req.body;
+        let { condition_id, medication_name, dosage, frequency, priority, start_date, end_date } = req.body;
 
         console.log('Received treatment data:', req.body);
 
@@ -52,6 +53,7 @@ exports.createTreatment = async (req, res) => {
             medication_name: medication_name || '',
             dosage: dosage || null,
             frequency: frequency || 'Once daily',
+            priority: priority || 'MEDIUM',
             start_date: start_date,
             end_date: end_date || null
         };
@@ -167,7 +169,8 @@ exports.deleteTreatment = async (req, res) => {
         const { id } = req.params;
         await Treatment.delete(id);
         await SchedulerService.clearFutureSchedules(id);
-        res.json({ success: true, message: 'Treatment deleted and future schedules cleared' });
+        await NotificationService.clearNotificationsByTreatment(id);
+        res.json({ success: true, message: 'Treatment deleted and related data cleared' });
     } catch (error) {
         console.error('Delete Treatment Error:', error);
         res.status(500).json({ success: false, message: 'Error deleting treatment' });
