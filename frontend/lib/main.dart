@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'auth/sign_up_page.dart';
 import 'auth/sign_in_page.dart';
 import 'auth/reset_password_page_1.dart';
@@ -17,28 +19,30 @@ import 'patient/daily_planning_page.dart';
 import 'patient/notifications_page.dart';
 import 'patient/history_page.dart';
 import 'patient/settings_page.dart';
-import 'patient/quiet_hours_page.dart';
-import 'patient/rewards_page.dart';
-import 'patient/medication_dictionary_page.dart';
-import 'patient/ai_chatbot_page.dart';
 import 'patient/daily_schedule_page.dart';
 import 'admin/admin_interface.dart';
 import 'profile/profile_page.dart';
 import 'services/language_service.dart';
-import 'services/settings_service.dart';
+import 'services/notification_service.dart';
+import 'caregiver/caregiver_login_page.dart';  // ✅ ADD THIS
+import 'caregiver/caregiver_dashboard.dart';   // ✅ ADD THIS
 
-import 'patient/caregiver_access_page.dart';
-
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  if (kIsWeb) {
+    // On web: Firebase is already initialized via HTML script tags
+    print('✅ Running on web - Firebase ready via HTML');
+  } else {
+    // On mobile: Your existing code - UNCHANGED
+    await Firebase.initializeApp();
+    await NotificationService.initialize();
+    print('✅ Firebase initialized for mobile');
+  }
+  
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => SettingsService()),
-        ChangeNotifierProxyProvider<SettingsService, LanguageService>(
-          create: (_) => LanguageService(),
-          update: (_, settings, language) => language!..updateFromSettings(settings),
-        ),
-      ],
+    ChangeNotifierProvider(
+      create: (_) => LanguageService(),
       child: const MyApp(),
     ),
   );
@@ -49,7 +53,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settingsService = Provider.of<SettingsService>(context);
     final languageService = Provider.of<LanguageService>(context);
     
     return MaterialApp(
@@ -58,16 +61,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white,
       ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-      ),
-      themeMode: settingsService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       locale: languageService.locale,
       supportedLocales: const [
         Locale('en', ''),
@@ -149,18 +143,13 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const HistoryPage());
           case '/settings':
             return MaterialPageRoute(builder: (context) => const SettingsPage());
-          case '/ai-chatbot':
-            return MaterialPageRoute(builder: (context) => const AIChatbotPage());
-          case '/caregiver-access':
-            return MaterialPageRoute(builder: (context) => const CaregiverAccessPage());
-          case '/med-dictionary':
-            return MaterialPageRoute(builder: (context) => const MedicationDictionaryPage());
-          case '/rewards':
-            return MaterialPageRoute(builder: (context) => const RewardsPage());
-          case '/quiet-hours':
-            return MaterialPageRoute(builder: (context) => const QuietHoursPage());
           case '/daily-schedule':
             return MaterialPageRoute(builder: (context) => const DailySchedulePage());
+          // ✅ ADD CAREGIVER ROUTES
+          case '/caregiver-login':
+            return MaterialPageRoute(builder: (context) => const CaregiverLoginPage());
+          case '/caregiver-dashboard':
+            return MaterialPageRoute(builder: (context) => const CaregiverDashboard());
           default:
             return MaterialPageRoute(builder: (context) => const SignInPage());
         }

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../config/api_config.dart';
 import '../services/language_service.dart';
+import '../services/notification_service.dart';
+import '../caregiver/caregiver_login_page.dart'; // ✅ ADD THIS
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -48,6 +50,15 @@ class _SignInPageState extends State<SignInPage> {
         await prefs.setString('user_name', data['user']['name'] ?? '');
         await prefs.setString('user_email', data['user']['email'] ?? '');
         await prefs.setString('user_role', data['user']['role'] ?? '');
+        await prefs.setString('api_url', ApiConfig.baseUrl);
+
+        // Send FCM token to backend after login
+        try {
+          await NotificationService.sendTokenToBackend(data['token'], ApiConfig.baseUrl);
+          print('✅ FCM token sent to backend after login');
+        } catch (e) {
+          print('⚠️ Error sending FCM token: $e');
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +68,9 @@ class _SignInPageState extends State<SignInPage> {
           final role = data['user']['role'];
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, '/admin');
+          } else if (role == 'caregiver') {
+            // ✅ Navigate to caregiver dashboard
+            Navigator.pushReplacementNamed(context, '/caregiver-dashboard');
           } else {
             try {
               final profileResponse = await http.get(
@@ -284,6 +298,49 @@ class _SignInPageState extends State<SignInPage> {
                       ),
                     ),
                   ],
+                ),
+                
+                // ✅ ADD CAREGIVER DIVIDER AND BUTTON
+                const SizedBox(height: 30),
+                
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Are you a caregiver?',
+                        style: TextStyle(color: Colors.grey.shade500),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                  ],
+                ),
+                
+                const SizedBox(height: 16),
+                
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CaregiverLoginPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.family_restroom, color: Colors.blue),
+                    label: const Text(
+                      'Caregiver Login',
+                      style: TextStyle(color: Colors.blue),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
