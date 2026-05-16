@@ -35,3 +35,7 @@ frontend/.flutter-plugins-dependencies
 *.tmp
 ~$*
 .~*
+
+# Firebase
+backend/firebase-service-account.json
+backend/.env

@@ -13,7 +13,7 @@ class ReviewParsedMedicationsPage extends StatefulWidget {
   final String? conditionName;
 
   const ReviewParsedMedicationsPage({
-    super.key, 
+    super.key,
     required this.medications,
     this.conditionId,
     this.conditionName,
@@ -46,15 +46,43 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
     'Au besoin'
   ];
 
-  final Map<String, String> _frToEnFrequency = {
+  final List<String> _mealAnchorsFr = [
+    'Avant le petit-déjeuner',
+    'Après le petit-déjeuner',
+    'Avant le déjeuner',
+    'Après le déjeuner',
+    'Avant le dîner',
+    'Après le dîner',
+    'Avant de dormir',
+  ];
+
+  final List<String> _mealAnchorsEn = [
+    'Before breakfast',
+    'After breakfast',
+    'Before lunch',
+    'After lunch',
+    'Before dinner',
+    'After dinner',
+    'Before sleeping',
+  ];
+
+  final Map<String, String> _frToEnMap = {
     'Une fois par jour': 'Once daily',
     'Deux fois par jour': 'Twice daily',
     'Trois fois par jour': 'Three times daily',
     'Quatre fois par jour': 'Four times daily',
-    'Toutes les 12 heures': 'Every 12 hours',
-    'Toutes les 8 heures': 'Every 8 hours',
+    'Toutes les 4 heures': 'Every 4 hours',
     'Toutes les 6 heures': 'Every 6 hours',
+    'Toutes les 8 heures': 'Every 8 hours',
+    'Toutes les 12 heures': 'Every 12 hours',
     'Au besoin': 'As needed',
+    'Avant le petit-déjeuner': 'Before breakfast',
+    'Après le petit-déjeuner': 'After breakfast',
+    'Avant le déjeuner': 'Before lunch',
+    'Après le déjeuner': 'After lunch',
+    'Avant le dîner': 'Before dinner',
+    'Après le dîner': 'After dinner',
+    'Avant de dormir': 'Before sleeping',
   };
 
   final Map<String, String> _enToFrFrequency = {
@@ -72,22 +100,27 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
   DateTime _startDate = DateTime.now();
   bool _isSubmitting = false;
   bool _isConditionPreSelected = false;
-  
+
   List<Map<String, dynamic>> _patientConditions = [];
   bool _loadingConditions = false;
   Map<int, int?> _selectedConditionIds = {};
 
+  // Per-item frequency, meal anchors, priority
+  Map<int, String?> _mainFrequencies = {};
+  Map<int, List<String>> _mealAnchorsPerItem = {};
+  Map<int, String> _priorityPerItem = {};
+
   @override
   void initState() {
     super.initState();
-    
+
     _isConditionPreSelected = widget.conditionId != null;
-    
+
     _items = widget.medications.map((m) {
       final freq = m['frequency'];
       final safeFreq = _frequenciesEn.contains(freq) ? freq : 'Once daily';
       final durationDays = m['duration_days'] is int ? m['duration_days'] as int : null;
-      
+
       return _EditableMedication(
         name: m['name']?.toString() ?? '',
         dosage: m['dosage']?.toString() ?? '',
@@ -95,11 +128,14 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
         durationDays: durationDays,
       );
     }).toList();
-    
+
     for (int i = 0; i < _items.length; i++) {
       _selectedConditionIds[i] = widget.conditionId;
+      _mainFrequencies[i] = _items[i].frequency;
+      _mealAnchorsPerItem[i] = [];
+      _priorityPerItem[i] = 'MEDIUM';
     }
-    
+
     _loadPatientConditions();
   }
 
@@ -117,25 +153,206 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
     }
   }
 
-  // Obtenir la liste des fréquences selon la langue
-  List<String> _getCurrentFrequencies(LanguageService lang) {
+  List<String> _getCurrentFrequencyBase(LanguageService lang) {
     return lang.getCurrentLanguage() == 'fr' ? _frequenciesFr : _frequenciesEn;
   }
 
-  // Obtenir la valeur affichée pour le dropdown
-  String _getDisplayFrequency(String backendFreq, LanguageService lang) {
-    if (lang.getCurrentLanguage() == 'fr') {
-      return _enToFrFrequency[backendFreq] ?? backendFreq;
-    }
-    return backendFreq;
+  List<String> _getCurrentMealAnchors(LanguageService lang) {
+    return lang.getCurrentLanguage() == 'fr' ? _mealAnchorsFr : _mealAnchorsEn;
   }
 
-  // Convertir la valeur affichée en valeur backend
-  String _getBackendFrequency(String displayedFreq, LanguageService lang) {
-    if (lang.getCurrentLanguage() == 'fr') {
-      return _frToEnFrequency[displayedFreq] ?? 'Once daily';
+  String _getBackendFrequencyFull(int index, LanguageService lang) {
+    List<String> parts = [];
+    final main = _mainFrequencies[index];
+    if (main != null) parts.add(_frToEnMap[main] ?? main);
+    for (var anchor in (_mealAnchorsPerItem[index] ?? [])) {
+      parts.add(_frToEnMap[anchor] ?? anchor);
     }
-    return displayedFreq;
+    return parts.isEmpty ? 'Once daily' : parts.join(' + ');
+  }
+
+  IconData _getFrequencyIcon(int index) {
+    switch (index) {
+      case 0: return Icons.looks_one;
+      case 1: return Icons.looks_two;
+      case 2: return Icons.looks_3;
+      case 3: return Icons.looks_4;
+      case 4: return Icons.schedule;
+      case 5: return Icons.timer;
+      case 6: return Icons.timer;
+      case 7: return Icons.healing;
+      default: return Icons.access_time;
+    }
+  }
+
+  void _showSmartFrequencySelector(int itemIndex, LanguageService languageService) {
+    final baseFreqs = _getCurrentFrequencyBase(languageService);
+    final anchors = _getCurrentMealAnchors(languageService);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final mainFreq = _mainFrequencies[itemIndex];
+          final mainFreqEn = mainFreq != null ? (_frToEnMap[mainFreq] ?? mainFreq) : null;
+          final isInterval = mainFreqEn != null &&
+              (mainFreqEn.contains('Every') ||
+                  mainFreqEn == 'As needed' ||
+                  mainFreqEn == 'Four times daily');
+          final isThreeTimes = mainFreqEn == 'Three times daily';
+          int maxAnchors = 99;
+          if (mainFreqEn == 'Once daily') maxAnchors = 1;
+          else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  languageService.translate('selectFrequency'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const Divider(),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        child: Text(
+                          languageService.getCurrentLanguage() == 'fr' ? 'Fréquence' : 'Frequency',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
+                      ),
+                      ...baseFreqs.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final f = entry.value;
+                        return RadioListTile<String>(
+                          secondary: Icon(
+                            _getFrequencyIcon(idx),
+                            color: _mainFrequencies[itemIndex] == f ? Colors.blue : Colors.grey,
+                          ),
+                          title: Text(f),
+                          value: f,
+                          groupValue: _mainFrequencies[itemIndex],
+                          activeColor: Colors.blue,
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setModalState(() {
+                              _mainFrequencies[itemIndex] = val;
+                              final valEn = _frToEnMap[val] ?? val;
+                              if (valEn == 'Three times daily') {
+                                _mealAnchorsPerItem[itemIndex] = [anchors[1], anchors[3], anchors[5]];
+                              } else if (valEn.contains('Every') ||
+                                  valEn == 'As needed' ||
+                                  valEn == 'Four times daily') {
+                                _mealAnchorsPerItem[itemIndex] = [];
+                              } else {
+                                int newMax = valEn == 'Once daily' ? 1 : valEn == 'Twice daily' ? 2 : 99;
+                                final current = _mealAnchorsPerItem[itemIndex] ?? [];
+                                if (current.length > newMax) {
+                                  _mealAnchorsPerItem[itemIndex] = current.sublist(0, newMax);
+                                }
+                              }
+                            });
+                            setState(() {});
+                          },
+                        );
+                      }),
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        child: Text(
+                          languageService.getCurrentLanguage() == 'fr' ? 'Moment (Repas)' : 'Timing (Meals)',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
+                      ),
+                      if (isInterval)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            languageService.getCurrentLanguage() == 'fr'
+                                ? 'Indisponible pour cette fréquence'
+                                : 'Unavailable for this frequency',
+                            style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                          ),
+                        )
+                      else if (isThreeTimes)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            languageService.getCurrentLanguage() == 'fr'
+                                ? 'Auto-sélectionné pour 3 fois/jour'
+                                : 'Auto-selected for 3 times/day',
+                            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      else
+                        ...anchors.map((a) {
+                          final currentAnchors = _mealAnchorsPerItem[itemIndex] ?? [];
+                          final isSelected = currentAnchors.contains(a);
+                          final isDisabled = !isSelected && currentAnchors.length >= maxAnchors;
+                          return CheckboxListTile(
+                            title: Text(a, style: TextStyle(color: isDisabled ? Colors.grey : Colors.black)),
+                            value: isSelected,
+                            activeColor: Colors.blue,
+                            onChanged: isDisabled
+                                ? null
+                                : (val) {
+                                    setModalState(() {
+                                      if (val == true) {
+                                        _mealAnchorsPerItem[itemIndex] = [...currentAnchors, a];
+                                      } else {
+                                        _mealAnchorsPerItem[itemIndex] =
+                                            currentAnchors.where((x) => x != a).toList();
+                                      }
+                                    });
+                                    setState(() {});
+                                  },
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        languageService.translate('confirm'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _pickStartDate() async {
@@ -169,9 +386,9 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
       );
       return;
     }
-    
+
     final languageService = Provider.of<LanguageService>(context, listen: false);
-    
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -224,8 +441,10 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
 
   Future<void> _saveSelected() async {
     final languageService = Provider.of<LanguageService>(context, listen: false);
-    
-    final selected = _items.where((i) => i.include && i.nameController.text.trim().isNotEmpty).toList();
+
+    final selected = _items
+        .where((i) => i.include && i.nameController.text.trim().isNotEmpty)
+        .toList();
     if (selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(languageService.translate('selectOneMedication'))),
@@ -261,10 +480,10 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
       for (int i = 0; i < _items.length; i++) {
         final item = _items[i];
         if (!item.include || item.nameController.text.trim().isEmpty) continue;
-        
+
         final start = _fmtDate(_startDate);
         String? end;
-        
+
         if (item.durationDays != null && item.durationDays! > 0) {
           final e = _startDate.add(Duration(days: item.durationDays! - 1));
           end = _fmtDate(e);
@@ -272,8 +491,11 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
 
         final body = {
           'medication_name': item.nameController.text.trim(),
-          'dosage': item.dosageController.text.trim().isEmpty ? null : item.dosageController.text.trim(),
-          'frequency': _getBackendFrequency(item.frequency, languageService),
+          'dosage': item.dosageController.text.trim().isEmpty
+              ? null
+              : item.dosageController.text.trim(),
+          'frequency': _getBackendFrequencyFull(i, languageService),
+          'priority': _priorityPerItem[i] ?? 'MEDIUM',
           'start_date': start,
           'end_date': end,
           'condition_id': _selectedConditionIds[i],
@@ -286,7 +508,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
           headers: ApiConfig.getAuthHeaders(token),
           body: jsonEncode(body),
         );
-        
+
         if (resp.statusCode == 201) {
           successCount += 1;
         } else {
@@ -316,7 +538,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
   }
 
   String _translateConditionName(String name, LanguageService lang) {
-    switch(name) {
+    switch (name) {
       case 'Diabetes Type 1': return lang.translate('diabetesType1');
       case 'Diabetes Type 2': return lang.translate('diabetesType2');
       case 'Hypertension': return lang.translate('hypertension');
@@ -333,8 +555,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
   @override
   Widget build(BuildContext context) {
     final languageService = Provider.of<LanguageService>(context);
-    final currentFrequencies = _getCurrentFrequencies(languageService);
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -366,10 +587,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                   Expanded(
                     child: Text(
                       'Adding medications for: ${widget.conditionName}',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -404,10 +622,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                   (c) => c['id'] == _selectedConditionIds[index],
                   orElse: () => {'name': widget.conditionName ?? 'No condition selected'},
                 );
-                
-                // Convertir la fréquence pour l'affichage
-                final displayFrequency = _getDisplayFrequency(item.frequency, languageService);
-                
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
@@ -425,6 +640,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Include switch
                       Row(
                         children: [
                           Switch(
@@ -447,6 +663,8 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                         ],
                       ),
                       const SizedBox(height: 12),
+
+                      // Medication name
                       TextField(
                         controller: item.nameController,
                         decoration: InputDecoration(
@@ -455,6 +673,8 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                         ),
                       ),
                       const SizedBox(height: 12),
+
+                      // Dosage
                       TextField(
                         controller: item.dosageController,
                         decoration: InputDecoration(
@@ -463,54 +683,140 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                         ),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: displayFrequency,
-                        items: currentFrequencies
-                            .map((f) => DropdownMenuItem<String>(
-                                  value: f,
-                                  child: Text(f),
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() {
-                              // Stocker la valeur backend
-                              item.frequency = _getBackendFrequency(v, languageService);
-                            });
-                          }
-                        },
-                        decoration: InputDecoration(
-                          labelText: languageService.translate('frequency'),
-                          border: const OutlineInputBorder(),
+
+                      // Frequency selector (smart)
+                      Text(
+                        languageService.translate('frequency'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A237E),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => _showSmartFrequencySelector(index, languageService),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.access_time, color: Colors.blue.shade300),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  () {
+                                    final main = _mainFrequencies[index];
+                                    final anchors = _mealAnchorsPerItem[index] ?? [];
+                                    if (main == null && anchors.isEmpty) {
+                                      return languageService.translate('selectFrequency');
+                                    }
+                                    return [if (main != null) main, ...anchors].join(', ');
+                                  }(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _mainFrequencies[index] == null
+                                        ? Colors.grey.shade400
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.blue),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
+
+                      // Priority selector
+                      Text(
+                        languageService.getCurrentLanguage() == 'fr' ? 'Priorité' : 'Priority',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A237E),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: ['LOW', 'MEDIUM', 'HIGH'].map((level) {
+                            final isSelected = (_priorityPerItem[index] ?? 'MEDIUM') == level;
+                            final color = level == 'LOW'
+                                ? Colors.green
+                                : level == 'HIGH'
+                                    ? Colors.red
+                                    : Colors.orange;
+                            final label = languageService.getCurrentLanguage() == 'fr'
+                                ? (level == 'LOW'
+                                    ? 'Basse'
+                                    : level == 'HIGH'
+                                        ? 'Haute'
+                                        : 'Moyenne')
+                                : (level == 'LOW'
+                                    ? 'Low'
+                                    : level == 'HIGH'
+                                        ? 'High'
+                                        : 'Medium');
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(() => _priorityPerItem[index] = level),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? color : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: isSelected
+                                        ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))]
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    label,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : Colors.grey.shade600,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Duration field
                       TextField(
                         controller: item.durationController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Durée (en jours)',
-                          hintText: 'Optionnel - ex: 7, 30, 90',
+                          labelText: languageService.getCurrentLanguage() == 'fr'
+                              ? 'Durée (en jours)'
+                              : 'Duration (days)',
+                          hintText: languageService.getCurrentLanguage() == 'fr'
+                              ? 'Optionnel - ex: 7, 30, 90'
+                              : 'Optional - e.g. 7, 30, 90',
                           prefixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
                           border: const OutlineInputBorder(),
-                          helperText: 'Laissez vide pour une durée illimitée',
+                          helperText: languageService.getCurrentLanguage() == 'fr'
+                              ? 'Laissez vide pour une durée illimitée'
+                              : 'Leave empty for unlimited duration',
                         ),
                         onChanged: (value) {
                           if (value.isNotEmpty) {
                             final days = int.tryParse(value);
-                            if (days != null && days > 0) {
-                              setState(() {
-                                item.durationDays = days;
-                              });
-                            } else {
-                              setState(() {
-                                item.durationDays = null;
-                              });
-                            }
+                            setState(() => item.durationDays = (days != null && days > 0) ? days : null);
                           } else {
-                            setState(() {
-                              item.durationDays = null;
-                            });
+                            setState(() => item.durationDays = null);
                           }
                         },
                       ),
@@ -522,7 +828,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                               const Icon(Icons.date_range, size: 16, color: Colors.green),
                               const SizedBox(width: 8),
                               Text(
-                                'Fin prévue: ${_fmtDate(_startDate.add(Duration(days: item.durationDays! - 1)))}',
+                                '${languageService.getCurrentLanguage() == 'fr' ? 'Fin prévue' : 'End date'}: ${_fmtDate(_startDate.add(Duration(days: item.durationDays! - 1)))}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.green.shade700,
@@ -533,11 +839,13 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                           ),
                         ),
                       const SizedBox(height: 12),
+
+                      // Condition selector
                       Container(
                         decoration: BoxDecoration(
                           border: Border.all(
                             color: _selectedConditionIds[index] == null && item.include
-                                ? Colors.red.shade200 
+                                ? Colors.red.shade200
                                 : Colors.grey.shade300,
                             width: _selectedConditionIds[index] == null && item.include ? 2 : 1,
                           ),
@@ -554,14 +862,19 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                                 Expanded(
                                   child: Text(
                                     _selectedConditionIds[index] == null
-                                        ? (item.include ? 'Select condition (required)' : 'Select condition')
-                                        : _translateConditionName(selectedCondition['name'], languageService),
+                                        ? (item.include
+                                            ? 'Select condition (required)'
+                                            : 'Select condition')
+                                        : _translateConditionName(
+                                            selectedCondition['name'], languageService),
                                     style: TextStyle(
                                       color: _selectedConditionIds[index] == null && item.include
                                           ? Colors.red.shade400
-                                          : (_selectedConditionIds[index] == null 
-                                              ? Colors.grey.shade600 
-                                              : (_isConditionPreSelected ? Colors.grey.shade700 : Colors.black)),
+                                          : (_selectedConditionIds[index] == null
+                                              ? Colors.grey.shade600
+                                              : (_isConditionPreSelected
+                                                  ? Colors.grey.shade700
+                                                  : Colors.black)),
                                     ),
                                   ),
                                 ),
@@ -579,10 +892,7 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
                           padding: const EdgeInsets.only(top: 4, left: 12),
                           child: Text(
                             'Required',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.red.shade400,
-                            ),
+                            style: TextStyle(fontSize: 12, color: Colors.red.shade400),
                           ),
                         ),
                     ],
@@ -591,6 +901,8 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
               },
             ),
           ),
+
+          // Save button
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             child: SizedBox(
@@ -638,6 +950,7 @@ class _EditableMedication {
     required this.durationDays,
   })  : nameController = TextEditingController(text: name),
         dosageController = TextEditingController(text: dosage),
-        durationController = TextEditingController(text: durationDays != null ? durationDays.toString() : ''),
+        durationController = TextEditingController(
+            text: durationDays != null ? durationDays.toString() : ''),
         include = true;
 }

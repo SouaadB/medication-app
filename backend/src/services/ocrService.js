@@ -1,174 +1,97 @@
-const tesseract = require('tesseract.js');
-const sharp = require('sharp');
-const Fuse = require('fuse.js');
-const path = require('path');
-const fs = require('fs');
+// services/OCRService.js
+// ─────────────────────────────────────────────────────────────
+// Main orchestrator — this is the only file your controllers
+// need to import. It wires together:
+//
+//   imagePreprocessor  →  ocrExtractor  →  aiStructurer
+//
+// Drop-in replacement for the old OCRService.js
+// ─────────────────────────────────────────────────────────────
+
+const { extractRawText }   = require('./ocrExtractor');
+const { structureWithAI }  = require('./aiStructurer');
 
 class OCRService {
-    /**
-     * Preprocess image using Sharp to improve OCR accuracy
-     * @param {string} imagePath 
-     * @returns {Promise<string>} - Path to processed image
-     */
-    static async preprocessImage(imagePath) {
-        try {
-            const processedPath = path.join(path.dirname(imagePath), 'proc_' + path.basename(imagePath));
-            await sharp(imagePath)
-                .grayscale() // Convert to grayscale
-                .normalize() // Improve contrast
-                .sharpen()   // Make edges clearer
-                .toFile(processedPath);
-            return processedPath;
-        } catch (error) {
-            console.error('Preprocessing Error:', error);
-            return imagePath; // Return original if preprocessing fails
-        }
-    }
 
     /**
-     * Process an image and extract text
-     * @param {string} imagePath - Path to the image
-     * @returns {Promise<string>} - Extracted text
+     * Full pipeline: Image → OCR → AI structuring → clean JSON
+     *
+     * @param {string} imagePath - Absolute path to the prescription image
+     * @returns {Promise<object>} - Structured result:
+     *   {
+     *     medications: [...],
+     *     total_medications: number,
+     *     prescriber: string|null,
+     *     prescriber_specialty: string|null,
+     *     ocr_quality_estimate: 'good'|'fair'|'poor',
+     *     corrections_made: string[]
+     *   }
      */
-    static async extractText(imagePath) {
-        let processedPath = null;
-        try {
-            // 1. Preprocess image
-            processedPath = await this.preprocessImage(imagePath);
+    static async extractMedications(imagePath) {
+        console.log('[OCRService] Starting pipeline for:', imagePath);
 
-            // 2. Perform OCR
-            const { data: { text } } = await tesseract.recognize(processedPath, 'eng+fra', {
-                logger: m => console.log(m.status + ': ' + (m.progress * 100).toFixed(2) + '%')
-            });
+        // ── Stage 1: OCR ──────────────────────────────────────
+        const rawText = await extractRawText(imagePath);
+        console.log('[OCRService] Raw OCR text length:', rawText.length, 'chars');
 
-            // 3. Clean up processed file if it was created
-            if (processedPath !== imagePath) {
-                fs.unlinkSync(processedPath);
-            }
-
-            return text;
-        } catch (error) {
-            console.error('OCR Extraction Error:', error);
-            if (processedPath && processedPath !== imagePath && fs.existsSync(processedPath)) {
-                fs.unlinkSync(processedPath);
-            }
-            throw new Error('Failed to extract text from image');
-        }
-    }
-
-    /**
-     * Parse extracted text to detect multiple medications
-     * @param {string} text - Raw text from OCR
-     * @returns {Array<object>} - List of structured medications
-     */
-    static parseMedicationText(text) {
-        const medications = [];
-        const lines = text.split('\n').filter(line => line.trim().length > 3);
-
-        // Common medication names for fuzzy matching
-        const knownMedicines = [
-            'Metformin', 'Glipizide', 'Aspirin', 'Paracetamol', 'Ibuprofen', 
-            'Amoxicillin', 'Augmentin', 'Doliprane', 'Voltaren', 'Spasfon',
-            'Inexium', 'Lantus', 'Humalog', 'Ventoline', 'Atorvastatine',
-            'Lisinopril', 'Levothyroxine', 'Atorvastatin', 'Metformin', 'Simvastatin',
-            'Amlodipine', 'Metoprolol', 'Omeprazole', 'Albuterol', 'Losartan',
-            'Gabapentin', 'Hydrochlorothiazide', 'Sertraline', 'Simvastatin', 'Montelukast',
-            'Fluticasone', 'Amoxicillin', 'Furosemide', 'Pantoprazole', 'Acetaminophen',
-            'Prednisone', 'Lexapro', 'Xanax', 'Vicodin', 'Crestor', 'Lipitor',
-            'Advil', 'Tylenol', 'Motrin', 'Claritin', 'Zyrtec', 'Benadryl',
-            'Lasix', 'Protonix', 'Zoloft', 'Prozac', 'Celexa', 'Wellbutrin',
-            'Coumadin', 'Plavix', 'Xarelto', 'Eliquis', 'Januvia', 'Victoza'
-        ];
-
-        const fuse = new Fuse(knownMedicines, { threshold: 0.4 });
-
-        for (const line of lines) {
-            const lowerLine = line.toLowerCase();
-            
-            // Regex patterns
-            // Dosage: numbers + units (mg, g, ml, etc.)
-            const dosageMatch = line.match(/(\d+\s*(mg|g|ml|µg|mcg|units))/i);
-            
-            // Frequency patterns
-            let frequency = 'Once daily';
-            if (lowerLine.match(/(2|deux)\s*(x|fois|times)/i) || lowerLine.includes('twice daily') || lowerLine.includes('matin et soir')) {
-                frequency = 'Twice daily';
-            } else if (lowerLine.match(/(3|trois)\s*(x|fois|times)/i) || lowerLine.includes('three times daily')) {
-                frequency = 'Three times daily';
-            } else if (lowerLine.match(/(4|quatre)\s*(x|fois|times)/i) || lowerLine.includes('four times daily')) {
-                frequency = 'Four times daily';
-            } else if (lowerLine.includes('every 12 hours') || lowerLine.includes('12h')) {
-                frequency = 'Every 12 hours';
-            } else if (lowerLine.includes('every 8 hours') || lowerLine.includes('8h')) {
-                frequency = 'Every 8 hours';
-            } else if (lowerLine.includes('as needed') || lowerLine.includes('si besoin') || lowerLine.includes('prn')) {
-                frequency = 'As needed';
-            }
-
-            // Duration patterns
-            let durationDays = null;
-            const durationMatch = lowerLine.match(/for\s+(\d+)\s+days|pendant\s+(\d+)\s+jours/);
-            if (durationMatch) {
-                durationDays = parseInt(durationMatch[1] || durationMatch[2]);
-            }
-
-            // Extract medicine name (Look for capitalized word before dosage or use fuzzy match)
-            let medicineName = null;
-            
-            // Strategy A: Pattern matching (Word before dosage)
-            const patternMatch = line.match(/([A-Z][a-z]+)\s*\d+/);
-            if (patternMatch) {
-                medicineName = patternMatch[1];
-            }
-
-            // Strategy B: Fuzzy search words in line against known list
-            if (!medicineName) {
-                const words = line.split(/\s+/);
-                for (const word of words) {
-                    const results = fuse.search(word);
-                    if (results.length > 0) {
-                        medicineName = results[0].item;
-                        break;
-                    }
-                }
-            }
-
-            // Strategy C: If we found a dosage but no name, take the longest capitalized word
-            if (!medicineName && dosageMatch) {
-                const capsWords = line.match(/[A-Z][a-z]+/g);
-                if (capsWords && capsWords.length > 0) {
-                    medicineName = capsWords[0];
-                }
-            }
-
-            // If we found at least a name or a dosage, consider it a medication line
-            // Exclude lines that only contain "Pendant" or common duration markers
-            if ((medicineName || dosageMatch) && medicineName !== 'Pendant') {
-                medications.push({
-                    name: medicineName || 'Unknown Medication',
-                    dosage: dosageMatch ? dosageMatch[0] : null,
-                    frequency: frequency,
-                    duration_days: durationDays,
-                    raw_line: line.trim()
-                });
-            }
+        if (!rawText || rawText.trim().length < 20) {
+            throw new Error(
+                'OCR returned too little text. ' +
+                'Make sure the image is well-lit and not blurry.'
+            );
         }
 
-        // Deduplicate (some OCR errors create double lines)
-        return this.deduplicateMedications(medications);
+        // ── Stage 2: AI structuring (text only — no image sent) ─
+        console.log('[OCRService] Sending text to AI structurer...');
+        const structured = await structureWithAI(rawText);
+
+        // ── Stage 3: Post-process / dedup (JS safety net) ────
+        const final = this._postProcess(structured);
+
+        console.log(`[OCRService] Done. ${final.total_medications} medication(s) found.`);
+        if (final.corrections_made?.length) {
+            console.log('[OCRService] Corrections:', final.corrections_made.join(' | '));
+        }
+
+        return final;
     }
 
-    static deduplicateMedications(meds) {
-        const unique = [];
+    // ─────────────────────────────────────────────────────────
+    // Internal helpers
+    // ─────────────────────────────────────────────────────────
+
+    static _postProcess(structured) {
         const seen = new Set();
-        for (const med of meds) {
-            const key = `${med.name}-${med.dosage}`.toLowerCase();
-            if (!seen.has(key)) {
-                unique.push(med);
-                seen.add(key);
-            }
-        }
-        return unique;
+        const meds = (structured.medications || []).filter(med => {
+            const key = (med.name || '').toLowerCase().replace(/\s+/g, '');
+            if (!key || key === 'unknown' || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        return {
+            ...structured,
+            medications: meds,
+            total_medications: meds.length
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Legacy shims — keeps old call sites working without changes
+    // ─────────────────────────────────────────────────────────
+
+    /** @deprecated Use extractMedications() instead */
+    static async extractText(imagePath) {
+        console.warn('[OCRService] extractText() is deprecated — use extractMedications()');
+        return extractRawText(imagePath);
+    }
+
+    /** @deprecated Use extractMedications() instead */
+    static parseMedicationText(text) {
+        console.warn('[OCRService] parseMedicationText() is deprecated — use extractMedications()');
+        return text.split('\n')
+            .filter(l => l.trim().length > 3)
+            .map(l => ({ name: 'Unknown', raw_line: l.trim(), dosage: null }));
     }
 }
 

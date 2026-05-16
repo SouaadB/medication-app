@@ -55,6 +55,8 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+      print('🔍 OCR Status: ${response.statusCode}');
+      print('🔍 OCR Body: ${response.body}');
       var data = jsonDecode(response.body);
 
       if (!mounted) return;
@@ -199,11 +201,11 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SingleChildScrollView(
+       padding: const EdgeInsets.all(20),
+       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // Condition banner (only shows when coming from a condition)
             if (widget.conditionName != null) ...[
               Container(

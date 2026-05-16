@@ -4,27 +4,44 @@ const SchedulerService = require('../services/schedulerService');
 const ScheduleService = require('../services/scheduleService');
 const NotificationService = require('../services/notificationService');
 const db = require('../config/database');
+const fs = require('fs');
 
 // OCR Extraction
 exports.processPrescriptionOCR = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No image provided' });
-        }
-
-        console.log('Processing prescription image:', req.file.path);
-        const rawText = await OCRService.extractText(req.file.path);
-        const medications = OCRService.parseMedicationText(rawText);
-
-        res.json({
-            success: true,
-            count: medications.length,
-            medications: medications,
-            rawText: rawText
+    if (!req.file) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'No image file uploaded.' 
         });
-    } catch (error) {
-        console.error('OCR Error:', error);
-        res.status(500).json({ success: false, message: 'Error processing prescription: ' + error.message });
+    }
+
+    try {
+        console.log('[OCR] Processing prescription image:', req.file.path);
+        
+        const result = await OCRService.extractMedications(req.file.path);
+
+        return res.json({
+            success: true,
+            count: result.total_medications,
+            medications: result.medications,
+            prescriber: result.prescriber,
+            prescriber_specialty: result.prescriber_specialty,
+            ocr_quality: result.ocr_quality_estimate,
+            corrections: result.corrections_made ?? []
+        });
+
+    } catch (err) {
+        console.error('[OCR] Error:', err.message);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error processing prescription: ' + err.message 
+        });
+
+    } finally {
+        // Clean up uploaded file after processing
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
     }
 };
 

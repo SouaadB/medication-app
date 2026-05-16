@@ -120,7 +120,7 @@ class NotificationService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $authToken',
         },
-        body: jsonEncode({'fcmToken': _fcmToken}),
+        body: jsonEncode({'token': _fcmToken}),
       ).timeout(const Duration(seconds: 10));
       
       print('📥 Response status: ${response.statusCode}');
