@@ -15,122 +15,122 @@ exports.register = async (req, res) => {
     try {
         const { name, email, password, phone, chifaCardRegistrationNumber, dateOfBirth, smartphoneSkillLevel } = req.body;
 
-    // ============ VALIDATIONS ============
+        // ============ VALIDATIONS ============
 
-// 1. Check required fields
-if (!name || !email || !password || !phone || !chifaCardRegistrationNumber || !dateOfBirth || !smartphoneSkillLevel) {
-    console.log('❌ Registration failed: Missing fields', { name: !!name, email: !!email, password: !!password, phone: !!phone, chifa: !!chifaCardRegistrationNumber, dob: !!dateOfBirth, skill: !!smartphoneSkillLevel });
-    return res.status(400).json({ 
-        success: false, 
-        message: 'All fields are required: name, email, password, phone, chifaCardRegistrationNumber, dateOfBirth, smartphoneSkillLevel' 
-    });
-}
+        // 1. Check required fields
+        if (!name || !email || !password || !phone || !chifaCardRegistrationNumber || !dateOfBirth || !smartphoneSkillLevel) {
+            console.log('❌ Registration failed: Missing fields', { name: !!name, email: !!email, password: !!password, phone: !!phone, chifa: !!chifaCardRegistrationNumber, dob: !!dateOfBirth, skill: !!smartphoneSkillLevel });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'All fields are required: name, email, password, phone, chifaCardRegistrationNumber, dateOfBirth, smartphoneSkillLevel' 
+            });
+        }
 
-// 2. Validate email format
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-if (!emailRegex.test(email)) {
-    console.log('❌ Registration failed: Invalid email format', email);
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide a valid email address' 
-    });
-}
+        // 2. Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            console.log('❌ Registration failed: Invalid email format', email);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Please provide a valid email address' 
+            });
+        }
 
-// 3. Validate email existence (Mailboxlayer)
-console.log('🔍 Vérification email avec DNS...');
-const emailVerification = await emailVerificationService.verifyEmail(email);
-if (!emailVerification.isValid) {
-    let message = "L'adresse email semble invalide.";
-    if (emailVerification.details?.disposable) {
-        message = "Les emails jetables ne sont pas autorisés.";
-    } else if (emailVerification.details && !emailVerification.details.mxFound) {
-        message = "Le domaine de l'email n'existe pas.";
-    }
-    return res.status(400).json({ success: false, message });
-}
+        // 3. Validate email existence (Mailboxlayer)
+        console.log('🔍 Vérification email avec DNS...');
+        const emailVerification = await emailVerificationService.verifyEmail(email);
+        if (!emailVerification.isValid) {
+            let message = "L'adresse email semble invalide.";
+            if (emailVerification.details?.disposable) {
+                message = "Les emails jetables ne sont pas autorisés.";
+            } else if (emailVerification.details && !emailVerification.details.mxFound) {
+                message = "Le domaine de l'email n'existe pas.";
+            }
+            return res.status(400).json({ success: false, message });
+        }
 
-// 4. Validate password strength
-const passwordValidation = RegisterRequest.isValidPassword(password);
-if (!passwordValidation.valid) {
-    console.log('❌ Registration failed: Weak password', passwordValidation.message);
-    return res.status(400).json({ 
-        success: false, 
-        message: passwordValidation.message 
-    });
-}
+        // 4. Validate password strength
+        const passwordValidation = RegisterRequest.isValidPassword(password);
+        if (!passwordValidation.valid) {
+            console.log('❌ Registration failed: Weak password', passwordValidation.message);
+            return res.status(400).json({ 
+                success: false, 
+                message: passwordValidation.message 
+            });
+        }
 
-// 5. Validate phone format (10 digits, starts with 05/06/07)
-if (!RegisterRequest.isValidPhoneNumber(phone)) {
-    console.log('❌ Registration failed: Invalid phone format', phone);
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Phone number must be exactly 10 digits and start with 05, 06, or 07' 
-    });
-}
+        // 5. Validate phone format (10 digits, starts with 05/06/07)
+        if (!RegisterRequest.isValidPhoneNumber(phone)) {
+            console.log('❌ Registration failed: Invalid phone format', phone);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Phone number must be exactly 10 digits and start with 05, 06, or 07' 
+            });
+        }
 
-// 6. Validate phone existence (NumVerify)
-console.log('🔍 Vérification téléphone avec NumVerify...');
-const phoneVerification = await phoneVerificationService.verifyPhone(phone);
-if (!phoneVerification.isValid) {
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Numéro de téléphone invalide ou inexistant' 
-    });
-}
+        // 6. Validate phone existence (NumVerify)
+        console.log('🔍 Vérification téléphone avec NumVerify...');
+        const phoneVerification = await phoneVerificationService.verifyPhone(phone);
+        if (!phoneVerification.isValid) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Numéro de téléphone invalide ou inexistant' 
+            });
+        }
 
-// 7. Validate CHIFA number (exactly 9 digits)
-if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
-    console.log('❌ Registration failed: Invalid CHIFA number', chifaCardRegistrationNumber);
-    return res.status(400).json({ 
-        success: false, 
-        message: 'CHIFA registration number must be exactly 9 digits' 
-    });
-}
+        // 7. Validate CHIFA number (exactly 9 digits)
+        if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
+            console.log('❌ Registration failed: Invalid CHIFA number', chifaCardRegistrationNumber);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'CHIFA registration number must be exactly 9 digits' 
+            });
+        }
 
-// 8. Validate date format (DD-MM-YYYY)
-if (!RegisterRequest.isValidDateFormat(dateOfBirth)) {
-    console.log('❌ Registration failed: Invalid date format', dateOfBirth);
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Date of birth must be in format DD-MM-YYYY (example: 15-05-1990)' 
-    });
-}
+        // 8. Validate date format (DD-MM-YYYY)
+        if (!RegisterRequest.isValidDateFormat(dateOfBirth)) {
+            console.log('❌ Registration failed: Invalid date format', dateOfBirth);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Date of birth must be in format DD-MM-YYYY (example: 15-05-1990)' 
+            });
+        }
 
-// 9. Validate smartphone skill level
-if (!RegisterRequest.isValidSkillLevel(smartphoneSkillLevel)) {
-    console.log('❌ Registration failed: Invalid skill level', smartphoneSkillLevel);
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Smartphone skill level must be one of: BASIC, INTERMEDIATE, ADVANCED' 
-    });
-}
+        // 9. Validate smartphone skill level
+        if (!RegisterRequest.isValidSkillLevel(smartphoneSkillLevel)) {
+            console.log('❌ Registration failed: Invalid skill level', smartphoneSkillLevel);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Smartphone skill level must be one of: BASIC, INTERMEDIATE, ADVANCED' 
+            });
+        }
 
-// 10. Check if user already exists by email
-const existingUserByEmail = await User.findByEmail(email);
-if (existingUserByEmail) {
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Email already registered' 
-    });
-}
+        // 10. Check if user already exists by email
+        const existingUserByEmail = await User.findByEmail(email);
+        if (existingUserByEmail) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Email already registered' 
+            });
+        }
 
-// 11. Check if user already exists by phone
-const existingUserByPhone = await User.findByPhone(phone);
-if (existingUserByPhone) {
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Phone number already registered' 
-    });
-}
+        // 11. Check if user already exists by phone
+        const existingUserByPhone = await User.findByPhone(phone);
+        if (existingUserByPhone) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Phone number already registered' 
+            });
+        }
 
-// 12. Check if CHIFA already exists
-const existingChifa = await Patient.findByChifaNumber(chifaCardRegistrationNumber);
-if (existingChifa) {
-    return res.status(400).json({ 
-        success: false, 
-        message: 'Ce numéro CHIFA est déjà utilisé' 
-    });
-}
+        // 12. Check if CHIFA already exists
+        const existingChifa = await Patient.findByChifaNumber(chifaCardRegistrationNumber);
+        if (existingChifa) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Ce numéro CHIFA est déjà utilisé' 
+            });
+        }
 
         // ============ CREATE USER ============
         
@@ -201,6 +201,7 @@ if (existingChifa) {
 };
 
 // Login - Accepte email OU téléphone
+// Login - Accepte email OU téléphone - CORRECTED VERSION
 exports.login = async (req, res) => {
     try {
         const { identifier, password } = req.body;
@@ -223,6 +224,42 @@ exports.login = async (req, res) => {
             user = await User.findByPhone(cleanPhone);
         }
 
+        // ✅ CHECK FOR CAREGIVER USER FIRST
+        console.log('🔍 Checking caregiver_users for email:', identifier);
+        const [caregiverUsers] = await db.execute(
+            'SELECT * FROM caregiver_users WHERE email = ?',
+            [identifier]
+        );
+
+        if (caregiverUsers.length > 0) {
+            console.log('👤 Caregiver found:', caregiverUsers[0].email);
+            const caregiverUser = caregiverUsers[0];
+            const isValidCaregiver = await bcrypt.compare(password, caregiverUser.password);
+            console.log('🔐 Password valid:', isValidCaregiver);
+            
+            if (isValidCaregiver) {
+                console.log('✅ Caregiver login successful for:', caregiverUser.email);
+                const caregiverToken = jwt.sign(
+                    { id: caregiverUser.id, email: caregiverUser.email, role: 'caregiver', name: caregiverUser.name },
+                    process.env.JWT_SECRET,
+                    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+                );
+                
+                return res.json({
+                    success: true,
+                    message: 'Login successful',
+                    token: caregiverToken,
+                    user: {
+                        id: caregiverUser.id,
+                        name: caregiverUser.name,
+                        email: caregiverUser.email,
+                        role: 'caregiver'
+                    }
+                });
+            }
+        }
+
+        // Check regular user
         if (!user) {
             return res.status(401).json({ 
                 success: false, 
@@ -238,7 +275,7 @@ exports.login = async (req, res) => {
             });
         }
 
-        const token = jwt.sign(
+        const authToken = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRE }
@@ -261,7 +298,7 @@ exports.login = async (req, res) => {
         res.json({
             success: true,
             message: 'Login successful',
-            token,
+            token: authToken,
             user: {
                 id: user.id,
                 name: user.name,
@@ -281,7 +318,6 @@ exports.login = async (req, res) => {
         });
     }
 };
-
 // Get current user
 exports.getMe = async (req, res) => {
     try {
@@ -419,7 +455,6 @@ exports.resetPassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
         // Mettre à jour le mot de passe dans la base de données
-        const db = require('../config/database');
         await db.execute(
             'UPDATE users SET password = ? WHERE id = ?',
             [hashedPassword, decoded.id]

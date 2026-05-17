@@ -39,21 +39,27 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _caregivers = data['caregivers'];
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _caregivers = data['caregivers'] ?? [];
+            _isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _error = 'Failed to load caregivers';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _error = 'Failed to load caregivers';
+          _error = 'Connection error';
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _error = 'Connection error';
-        _isLoading = false;
-      });
     }
   }
 
@@ -399,18 +405,24 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
   void _showRemoveConfirmation(int id) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('Remove Caregiver'),
         content: const Text('Are you sure you want to remove this caregiver? They will no longer have access to your health information.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (mounted) {
+                Navigator.pop(dialogContext);
+              }
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              _removeCaregiver(id);
+              if (mounted) {
+                Navigator.pop(dialogContext);
+                _removeCaregiver(id);
+              }
             },
             child: const Text('Remove', style: TextStyle(color: Colors.red)),
           ),
@@ -429,80 +441,106 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Invite Caregiver'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Full Name'),
-                ),
-                TextField(
-                  controller: relationshipController,
-                  decoration: const InputDecoration(labelText: 'Relationship (e.g. Daughter, Son)'),
-                ),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(labelText: 'Email Address'),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 20),
-                CheckboxListTile(
-                  title: const Text('View Location'),
-                  value: viewLoc,
-                  onChanged: (v) => setState(() => viewLoc = v!),
-                ),
-                CheckboxListTile(
-                  title: const Text('View Medications'),
-                  value: viewMed,
-                  onChanged: (v) => setState(() => viewMed = v!),
-                ),
-                CheckboxListTile(
-                  title: const Text('Receive Alerts'),
-                  value: recvAlert,
-                  onChanged: (v) => setState(() => recvAlert = v!),
-                ),
-              ],
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            title: const Text('Invite Caregiver'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Full Name'),
+                  ),
+                  TextField(
+                    controller: relationshipController,
+                    decoration: const InputDecoration(labelText: 'Relationship (e.g. Daughter, Son)'),
+                  ),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: 'Email Address'),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 20),
+                  CheckboxListTile(
+                    title: const Text('View Location'),
+                    value: viewLoc,
+                    onChanged: (v) => setState(() => viewLoc = v!),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('View Medications'),
+                    value: viewMed,
+                    onChanged: (v) => setState(() => viewMed = v!),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Receive Alerts'),
+                    value: recvAlert,
+                    onChanged: (v) => setState(() => recvAlert = v!),
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                final token = prefs.getString('auth_token');
-                
-                final response = await http.post(
-                  Uri.parse('${ApiConfig.baseUrl}/caregivers'),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer $token',
-                  },
-                  body: jsonEncode({
-                    'name': nameController.text,
-                    'relationship': relationshipController.text,
-                    'email': emailController.text,
-                    'view_location': viewLoc,
-                    'view_medications': viewMed,
-                    'receive_alerts': recvAlert,
-                  }),
-                );
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  final token = prefs.getString('auth_token');
+                  
+                  try {
+                    final response = await http.post(
+                      Uri.parse('${ApiConfig.baseUrl}/caregivers'),
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer $token',
+                      },
+                      body: jsonEncode({
+                        'name': nameController.text,
+                        'relationship': relationshipController.text,
+                        'email': emailController.text,
+                        'view_location': viewLoc,
+                        'view_medications': viewMed,
+                        'receive_alerts': recvAlert,
+                      }),
+                    );
 
-                if (response.statusCode == 201) {
-                  Navigator.pop(context);
-                  _fetchCaregivers();
-                }
-              },
-              child: const Text('Send Invitation'),
-            ),
-          ],
-        ),
+                    if (response.statusCode == 201) {
+                      if (mounted) {
+                        Navigator.of(dialogContext).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invitation sent successfully!'), backgroundColor: Colors.green),
+                        );
+                        _fetchCaregivers();
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Failed to send invitation'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Send Invitation'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
