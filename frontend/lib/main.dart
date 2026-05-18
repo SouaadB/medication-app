@@ -32,6 +32,7 @@ import 'services/settings_service.dart';
 import 'patient/caregiver_access_page.dart';
 import 'caregiver/caregiver_login_page.dart';
 import 'caregiver/caregiver_dashboard.dart';
+import 'caregiver/accept_invitation_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,75 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+// ✅ This widget checks the URL and navigates to the correct page
+class AppRouter extends StatelessWidget {
+  const AppRouter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Get the full URL
+    final Uri uri = Uri.base;
+    final String fullUrl = uri.toString();
+    
+    // Check if this is an invitation link (contains email parameter)
+    if (fullUrl.contains('email=')) {
+      // Extract email from URL
+      String? email;
+      final startIndex = fullUrl.indexOf('email=') + 6;
+      String remaining = fullUrl.substring(startIndex);
+      email = remaining.split('&')[0];
+      email = Uri.decodeComponent(email);
+      
+      print('📧 Invitation detected! Opening accept page for: $email');
+      
+      // Navigate to Accept Invitation page after a short delay
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AcceptInvitationPage(email: email),
+          ),
+        );
+      });
+      
+      // Show loading screen while redirecting
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading invitation...'),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // No invitation, go to sign in page after a short delay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const SignInPage()),
+      );
+    });
+    
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading MediCare...'),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -92,9 +162,10 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      initialRoute: '/signin',
+      // ✅ Use AppRouter as the home widget to check URL first
+      home: const AppRouter(),
       onGenerateRoute: (settings) {
-        // Gestion spéciale pour resetpassword avec token
+        // Reset password with token
         if (settings.name == '/resetpassword') {
           final token = settings.arguments as String? ?? '';
           print('🔑 Token reçu dans la route: $token');
@@ -103,7 +174,7 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        // Gestion spéciale pour verifycode avec email dans l'URL
+        // Verify code with email in URL
         if (settings.name?.startsWith('/verifycode') ?? false) {
           String email = '';
           if (settings.name!.contains('?email=')) {
@@ -116,7 +187,7 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        // Routes normales
+        // Normal routes
         switch (settings.name) {
           case '/signin':
             return MaterialPageRoute(builder: (context) => const SignInPage());
@@ -175,7 +246,6 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const QuietHoursPage());
           case '/daily-schedule':
             return MaterialPageRoute(builder: (context) => const DailySchedulePage());
-          // ✅ YOUR CAREGIVER ROUTES
           case '/caregiver-login':
             return MaterialPageRoute(builder: (context) => const CaregiverLoginPage());
           case '/caregiver-dashboard':
