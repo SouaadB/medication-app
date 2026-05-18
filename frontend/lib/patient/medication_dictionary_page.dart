@@ -21,7 +21,6 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
   bool _isLoading = true;
   late TabController _tabController;
 
-  // Categories for tab filtering
   final List<String> _categories = [
     'All', 'Diabetes', 'Hypertension', 'Heart', 'Thyroid',
     'Pain', 'Stomach', 'Antibiotics', 'Vitamins', 'Other'
@@ -72,6 +71,29 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
     }
   }
 
+  // ── NEW: call POST /education/track-view when a card is opened ─────────────
+  // This is what actually feeds the medication_views table and drives the
+  // Knowledge Seeker achievement. The bottom sheet uses local data so
+  // GET /dictionary/:id is never called — this endpoint fills that gap.
+  Future<void> _trackView(String medicationName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/education/track-view'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'medication_name': medicationName}),
+      );
+      // Response is intentionally ignored — non-blocking fire-and-forget
+    } catch (e) {
+      debugPrint('View tracking error (non-critical): $e');
+    }
+  }
+
   void _applyFilter() {
     if (_selectedCategory == 'All') {
       _filteredMedications = List.from(_medications);
@@ -83,7 +105,6 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
     }
   }
 
-  // Safe getter — handles both snake_case and camelCase keys from API
   String _safe(Map<String, dynamic> med, List<String> keys, [String fallback = '']) {
     for (final key in keys) {
       if (med[key] != null && med[key].toString().isNotEmpty) {
@@ -105,27 +126,27 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
   Color _getCategoryColor(String? category) {
     if (category == null) return Colors.blue;
     final cat = category.toLowerCase();
-    if (cat.contains('pain')) return Colors.orange;
-    if (cat.contains('diabetes')) return Colors.teal;
-    if (cat.contains('blood pressure') || cat.contains('hypertension')) return Colors.red;
+    if (cat.contains('pain'))        return Colors.orange;
+    if (cat.contains('diabetes'))    return Colors.teal;
+    if (cat.contains('hypertension') || cat.contains('blood pressure')) return Colors.red;
     if (cat.contains('cholesterol') || cat.contains('heart')) return Colors.indigo;
     if (cat.contains('stomach') || cat.contains('gastro')) return Colors.lightBlue;
-    if (cat.contains('thyroid')) return Colors.purple;
-    if (cat.contains('antibiotic')) return Colors.green;
-    if (cat.contains('vitamin')) return Colors.amber;
+    if (cat.contains('thyroid'))     return Colors.purple;
+    if (cat.contains('antibiotic'))  return Colors.green;
+    if (cat.contains('vitamin'))     return Colors.amber;
     return Colors.blueGrey;
   }
 
   IconData _getCategoryIcon(String? category) {
     if (category == null) return Icons.medication;
     final cat = category.toLowerCase();
-    if (cat.contains('diabetes')) return Icons.water_drop;
+    if (cat.contains('diabetes'))    return Icons.water_drop;
     if (cat.contains('hypertension') || cat.contains('heart')) return Icons.favorite;
-    if (cat.contains('pain')) return Icons.healing;
-    if (cat.contains('thyroid')) return Icons.circle;
-    if (cat.contains('antibiotic')) return Icons.coronavirus;
-    if (cat.contains('vitamin')) return Icons.local_florist;
-    if (cat.contains('stomach')) return Icons.restaurant;
+    if (cat.contains('pain'))        return Icons.healing;
+    if (cat.contains('thyroid'))     return Icons.circle;
+    if (cat.contains('antibiotic'))  return Icons.coronavirus;
+    if (cat.contains('vitamin'))     return Icons.local_florist;
+    if (cat.contains('stomach'))     return Icons.restaurant;
     return Icons.medication;
   }
 
@@ -164,7 +185,6 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
-                // Search Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -175,9 +195,7 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                     ),
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (v) {
-                        _fetchMedications(v);
-                      },
+                      onChanged: (v) => _fetchMedications(v),
                       decoration: InputDecoration(
                         hintText: isFr ? 'Rechercher un médicament...' : 'Search medications...',
                         border: InputBorder.none,
@@ -308,12 +326,12 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
   }
 
   Widget _buildMedicationCard(Map<String, dynamic> med) {
-    final color = _getCategoryColor(med['category']);
-    final name = _safe(med, ['name']);
+    final color        = _getCategoryColor(med['category']);
+    final name         = _safe(med, ['name']);
     final scientificName = _safe(med, ['scientific_name', 'scientificName']);
-    final category = _safe(med, ['category'], 'General');
-    final emoji = _safe(med, ['emoji'], '💊');
-    final isUserAdded = med['user_added'] == true;
+    final category     = _safe(med, ['category'], 'General');
+    final emoji        = _safe(med, ['emoji'], '💊');
+    final isUserAdded  = med['user_added'] == true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -361,7 +379,10 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                 ),
                 child: Text(
                   'My med',
-                  style: TextStyle(fontSize: 10, color: Colors.blue.shade600, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.blue.shade600,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
           ],
@@ -392,7 +413,8 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                       const SizedBox(width: 4),
                       Text(
                         category,
-                        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: color, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -410,27 +432,37 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
           ),
           child: Icon(Icons.chevron_right, color: color, size: 20),
         ),
+        // ── _trackView is called here, BEFORE opening the bottom sheet ────────
         onTap: () => _showMedicationDetail(med),
       ),
     );
   }
 
+  // ── UPDATED: calls _trackView when bottom sheet opens ─────────────────────
   void _showMedicationDetail(Map<String, dynamic> med) {
-    final lang = Provider.of<LanguageService>(context, listen: false);
-    final isFr = lang.getCurrentLanguage() == 'fr';
+    final lang  = Provider.of<LanguageService>(context, listen: false);
+    final isFr  = lang.getCurrentLanguage() == 'fr';
     final color = _getCategoryColor(med['category']);
 
-    // Safe field access — handles both snake_case and camelCase
-    final name = _safe(med, ['name']);
-    final emoji = _safe(med, ['emoji'], '💊');
+    final name           = _safe(med, ['name']);
+    final emoji          = _safe(med, ['emoji'], '💊');
     final scientificName = _safe(med, ['scientific_name', 'scientificName']);
-    final category = _safe(med, ['category'], 'General');
-    final description = _safe(med, ['description'], isFr ? 'Aucune description disponible.' : 'No description available.');
-    final howToTake = _safe(med, ['how_to_take', 'howToTake'], isFr ? 'Suivez les instructions de votre médecin.' : 'Follow your doctor\'s instructions.');
-    final sideEffects = _safeList(med, ['side_effects', 'sideEffects']);
-    final warnings = _safeList(med, ['warnings']);
-    final interactions = _safeList(med, ['interactions']);
-    final algeriaBrands = _safeList(med, ['algeria_brands', 'algeriaBrands']);
+    final category       = _safe(med, ['category'], 'General');
+    final description    = _safe(med, ['description'],
+        isFr ? 'Aucune description disponible.' : 'No description available.');
+    final howToTake      = _safe(med, ['how_to_take', 'howToTake'],
+        isFr ? 'Suivez les instructions de votre médecin.' : "Follow your doctor's instructions.");
+    final sideEffects    = _safeList(med, ['side_effects', 'sideEffects']);
+    final warnings       = _safeList(med, ['warnings']);
+    final interactions   = _safeList(med, ['interactions']);
+    final algeriaBrands  = _safeList(med, ['algeria_brands', 'algeriaBrands']);
+
+    // ── Track this view for the Knowledge Seeker achievement ─────────────────
+    // Called here so it fires every time the bottom sheet opens, regardless
+    // of how the user navigates (search, category filter, scroll, etc.)
+    if (name.isNotEmpty) {
+      _trackView(name);
+    }
 
     showModalBottomSheet(
       context: context,
@@ -452,13 +484,14 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.08),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(30)),
                 ),
                 child: Column(
                   children: [
-                    // Drag handle
                     Container(
-                      width: 40, height: 4,
+                      width: 40,
+                      height: 4,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(2),
@@ -468,31 +501,44 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                     Row(
                       children: [
                         Container(
-                          width: 60, height: 60,
+                          width: 60,
+                          height: 60,
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 32))),
+                          child: Center(
+                              child: Text(emoji,
+                                  style: const TextStyle(fontSize: 32))),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                              Text(name,
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold)),
                               if (scientificName.isNotEmpty)
-                                Text(scientificName, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                                Text(scientificName,
+                                    style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 14)),
                               const SizedBox(height: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: color.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   category,
-                                  style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      color: color,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -516,12 +562,11 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                   children: [
                     _buildDetailSection(
                       icon: Icons.help_outline,
-                      title: isFr ? 'Qu\'est-ce que c\'est ?' : 'What is it?',
+                      title: isFr ? "Qu'est-ce que c'est ?" : 'What is it?',
                       content: description,
                       bgColor: Colors.blue.shade50,
                       iconColor: Colors.blue,
                     ),
-
                     const SizedBox(height: 20),
                     _buildDetailSection(
                       icon: Icons.timer_outlined,
@@ -530,51 +575,54 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                       bgColor: Colors.green.shade50,
                       iconColor: Colors.green,
                     ),
-
                     if (algeriaBrands.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildListSection(
                         icon: Icons.local_pharmacy,
-                        title: isFr ? 'Marques disponibles en Algérie' : 'Available brands in Algeria',
+                        title: isFr
+                            ? 'Marques disponibles en Algérie'
+                            : 'Available brands in Algeria',
                         items: algeriaBrands,
                         bgColor: Colors.teal.shade50,
                         iconColor: Colors.teal,
                       ),
                     ],
-
                     if (sideEffects.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildListSection(
                         icon: Icons.favorite_border,
-                        title: isFr ? 'Effets secondaires possibles' : 'Possible side effects',
+                        title: isFr
+                            ? 'Effets secondaires possibles'
+                            : 'Possible side effects',
                         items: sideEffects,
                         bgColor: Colors.orange.shade50,
                         iconColor: Colors.orange,
                       ),
                     ],
-
                     if (warnings.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildListSection(
                         icon: Icons.warning_amber_rounded,
-                        title: isFr ? 'Avertissements importants' : 'Important warnings',
+                        title: isFr
+                            ? 'Avertissements importants'
+                            : 'Important warnings',
                         items: warnings,
                         bgColor: Colors.red.shade50,
                         iconColor: Colors.red,
                       ),
                     ],
-
                     if (interactions.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       _buildListSection(
                         icon: Icons.compare_arrows,
-                        title: isFr ? 'Interactions médicamenteuses' : 'Drug interactions',
+                        title: isFr
+                            ? 'Interactions médicamenteuses'
+                            : 'Drug interactions',
                         items: interactions,
                         bgColor: Colors.purple.shade50,
                         iconColor: Colors.purple,
                       ),
                     ],
-
                     const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -586,12 +634,13 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline, color: Colors.amber.shade700, size: 18),
+                          Icon(Icons.info_outline,
+                              color: Colors.amber.shade700, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               isFr
-                                  ? 'Ces informations sont à titre éducatif uniquement. Consultez toujours votre médecin ou pharmacien.'
+                                  ? "Ces informations sont à titre éducatif uniquement. Consultez toujours votre médecin ou pharmacien."
                                   : 'This information is for educational purposes only. Always consult your doctor or pharmacist.',
                               style: const TextStyle(fontSize: 12, height: 1.5),
                             ),
@@ -620,13 +669,12 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: iconColor, size: 20),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
+        Row(children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 8),
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ]),
         const SizedBox(height: 10),
         Container(
           width: double.infinity,
@@ -635,7 +683,9 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
             color: bgColor,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Text(content, style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87)),
+          child: Text(content,
+              style: const TextStyle(
+                  fontSize: 14, height: 1.6, color: Colors.black87)),
         ),
       ],
     );
@@ -651,13 +701,12 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: iconColor, size: 20),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
+        Row(children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 8),
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ]),
         const SizedBox(height: 10),
         Container(
           width: double.infinity,
@@ -674,9 +723,17 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('• ', style: TextStyle(color: iconColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('• ',
+                              style: TextStyle(
+                                  color: iconColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16)),
                           Expanded(
-                            child: Text(item, style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4)),
+                            child: Text(item,
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    height: 1.4)),
                           ),
                         ],
                       ),
