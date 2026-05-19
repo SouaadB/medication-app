@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';  // ← AJOUTÉ pour les appels téléphoniques
 import '../services/language_service.dart';
 import '../config/api_config.dart';
 
@@ -26,6 +27,93 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
       'time': DateFormat('HH:mm').format(DateTime.now())
     }
   ];
+
+
+
+// ========== NOUVELLE FONCTION D'APPEL (Version corrigée) ==========
+Future<void> _makePhoneCall() async {
+  final Uri phoneUri = Uri(
+    scheme: 'tel',
+    path: '16',
+  );
+
+  try {
+    await launchUrl(
+      phoneUri,
+      mode: LaunchMode.externalApplication,
+    );
+  } catch (e) {
+    print('Erreur appel: $e');
+    _showCallDialog();
+  }
+}
+
+
+
+void _showCallDialog() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.emergency, color: Colors.red),
+            SizedBox(width: 8),
+            Text('SAMU - Urgence'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Composez le numéro suivant :'),
+            SizedBox(height: 20),
+            Text(
+              '📞 16',
+              style: TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text('(Service d\'Aide Médicale Urgente)'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _openDialerDirectly();
+            },
+            icon: const Icon(Icons.phone),
+            label: const Text('Ouvrir le téléphone'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _openDialerDirectly() async {
+  final Uri phoneUri = Uri(
+    scheme: 'tel',
+    path: '16',
+  );
+
+  await launchUrl(
+    phoneUri,
+    mode: LaunchMode.externalApplication,
+  );
+}
+// ========== FIN ==========
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -137,7 +225,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
               ),
               child: IconButton(
                 icon: const Icon(Icons.call, color: Colors.white, size: 20),
-                onPressed: () {},
+                onPressed: _makePhoneCall,  // ← MODIFIÉ: Appelle la fonction pour composer le 16
               ),
             ),
           ),
@@ -226,7 +314,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'For medical emergencies, call 911 immediately',
+                        'For medical emergencies or an ambulance call 16 — (SAMU) immediately',  // ← MODIFIÉ
                         style: TextStyle(color: Colors.red.shade700, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -236,7 +324,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
             ),
           ),
           
-          // Input Area
+          // Input Area (MICROPHONE SUPPRIMÉ)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -251,17 +339,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
             ),
             child: Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.mic, color: Colors.blueGrey),
-                    onPressed: () {},
-                  ),
-                ),
-                const SizedBox(width: 12),
+                // ← L'icône microphone a été SUPPRIMÉE ici
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),

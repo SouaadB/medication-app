@@ -202,6 +202,7 @@ exports.register = async (req, res) => {
 
 // Login - Accepte email OU téléphone
 // Login - Accepte email OU téléphone - CORRECTED VERSION
+// Login - Accepte email OU téléphone - CORRECTED VERSION
 exports.login = async (req, res) => {
     try {
         const { identifier, password } = req.body;
@@ -224,89 +225,92 @@ exports.login = async (req, res) => {
             user = await User.findByPhone(cleanPhone);
         }
 
-        // ✅ CHECK FOR CAREGIVER USER FIRST
-        console.log('🔍 Checking caregiver_users for email:', identifier);
-        const [caregiverUsers] = await db.execute(
-            'SELECT * FROM caregiver_users WHERE email = ?',
-            [identifier]
-        );
-
-        if (caregiverUsers.length > 0) {
-            console.log('👤 Caregiver found:', caregiverUsers[0].email);
-            const caregiverUser = caregiverUsers[0];
-            const isValidCaregiver = await bcrypt.compare(password, caregiverUser.password);
-            console.log('🔐 Password valid:', isValidCaregiver);
-            
-            if (isValidCaregiver) {
-                console.log('✅ Caregiver login successful for:', caregiverUser.email);
-                const caregiverToken = jwt.sign(
-                    { id: caregiverUser.id, email: caregiverUser.email, role: 'caregiver', name: caregiverUser.name },
+        // ✅ 1. D'ABORD vérifier les patients (cas le plus fréquent)
+        if (user) {
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+            if (isPasswordValid) {
+                const authToken = jwt.sign(
+                    { id: user.id, email: user.email, role: user.role },
                     process.env.JWT_SECRET,
-                    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+                    { expiresIn: process.env.JWT_EXPIRE }
                 );
-                
+
+                let profile = null;
+                if (user.role === 'patient') {
+                    profile = await Patient.findByUserId(user.id);
+                    if (profile && profile.date_of_birth) {
+                        const date = new Date(profile.date_of_birth);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        profile.date_of_birth_formatted = `${day}-${month}-${year}`;
+                    }
+                } else if (user.role === 'admin') {
+                    profile = await Admin.findByUserId(user.id);
+                }
+
                 return res.json({
                     success: true,
                     message: 'Login successful',
-                    token: caregiverToken,
+                    token: authToken,
                     user: {
-                        id: caregiverUser.id,
-                        name: caregiverUser.name,
-                        email: caregiverUser.email,
-                        role: 'caregiver'
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                        phone: user.phone,
+                        profile
                     }
                 });
             }
         }
 
-        // Check regular user
-        if (!user) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Identifiant ou mot de passe incorrect' 
-            });
-        }
+        // ✅ 2. Ensuite vérifier les caregivers (si pas trouvé parmi les patients)
+        try {
+            console.log('🔍 Checking caregiver_users for email:', identifier);
+            const [caregiverUsers] = await db.execute(
+                'SELECT * FROM caregiver_users WHERE email = ?',
+                [identifier]
+            );
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Identifiant ou mot de passe incorrect' 
-            });
-        }
-
-        const authToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRE }
-        );
-
-        let profile = null;
-        if (user.role === 'patient') {
-            profile = await Patient.findByUserId(user.id);
-            if (profile && profile.date_of_birth) {
-                const date = new Date(profile.date_of_birth);
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                profile.date_of_birth_formatted = `${day}-${month}-${year}`;
+            if (caregiverUsers.length > 0) {
+                console.log('👤 Caregiver found:', caregiverUsers[0].email);
+                const caregiverUser = caregiverUsers[0];
+                const isValidCaregiver = await bcrypt.compare(password, caregiverUser.password);
+                console.log('🔐 Password valid:', isValidCaregiver);
+                
+                if (isValidCaregiver) {
+                    console.log('✅ Caregiver login successful for:', caregiverUser.email);
+                    const caregiverToken = jwt.sign(
+                        { id: caregiverUser.id, email: caregiverUser.email, role: 'caregiver', name: caregiverUser.name },
+                        process.env.JWT_SECRET,
+                        { expiresIn: process.env.JWT_EXPIRE || '7d' }
+                    );
+                    
+                    return res.json({
+                        success: true,
+                        message: 'Login successful',
+                        token: caregiverToken,
+                        user: {
+                            id: caregiverUser.id,
+                            name: caregiverUser.name,
+                            email: caregiverUser.email,
+                            role: 'caregiver'
+                        }
+                    });
+                }
             }
-        } else if (user.role === 'admin') {
-            profile = await Admin.findByUserId(user.id);
+        } catch (caregiverError) {
+            // Si la table n'existe pas, on ignore simplement l'erreur
+            if (caregiverError.code !== 'ER_NO_SUCH_TABLE') {
+                console.error('Caregiver check error:', caregiverError);
+            }
         }
 
-        res.json({
-            success: true,
-            message: 'Login successful',
-            token: authToken,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                phone: user.phone,
-                profile
-            }
+        // ✅ 3. Si aucun des deux n'a fonctionné, erreur
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Identifiant ou mot de passe incorrect' 
         });
 
     } catch (error) {

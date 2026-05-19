@@ -26,6 +26,8 @@ dependencies:
   firebase_messaging: ^15.0.0
   flutter_local_notifications: ^17.0.0
   firebase_core_web: ^2.24.1
+  
+  url_launcher: ^6.2.5   # ← Ajoute cette ligne
 
 dev_dependencies:
   flutter_test:
