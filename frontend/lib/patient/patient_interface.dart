@@ -3,10 +3,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../config/api_config.dart';
 import 'condition_detail_page.dart';
 import '../services/language_service.dart';
 import '../services/condition_service.dart';
+import '../services/location_service.dart';
+import '../services/background_location_service.dart';
 
 class PatientInterface extends StatefulWidget {
   const PatientInterface({super.key});
@@ -27,6 +30,15 @@ class _PatientInterfaceState extends State<PatientInterface> {
   List<Map<String, dynamic>> _patientConditions = [];
   bool _loadingConditions = false;
   Map<String, dynamic>? _nextMedication;
+  
+  // Location tracking
+  final LocationService _locationService = LocationService();
+  bool _hasAskedLocationPermission = false;
+  
+  // Background location tracking
+  final BackgroundLocationService _backgroundLocationService = BackgroundLocationService();
+  bool _backgroundTrackingEnabled = false;
+  bool _hasAskedBackgroundPermission = false;
 
   @override
   void initState() {
@@ -36,11 +48,209 @@ class _PatientInterfaceState extends State<PatientInterface> {
       _loadAdherenceData();
       _loadNextMedication();
       _loadUnreadNotificationsCount();
+      _startLocationTracking();
+      _setupBackgroundTracking();
     });
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUnreadNotificationsCount();
     });
+  }
+
+  // Start foreground location tracking
+  Future<void> _startLocationTracking() async {
+    // Don't track on web
+    if (kIsWeb) {
+      print('⚠️ Location tracking disabled on web platform');
+      return;
+    }
+    
+    // Only ask once per session
+    if (_hasAskedLocationPermission) return;
+    _hasAskedLocationPermission = true;
+    
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Try multiple possible keys for patient ID
+    int? patientId = prefs.getInt('user_id');
+    patientId ??= prefs.getInt('patient_id');
+    patientId ??= prefs.getInt('id');
+    
+    // Also try to get from user data if available
+    if (patientId == null && _userData != null) {
+      patientId = _userData!['id'] as int?;
+    }
+    
+    if (patientId != null) {
+      // Check if user previously opted out
+      final hasOptedOut = prefs.getBool('location_sharing_opted_out') ?? false;
+      
+      if (!hasOptedOut) {
+        // Ask user permission first
+        final shouldShare = await _askForLocationPermission();
+        if (shouldShare) {
+          await _locationService.startLocationTracking(patientId);
+        } else {
+          // Remember user opted out
+          await prefs.setBool('location_sharing_opted_out', true);
+        }
+      }
+    } else {
+      print('⚠️ Could not find patient ID for location tracking');
+    }
+  }
+
+  // Setup background location tracking (24/7)
+  Future<void> _setupBackgroundTracking() async {
+    // Don't setup on web
+    if (kIsWeb) return;
+    
+    final prefs = await SharedPreferences.getInstance();
+    int? patientId = prefs.getInt('user_id');
+    patientId ??= prefs.getInt('patient_id');
+    patientId ??= prefs.getInt('id');
+    
+    if (patientId != null && _userData != null) {
+      // Check if user already agreed to background tracking
+      final hasAgreed = prefs.getBool('background_tracking_agreed') ?? false;
+      
+      if (!hasAgreed && !_hasAskedBackgroundPermission) {
+        _hasAskedBackgroundPermission = true;
+        final shouldEnable = await _askForBackgroundTrackingPermission();
+        
+        if (shouldEnable) {
+          final started = await _backgroundLocationService.startTracking(patientId);
+          setState(() {
+            _backgroundTrackingEnabled = started;
+          });
+          await prefs.setBool('background_tracking_agreed', true);
+        }
+      } else if (hasAgreed) {
+        // Restore tracking if it was enabled before
+        await _backgroundLocationService.restoreTrackingIfNeeded();
+        final isTracking = await _backgroundLocationService.isTracking();
+        setState(() {
+          _backgroundTrackingEnabled = isTracking;
+        });
+      }
+    }
+  }
+
+  // Ask for foreground location permission
+  Future<bool> _askForLocationPermission() async {
+    if (!mounted) return false;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.blue, size: 28),
+            SizedBox(width: 8),
+            Text('Location Sharing'),
+          ],
+        ),
+        content: const Text(
+          'Your caregiver can track your location to ensure your safety. '
+          'This helps them know you are safe and can assist you in case of emergencies.\n\n'
+          'You can turn this off anytime in settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  // Ask for background tracking permission (24/7)
+  Future<bool> _askForBackgroundTrackingPermission() async {
+    if (!mounted) return false;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.blue, size: 28),
+            SizedBox(width: 8),
+            Text('24/7 Location Sharing'),
+          ],
+        ),
+        content: const Text(
+          'To ensure your safety, MediCare can share your location with your caregiver '
+          'even when the app is closed. This feature:\n\n'
+          '• Works in the background\n'
+          '• Uses minimal battery\n'
+          '• Can be turned off anytime in settings\n\n'
+          'Do you want to enable 24/7 location sharing?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  // Toggle background tracking from settings
+  Future<void> _toggleBackgroundTracking(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
+    
+    if (enabled && patientId != null) {
+      final started = await _backgroundLocationService.startTracking(patientId);
+      setState(() {
+        _backgroundTrackingEnabled = started;
+      });
+      if (started && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 24/7 location sharing enabled'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      await _backgroundLocationService.stopTracking();
+      setState(() {
+        _backgroundTrackingEnabled = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🛑 24/7 location sharing disabled'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -75,6 +285,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
         }
         await prefs.setString('user_name', data['user']['name']?.toString() ?? '');
         await prefs.setString('user_email', data['user']['email']?.toString() ?? '');
+        await prefs.setInt('user_id', data['user']['id'] as int? ?? 0);
       } else {
         await prefs.remove('auth_token');
         _redirectToSignIn();
@@ -225,6 +436,9 @@ class _PatientInterfaceState extends State<PatientInterface> {
     setState(() => _isLoggingOut = true);
 
     try {
+      // Stop location tracking on logout
+      _locationService.stopLocationTracking();
+      
       final prefs = await SharedPreferences.getInstance();
       final String? token = prefs.getString('auth_token');
 
@@ -251,6 +465,13 @@ class _PatientInterfaceState extends State<PatientInterface> {
     } finally {
       if (mounted) setState(() => _isLoggingOut = false);
     }
+  }
+
+  @override
+  void dispose() {
+    // Stop location tracking when widget is disposed
+    _locationService.stopLocationTracking();
+    super.dispose();
   }
 
   Widget _buildLanguageItem(BuildContext context) {

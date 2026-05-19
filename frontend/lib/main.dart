@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'auth/sign_up_page.dart';
 import 'auth/sign_in_page.dart';
 import 'auth/reset_password_page_1.dart';
@@ -29,6 +30,8 @@ import 'profile/profile_page.dart';
 import 'services/language_service.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
+import 'services/location_service.dart';
+import 'services/background_location_service.dart'; // ✅ Add this import
 import 'patient/caregiver_access_page.dart';
 import 'caregiver/caregiver_login_page.dart';
 import 'caregiver/caregiver_dashboard.dart';
@@ -36,6 +39,11 @@ import 'caregiver/accept_invitation_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Initialize background location service BEFORE running app
+  if (!kIsWeb) {
+    await BackgroundLocationService().initialize();
+  }
 
   if (kIsWeb) {
     print('✅ Running on web - Firebase ready via HTML');
