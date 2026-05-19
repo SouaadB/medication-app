@@ -377,13 +377,40 @@ exports.getPatientDetails = async (req, res) => {
         }
         
         let location = null;
-        if (permissions.view_location) {
-            location = {
-                enabled: true,
-                address: 'Location sharing enabled - Last seen: ' + lastActive,
-                last_updated: new Date().toISOString()
-            };
+if (permissions.view_location) {
+    const [patientLocation] = await db.execute(
+        `SELECT location_sharing_enabled, last_latitude, last_longitude, 
+                last_location_address, last_location_timestamp
+         FROM patients WHERE id = ?`,
+        [patientId]
+    );
+    
+    if (patientLocation[0]?.location_sharing_enabled && patientLocation[0]?.last_latitude) {
+        let timeAgo = 'Never';
+        if (patientLocation[0].last_location_timestamp) {
+            const minutes = Math.floor((new Date() - new Date(patientLocation[0].last_location_timestamp)) / 60000);
+            if (minutes < 1) timeAgo = 'Just now';
+            else if (minutes < 60) timeAgo = `${minutes} min ago`;
+            else if (minutes < 1440) timeAgo = `${Math.floor(minutes / 60)} hours ago`;
+            else timeAgo = `${Math.floor(minutes / 1440)} days ago`;
         }
+        
+        location = {
+            enabled: true,
+            lat: parseFloat(patientLocation[0].last_latitude),
+            lng: parseFloat(patientLocation[0].last_longitude),
+            address: patientLocation[0].last_location_address || 'Location available',
+            last_updated: patientLocation[0].last_location_timestamp,
+            time_ago: timeAgo
+        };
+    } else {
+        location = {
+            enabled: true,
+            address: 'Location sharing is enabled but no data yet. Patient needs to open the app.',
+            last_updated: null
+        };
+    }
+}
         
         res.json({
             success: true,

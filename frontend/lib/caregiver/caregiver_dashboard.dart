@@ -566,30 +566,164 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
   }
 
   Widget _buildLocationCard() {
+    final location = _location;
+    final hasLocation = location != null && location['lat'] != null;
+    
+    // Check if location is recent (less than 10 minutes old)
+    bool isRecent = false;
+    String timeAgo = 'Never';
+    
+    if (hasLocation && location['time_ago'] != null) {
+      timeAgo = location['time_ago'].toString();
+      
+      // Safe parsing of time_ago
+      if (timeAgo.contains('Just now')) {
+        isRecent = true;
+      } else if (timeAgo.contains('min')) {
+        try {
+          final minutes = int.tryParse(timeAgo.split(' ')[0]);
+          if (minutes != null && minutes < 10) {
+            isRecent = true;
+          }
+        } catch (e) {
+          isRecent = false;
+        }
+      } else if (timeAgo.contains('seconds') || timeAgo.contains('second')) {
+        isRecent = true;
+      }
+    }
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.location_on, color: Colors.blue.shade600),
+              Icon(
+                Icons.location_on,
+                color: hasLocation ? (isRecent ? Colors.green : Colors.orange) : Colors.grey,
+                size: 22,
+              ),
               const SizedBox(width: 8),
-              const Text('Current Location', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const Spacer(),
-              Text('Updated now', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+              if (hasLocation)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isRecent ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isRecent ? '🟢 Live' : '🟡 Last known',
+                    style: TextStyle(
+                      color: isRecent ? Colors.green : Colors.orange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '⚫ Offline',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
           Container(
             height: 180,
-            decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(18)),
-            child: const Center(child: Icon(Icons.location_pin, color: Colors.red, size: 52)),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: hasLocation
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_pin, color: Colors.red, size: 52),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${(location['lat'] as num?)?.toStringAsFixed(6) ?? '0.000000'}, ${(location['lng'] as num?)?.toStringAsFixed(6) ?? '0.000000'}',
+                          style: TextStyle(color: Colors.blue.shade800, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tap to open map',
+                          style: TextStyle(color: Colors.blue.shade600, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  )
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_off, size: 48, color: Colors.grey.shade400),
+                        const SizedBox(height: 8),
+                        Text(
+                          location?['address'] ?? 'Location sharing not available',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
           const SizedBox(height: 14),
-          Text(_location?['address'] ?? 'Location sharing enabled', style: const TextStyle(fontWeight: FontWeight.w500)),
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 6),
+              Text(
+                hasLocation ? 'Updated $timeAgo' : 'No location data',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            ],
+          ),
+          if (hasLocation && !isRecent && timeAgo != 'Never' && !timeAgo.contains('Just'))
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '⚠️ Patient may be offline or app closed',
+                style: TextStyle(color: Colors.orange.shade700, fontSize: 11),
+              ),
+            ),
+          if (location?['address'] != null && hasLocation && location!['address'] != '')
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                location['address'],
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
         ],
       ),
     );
@@ -639,6 +773,14 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
   }
 
   Widget _buildTodayMedications() {
+    if (_todayMedications.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: const Center(child: Text('No medications scheduled for today')),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
@@ -657,8 +799,6 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
             ],
           ),
           const SizedBox(height: 18),
-          if (_todayMedications.isEmpty)
-            const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Text('No medications scheduled'))),
           ..._todayMedications.map((med) {
             final status = med['status'] ?? 'pending';
             final bool isTaken = status == 'taken';
@@ -719,6 +859,14 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
   }
 
   Widget _buildRecentAlerts() {
+    if (_recentAlerts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: const Center(child: Text('No recent alerts')),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
@@ -727,8 +875,6 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
         children: [
           const Text('Recent Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 18),
-          if (_recentAlerts.isEmpty)
-            const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Text('No recent alerts'))),
           ..._recentAlerts.map((alert) => Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
