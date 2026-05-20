@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/settings_service.dart';
+import '../services/background_location_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -10,11 +12,80 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  bool _backgroundTrackingEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackgroundTrackingStatus();
+  }
+
+  Future<void> _loadBackgroundTrackingStatus() async {
+    final isEnabled = await BackgroundLocationService().isTracking();
+    setState(() {
+      _backgroundTrackingEnabled = isEnabled;
+    });
+  }
+
+  Widget _buildBackgroundTrackingTile(BuildContext context, SettingsService settings) {
+    return SwitchListTile(
+      title: const Text('24/7 Location Sharing'),
+      subtitle: const Text(
+        'Share location with caregiver even when app is closed',
+        style: TextStyle(fontSize: 12),
+      ),
+      value: _backgroundTrackingEnabled,
+      onChanged: (value) async {
+        setState(() {
+          _backgroundTrackingEnabled = value;
+        });
+        
+        final prefs = await SharedPreferences.getInstance();
+        final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
+        
+        if (value && patientId != null) {
+          final started = await BackgroundLocationService().startTracking(patientId);
+          if (started && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ 24/7 location sharing enabled'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else if (!started && mounted) {
+            setState(() {
+              _backgroundTrackingEnabled = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('❌ Failed to enable location sharing. Please check permissions.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          await BackgroundLocationService().stopTracking();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🛑 24/7 location sharing disabled'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      },
+      activeColor: Colors.green,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsService>(context);
     final isDark = settings.isDarkMode;
-    final theme = Theme.of(context);
     final textColor = isDark ? Colors.white : const Color(0xFF1A237E);
     final subTextColor = isDark ? Colors.white70 : Colors.grey.shade600;
 
@@ -204,6 +275,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             _buildSettingCard(
               children: [
+                _buildBackgroundTrackingTile(context, settings),
                 _buildNavigationTile(
                   icon: Icons.shield_outlined,
                   title: 'Caregiver Access',
@@ -291,7 +363,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                   );
-                  if (confirm == true) {
+                  if (confirm == true && mounted) {
                     final success = await settings.deleteAccount();
                     if (success && mounted) {
                       Navigator.pushNamedAndRemoveUntil(context, '/signin', (route) => false);
