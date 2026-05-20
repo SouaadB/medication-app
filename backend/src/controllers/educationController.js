@@ -262,3 +262,48 @@ function _guessEmoji(conditionName) {
     if (c.includes('cholesterol'))                          return '🩸';
     return '💊';
 }
+
+ 
+/**
+ * GET /api/education/medications/names?query=xyz
+ * Returns medication names + scientific names for autocomplete.
+ * No auth needed — public endpoint.
+ */
+exports.getMedicationNames = async (req, res) => {
+  try {
+    const { query = '' } = req.query;
+    const q = query.toLowerCase().trim();
+ 
+    let results = algerianMedications;
+ 
+    if (q.length >= 2) {
+      results = algerianMedications.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        m.scientific_name.toLowerCase().includes(q)
+      );
+    }
+ 
+    // Return name + scientific_name + category for richer suggestions
+    const names = results.map(m => ({
+      name:            m.name,
+      scientific_name: m.scientific_name,
+      category:        m.category,
+      emoji:           m.emoji || '💊',
+    }));
+ 
+    // Sort: starts-with first, then contains
+    names.sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(q);
+      const bStarts = b.name.toLowerCase().startsWith(q);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.name.localeCompare(b.name);
+    });
+ 
+    res.json({ success: true, medications: names.slice(0, 8) });
+ 
+  } catch (error) {
+    console.error('getMedicationNames error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching medication names' });
+  }
+};
