@@ -1,3 +1,4 @@
+const db = require('../config/database');  // ✅ ADD THIS IMPORT
 const User = require('../models/User');
 const Patient = require('../models/Patient');
 const Admin = require('../models/Admin');
@@ -134,7 +135,6 @@ exports.updateSettings = async (req, res) => {
         values.push(userId);
         const query = `UPDATE patients SET ${updates.join(', ')} WHERE id = ?`;
         
-        const db = require('../config/database');
         await db.execute(query, values);
 
         res.json({ success: true, message: 'Settings updated successfully' });
@@ -148,7 +148,6 @@ exports.updateSettings = async (req, res) => {
 exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user.id;
-        const db = require('../config/database');
         
         // Deleting from users table will cascade delete from patients, treatments, etc.
         await db.execute('DELETE FROM users WHERE id = ?', [userId]);
@@ -190,7 +189,6 @@ exports.updateProfile = async (req, res) => {
 
         if (updateFields.length > 0) {
             updateValues.push(userId);
-            const db = require('../config/database');
             await db.execute(
                 `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
                 updateValues
@@ -241,7 +239,6 @@ exports.updateProfile = async (req, res) => {
 
             if (patientUpdateFields.length > 0) {
                 patientUpdateValues.push(userId);
-                const db = require('../config/database');
                 await db.execute(
                     `UPDATE patients SET ${patientUpdateFields.join(', ')} WHERE id = ?`,
                     patientUpdateValues
@@ -327,7 +324,6 @@ exports.changePassword = async (req, res) => {
         }
 
         // Récupérer l'utilisateur avec son mot de passe
-        const db = require('../config/database');
         const [users] = await db.execute(
             'SELECT * FROM users WHERE id = ?',
             [userId]
@@ -375,58 +371,146 @@ exports.changePassword = async (req, res) => {
     }
 };
 
-// Update patient settings
-exports.updateSettings = async (req, res) => {
+// ========== CAREGIVER FUNCTIONS ==========
+
+// Get caregiver profile
+exports.getCaregiverProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const settings = req.body;
-
-        const result = await Patient.updateSettings(userId, settings);
-
-        if (!result) {
-            return res.status(400).json({
-                success: false,
-                message: 'Aucun paramètre valide fourni'
+        const caregiverEmail = req.user.email;
+        
+        console.log('📋 Getting caregiver profile for:', caregiverEmail);
+        
+        const [caregivers] = await db.execute(
+            `SELECT id, name, email, created_at 
+             FROM caregiver_users 
+             WHERE email = ?`,
+            [caregiverEmail]
+        );
+        
+        if (caregivers.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Caregiver not found' 
             });
         }
-
+        
+        const caregiver = caregivers[0];
+        
         res.json({
             success: true,
-            message: 'Paramètres mis à jour avec succès'
+            profile: {
+                id: caregiver.id,
+                name: caregiver.name,
+                email: caregiver.email,
+                role: 'caregiver',
+                created_at: caregiver.created_at
+            }
         });
     } catch (error) {
-        console.error('Erreur updateSettings:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la mise à jour des paramètres'
+        console.error('Get caregiver profile error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch caregiver profile' 
         });
     }
 };
 
-// Update daily schedule
-exports.updateDailySchedule = async (req, res) => {
+// Update caregiver profile
+exports.updateCaregiverProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const schedule = req.body;
-
-        const result = await Patient.updateDailySchedule(userId, schedule);
-
-        if (!result) {
-            return res.status(400).json({
-                success: false,
-                message: 'Aucune donnée de planning valide fournie'
+        const caregiverEmail = req.user.email;
+        const { name } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Name is required' 
             });
         }
-
+        
+        await db.execute(
+            'UPDATE caregiver_users SET name = ? WHERE email = ?',
+            [name, caregiverEmail]
+        );
+        
         res.json({
             success: true,
-            message: 'Planning quotidien mis à jour avec succès'
+            message: 'Profile updated successfully'
         });
     } catch (error) {
-        console.error('Erreur updateDailySchedule:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la mise à jour du planning quotidien'
+        console.error('Update caregiver profile error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update caregiver profile' 
+        });
+    }
+};
+
+// Change caregiver password
+exports.changeCaregiverPassword = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { current_password, new_password } = req.body;
+        
+        console.log('🔐 Changing password for caregiver:', caregiverEmail);
+        
+        // Validate input
+        if (!current_password || !new_password) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Current password and new password are required' 
+            });
+        }
+        
+        if (new_password.length < 6) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'New password must be at least 6 characters' 
+            });
+        }
+        
+        // Get current caregiver
+        const [caregivers] = await db.execute(
+            'SELECT password FROM caregiver_users WHERE email = ?',
+            [caregiverEmail]
+        );
+        
+        if (caregivers.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Caregiver not found' 
+            });
+        }
+        
+        // Verify current password
+        const isValid = await bcrypt.compare(current_password, caregivers[0].password);
+        if (!isValid) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Current password is incorrect' 
+            });
+        }
+        
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(new_password, 10);
+        
+        // Update password
+        await db.execute(
+            'UPDATE caregiver_users SET password = ? WHERE email = ?',
+            [hashedPassword, caregiverEmail]
+        );
+        
+        console.log('✅ Password changed successfully for:', caregiverEmail);
+        
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change caregiver password error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to change password' 
         });
     }
 };

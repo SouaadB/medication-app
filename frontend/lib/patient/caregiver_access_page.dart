@@ -79,7 +79,7 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
         _fetchCaregivers();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Caregiver removed successfully')),
+            const SnackBar(content: Text('Caregiver removed successfully'), backgroundColor: Colors.green),
           );
         }
       }
@@ -228,14 +228,24 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
 
   Widget _buildCaregiverCard(Map<String, dynamic> caregiver, bool isDark) {
     final status = caregiver['status'] ?? 'PENDING';
+    final isFollowing = caregiver['is_following'] == 1 || caregiver['is_following'] == true;
     final name = caregiver['name'] ?? '';
     final initials = name.isNotEmpty ? name.split(' ').map((e) => e[0]).take(2).join().toUpperCase() : '?';
+    
+    // Determine card color based on follow status
+    Color cardBgColor;
+    if (status == 'ACTIVE') {
+      cardBgColor = isFollowing ? (isDark ? const Color(0xFF1E1E1E) : Colors.white) : 
+                    (isDark ? Colors.grey.shade800 : Colors.grey.shade50);
+    } else {
+      cardBgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    }
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: cardBgColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -244,6 +254,9 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
             offset: const Offset(0, 4),
           ),
         ],
+        border: status == 'ACTIVE' && !isFollowing 
+            ? Border.all(color: Colors.orange.withOpacity(0.3)) 
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,11 +265,15 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
             children: [
               CircleAvatar(
                 radius: 25,
-                backgroundColor: status == 'ACTIVE' ? Colors.green.shade100 : Colors.orange.shade100,
+                backgroundColor: status == 'ACTIVE' 
+                    ? (isFollowing ? Colors.green.shade100 : Colors.orange.shade100)
+                    : Colors.orange.shade100,
                 child: Text(
                   initials,
                   style: TextStyle(
-                    color: status == 'ACTIVE' ? Colors.green.shade700 : Colors.orange.shade700,
+                    color: status == 'ACTIVE' 
+                        ? (isFollowing ? Colors.green.shade700 : Colors.orange.shade700)
+                        : Colors.orange.shade700,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -266,13 +283,34 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF2C3E50),
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF2C3E50),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (status == 'ACTIVE')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isFollowing ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              isFollowing ? 'Following You' : 'Not Following',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: isFollowing ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     Text(
                       caregiver['relationship'] ?? '',
@@ -288,14 +326,18 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: status == 'ACTIVE' ? Colors.green.shade50 : Colors.orange.shade50,
+                  color: status == 'ACTIVE' 
+                      ? (isFollowing ? Colors.green.shade50 : Colors.orange.shade50)
+                      : Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   status == 'ACTIVE' ? 'Active' : 'Pending',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: status == 'ACTIVE' ? Colors.green : Colors.orange,
+                    fontSize: 11,
+                    color: status == 'ACTIVE' 
+                        ? (isFollowing ? Colors.green : Colors.orange)
+                        : Colors.orange,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -318,6 +360,31 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
           _buildPermissionItem('View Location', caregiver['view_location'] == 1, isDark),
           _buildPermissionItem('View Medications', caregiver['view_medications'] == 1, isDark),
           _buildPermissionItem('Receive Alerts', caregiver['receive_alerts'] == 1, isDark),
+          
+          // Show info message when caregiver is not following
+          if (status == 'ACTIVE' && !isFollowing)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This caregiver has chosen to stop following you. They will not receive updates until they start following you again.',
+                        style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

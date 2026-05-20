@@ -5,7 +5,17 @@ const bcrypt = require('bcryptjs');
 
 exports.getCaregivers = async (req, res) => {
     try {
-        const caregivers = await Caregiver.findByPatientId(req.user.id);
+        // Get caregivers for the patient with is_following status
+        const [caregivers] = await db.execute(
+            `SELECT c.id, c.name, c.relationship, c.email, c.status, 
+                    c.view_location as is_following,
+                    c.view_medications, c.receive_alerts, 
+                    c.created_at, c.expires_at
+             FROM caregivers c
+             WHERE c.patient_id = ? AND c.status != 'REVOKED'`,
+            [req.user.id]
+        );
+        
         res.json({
             success: true,
             count: caregivers.length,
@@ -172,7 +182,7 @@ exports.getPatientsForCaregiver = async (req, res) => {
                 u.phone,
                 u.created_at,
                 c.relationship,
-                c.view_location, 
+                c.view_location as is_following, 
                 c.view_medications, 
                 c.receive_alerts,
                 (SELECT COUNT(*) FROM treatments WHERE patient_id = p.id AND is_active = 1) as medication_count,
@@ -242,7 +252,7 @@ exports.getPatientsForCaregiver = async (req, res) => {
                 email: patient.email,
                 phone: patient.phone,
                 relationship: patient.relationship,
-                view_location: patient.view_location === 1,
+                is_following: patient.is_following === 1,
                 view_medications: patient.view_medications === 1,
                 receive_alerts: patient.receive_alerts === 1,
                 medication_count: patient.medication_count || 0,
@@ -270,6 +280,50 @@ exports.getPatientsForCaregiver = async (req, res) => {
     }
 };
 
+// Toggle follow/unfollow patient (caregiver decides to follow or unfollow a patient)
+exports.toggleFollowPatient = async (req, res) => {
+    const { id } = req.params;
+    const { follow } = req.body;
+    const caregiverEmail = req.user.email;
+    
+    console.log(`🔄 Caregiver ${caregiverEmail} ${follow ? 'following' : 'unfollowing'} patient ${id}`);
+    
+    try {
+        // Check if relationship exists
+        const [existing] = await db.execute(
+            'SELECT * FROM caregivers WHERE patient_id = ? AND email = ? AND status = "ACTIVE"',
+            [id, caregiverEmail]
+        );
+        
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Patient not found in your list' 
+            });
+        }
+        
+        // Update the follow status (using view_location as follow flag)
+        await db.execute(
+            'UPDATE caregivers SET view_location = ? WHERE patient_id = ? AND email = ?',
+            [follow ? 1 : 0, id, caregiverEmail]
+        );
+        
+        console.log(`✅ Caregiver ${caregiverEmail} ${follow ? 'now follows' : 'unfollowed'} patient ${id}`);
+        
+        res.json({ 
+            success: true, 
+            message: follow ? 'Now following patient' : 'Unfollowed patient',
+            is_following: follow
+        });
+    } catch (error) {
+        console.error('Error toggling follow status:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update follow status' 
+        });
+    }
+};
+
 // Get detailed information for a specific patient
 exports.getPatientDetails = async (req, res) => {
     try {
@@ -279,7 +333,7 @@ exports.getPatientDetails = async (req, res) => {
         console.log('🔍 Getting patient details for ID:', patientId);
         
         const [accessCheck] = await db.execute(
-            'SELECT * FROM caregivers WHERE email = ? AND patient_id = ? AND status = "ACTIVE"',
+            'SELECT * FROM caregivers WHERE patient_id = ? AND email = ? AND status = "ACTIVE"',
             [caregiverEmail, patientId]
         );
         
@@ -291,6 +345,22 @@ exports.getPatientDetails = async (req, res) => {
         }
         
         const permissions = accessCheck[0];
+        
+        // Check if caregiver is following this patient
+        const isFollowing = permissions.view_location === 1;
+        
+        if (!isFollowing) {
+            return res.json({
+                success: true,
+                patient: {
+                    id: patientId,
+                    name: permissions.name || 'Patient',
+                    is_following: false
+                },
+                is_following: false,
+                message: 'You are not following this patient. Tap Follow to see their health data.'
+            });
+        }
         
         const [patients] = await db.execute(
             `SELECT p.id, u.name, u.email, u.phone, u.created_at,
@@ -377,40 +447,40 @@ exports.getPatientDetails = async (req, res) => {
         }
         
         let location = null;
-if (permissions.view_location) {
-    const [patientLocation] = await db.execute(
-        `SELECT location_sharing_enabled, last_latitude, last_longitude, 
-                last_location_address, last_location_timestamp
-         FROM patients WHERE id = ?`,
-        [patientId]
-    );
-    
-    if (patientLocation[0]?.location_sharing_enabled && patientLocation[0]?.last_latitude) {
-        let timeAgo = 'Never';
-        if (patientLocation[0].last_location_timestamp) {
-            const minutes = Math.floor((new Date() - new Date(patientLocation[0].last_location_timestamp)) / 60000);
-            if (minutes < 1) timeAgo = 'Just now';
-            else if (minutes < 60) timeAgo = `${minutes} min ago`;
-            else if (minutes < 1440) timeAgo = `${Math.floor(minutes / 60)} hours ago`;
-            else timeAgo = `${Math.floor(minutes / 1440)} days ago`;
+        if (permissions.view_location && isFollowing) {
+            const [patientLocation] = await db.execute(
+                `SELECT location_sharing_enabled, last_latitude, last_longitude, 
+                        last_location_address, last_location_timestamp
+                 FROM patients WHERE id = ?`,
+                [patientId]
+            );
+            
+            if (patientLocation[0]?.location_sharing_enabled && patientLocation[0]?.last_latitude) {
+                let timeAgo = 'Never';
+                if (patientLocation[0].last_location_timestamp) {
+                    const minutes = Math.floor((new Date() - new Date(patientLocation[0].last_location_timestamp)) / 60000);
+                    if (minutes < 1) timeAgo = 'Just now';
+                    else if (minutes < 60) timeAgo = `${minutes} min ago`;
+                    else if (minutes < 1440) timeAgo = `${Math.floor(minutes / 60)} hours ago`;
+                    else timeAgo = `${Math.floor(minutes / 1440)} days ago`;
+                }
+                
+                location = {
+                    enabled: true,
+                    lat: parseFloat(patientLocation[0].last_latitude),
+                    lng: parseFloat(patientLocation[0].last_longitude),
+                    address: patientLocation[0].last_location_address || 'Location available',
+                    last_updated: patientLocation[0].last_location_timestamp,
+                    time_ago: timeAgo
+                };
+            } else {
+                location = {
+                    enabled: true,
+                    address: 'Location sharing is enabled but no data yet. Patient needs to open the app.',
+                    last_updated: null
+                };
+            }
         }
-        
-        location = {
-            enabled: true,
-            lat: parseFloat(patientLocation[0].last_latitude),
-            lng: parseFloat(patientLocation[0].last_longitude),
-            address: patientLocation[0].last_location_address || 'Location available',
-            last_updated: patientLocation[0].last_location_timestamp,
-            time_ago: timeAgo
-        };
-    } else {
-        location = {
-            enabled: true,
-            address: 'Location sharing is enabled but no data yet. Patient needs to open the app.',
-            last_updated: null
-        };
-    }
-}
         
         res.json({
             success: true,
@@ -426,11 +496,13 @@ if (permissions.view_location) {
                 location_enabled: permissions.view_location === 1,
                 medications_enabled: permissions.view_medications === 1,
                 alerts_enabled: permissions.receive_alerts === 1,
-                relationship: permissions.relationship
+                relationship: permissions.relationship,
+                is_following: true
             },
             today_medications: todayMedications,
             recent_alerts: recentAlerts,
-            location: location
+            location: location,
+            is_following: true
         });
         
     } catch (error) {

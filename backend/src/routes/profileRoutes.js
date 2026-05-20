@@ -9,34 +9,28 @@ const {
     getAllChronicConditions,
     updateSettings,
     updateDailySchedule,
-    deleteAccount
+    deleteAccount,
+    getCaregiverProfile,
+    updateCaregiverProfile,
+    changeCaregiverPassword
 } = require('../controllers/profileController');
 
 // Toutes les routes sont protégées
 router.use(protect);
 
-// GET /profile/me
+// Patient routes
 router.get('/me', getProfile);
-
-// GET /profile/conditions
 router.get('/conditions', getAllChronicConditions);
-
-// POST /profile/setup
 router.post('/setup', setupPatientProfile);
-
-// PUT /profile/update
 router.put('/update', updateProfile);
-
-// PUT /profile/password (garde celle-ci)
 router.put('/password', changePassword);
-
-// PUT /profile/settings
 router.put('/settings', updateSettings);
-
-// PUT /profile/daily-schedule
 router.put('/daily-schedule', updateDailySchedule);
-
-// DELETE /profile/account
 router.delete('/account', deleteAccount);
+
+// Caregiver routes
+router.get('/caregiver/me', getCaregiverProfile);
+router.put('/caregiver/update', updateCaregiverProfile);
+router.post('/caregiver/change-password', changeCaregiverPassword);
 
 module.exports = router;

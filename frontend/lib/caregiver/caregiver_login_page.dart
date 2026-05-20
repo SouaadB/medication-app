@@ -154,13 +154,29 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage> {
               // TOP GREEN SECTION
               Padding(
                 padding: const EdgeInsets.only(
-                  top: 30,
+                  top: 16,
                   left: 24,
                   right: 24,
                   bottom: 28,
                 ),
                 child: Column(
                   children: [
+                    // BACK BUTTON - Added on top left
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
                     // ICON BOX
                     Container(
                       height: 78,
@@ -210,301 +226,301 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage> {
                   ],
                 ),
               ),
-Center(
-  child: Container(
-    width: MediaQuery.of(context).size.width * 0.90,
-    constraints: BoxConstraints(
-      minHeight:
-          MediaQuery.of(context).size.height * 0.72,
-    ),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(34),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 30,
-        vertical: 34,
-      ),
-      child: Column(
-        crossAxisAlignment:CrossAxisAlignment.start,
-        children: [
-                      // SIGN IN TITLE
-                      Text(
-                        'Sign In to Your Account',
-                        style: TextStyle(
-                          fontSize: 31,
-                          fontWeight: FontWeight.w800,
-                          color: darkText,
-                          height: 1.1,
+              Center(
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.90,
+                  constraints: BoxConstraints(
+                    minHeight:
+                        MediaQuery.of(context).size.height * 0.72,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(34),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 34,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // SIGN IN TITLE
+                        Text(
+                          'Sign In to Your Account',
+                          style: TextStyle(
+                            fontSize: 31,
+                            fontWeight: FontWeight.w800,
+                            color: darkText,
+                            height: 1.1,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 36),
+                        const SizedBox(height: 36),
 
-                      // EMAIL LABEL
-                      Text(
-                        'Email Address',
-                        style: TextStyle(
-                          color: darkText.withOpacity(0.8),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                        // EMAIL LABEL
+                        Text(
+                          'Email Address',
+                          style: TextStyle(
+                            color: darkText.withOpacity(0.8),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 10),
+                        const SizedBox(height: 10),
 
-                      // EMAIL FIELD
-                      TextField(
-                        controller: _emailController,
-                        keyboardType:
-                            TextInputType.emailAddress,
-                        decoration: _inputDecoration(
-                          hint: 'caregiver@example.com',
-                          icon: Icons.mail_outline_rounded,
+                        // EMAIL FIELD
+                        TextField(
+                          controller: _emailController,
+                          keyboardType:
+                              TextInputType.emailAddress,
+                          decoration: _inputDecoration(
+                            hint: 'caregiver@example.com',
+                            icon: Icons.mail_outline_rounded,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // PASSWORD LABEL
-                      Text(
-                        'Password',
-                        style: TextStyle(
-                          color: darkText.withOpacity(0.8),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                        // PASSWORD LABEL
+                        Text(
+                          'Password',
+                          style: TextStyle(
+                            color: darkText.withOpacity(0.8),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 10),
+                        const SizedBox(height: 10),
 
-                      // PASSWORD FIELD
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: _inputDecoration(
-                          hint: 'Enter your password',
-                          icon: Icons.lock_outline_rounded,
-                          suffixIcon: IconButton(
+                        // PASSWORD FIELD
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          decoration: _inputDecoration(
+                            hint: 'Enter your password',
+                            icon: Icons.lock_outline_rounded,
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword =
+                                      !_obscurePassword;
+                                });
+                              },
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // FORGOT PASSWORD
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
                             onPressed: () {
-                              setState(() {
-                                _obscurePassword =
-                                    !_obscurePassword;
-                              });
+                              Navigator.pushNamed(
+                                context,
+                                '/forgotpassword',
+                              );
                             },
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: Colors.grey.shade400,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
                             ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // FORGOT PASSWORD
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/forgotpassword',
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                          ),
-                          child: Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              color: primaryGreen,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // ERROR MESSAGE
-                      if (_errorMessage != null)
-                        Padding(
-                          padding:
-                              const EdgeInsets.only(top: 8),
-                          child: Center(
                             child: Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.red,
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: primaryGreen,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
                         ),
 
-                      const SizedBox(height: 24),
-
-                      // SIGN IN BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(18),
-                            gradient: LinearGradient(
-                              colors: [
-                                primaryGreen,
-                                const Color(0xFF34D399),
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: primaryGreen
-                                    .withOpacity(0.35),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed:
-                                _isLoading ? null : _login,
-                            style:
-                                ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Colors.transparent,
-                              shadowColor:
-                                  Colors.transparent,
-                              shape:
-                                  RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                        18),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child:
-                                        CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2.5,
-                                    ),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .center,
-                                    children: [
-                                      Text(
-                                        'Sign In',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight:
-                                              FontWeight.bold,
-                                        ),
-                                      ),
-                                      SizedBox(width: 10),
-                                      Icon(
-                                        Icons.arrow_forward,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 34),
-
-                      // DIVIDER
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade300,
-                              thickness: 1,
-                            ),
-                          ),
+                        // ERROR MESSAGE
+                        if (_errorMessage != null)
                           Padding(
                             padding:
-                                const EdgeInsets.symmetric(
-                              horizontal: 14,
-                            ),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(
-                                color:
-                                    Colors.grey.shade500,
-                                fontWeight:
-                                    FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade300,
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 34),
-
-                      // REQUEST ACCESS
-                      Center(
-                        child: Wrap(
-                          alignment:
-                              WrapAlignment.center,
-                          children: [
-                            Text(
-                              "Don't have an account? ",
-                              style: TextStyle(
-                                color:
-                                    Colors.grey.shade600,
-                                fontSize: 15,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                ScaffoldMessenger.of(
-                                        context)
-                                    .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Contact your patient to request access',
-                                    ),
-                                  ),
-                                );
-                              },
+                                const EdgeInsets.only(top: 8),
+                            child: Center(
                               child: Text(
-                                'Request Access',
-                                style: TextStyle(
-                                  color: primaryGreen,
-                                  fontWeight:
-                                      FontWeight.bold,
-                                  fontSize: 15,
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        // SIGN IN BUTTON
+                        SizedBox(
+                          width: double.infinity,
+                          height: 60,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.circular(18),
+                              gradient: LinearGradient(
+                                colors: [
+                                  primaryGreen,
+                                  const Color(0xFF34D399),
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryGreen
+                                      .withOpacity(0.35),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed:
+                                  _isLoading ? null : _login,
+                              style:
+                                  ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Colors.transparent,
+                                shadowColor:
+                                    Colors.transparent,
+                                shape:
+                                    RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(
+                                          18),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child:
+                                          CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment
+                                              .center,
+                                      children: [
+                                        Text(
+                                          'Sign In',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight:
+                                                FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Icon(
+                                          Icons.arrow_forward,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 34),
+
+                        // DIVIDER
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade300,
+                                thickness: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              child: Text(
+                                'OR',
+                                style: TextStyle(
+                                  color:
+                                      Colors.grey.shade500,
+                                  fontWeight:
+                                      FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade300,
+                                thickness: 1,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(height: 34),
+
+                        // REQUEST ACCESS
+                        Center(
+                          child: Wrap(
+                            alignment:
+                                WrapAlignment.center,
+                            children: [
+                              Text(
+                                "Don't have an account? ",
+                                style: TextStyle(
+                                  color:
+                                      Colors.grey.shade600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(
+                                          context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Contact your patient to request access',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  'Request Access',
+                                  style: TextStyle(
+                                    color: primaryGreen,
+                                    fontWeight:
+                                        FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-),
             ],
           ),
         ),

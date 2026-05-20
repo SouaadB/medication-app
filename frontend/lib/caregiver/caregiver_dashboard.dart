@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 import '../config/api_config.dart';
+import '../services/language_service.dart';
+import '../services/settings_service.dart';
 import 'caregiver_login_page.dart';
 
 class CaregiverDashboard extends StatefulWidget {
@@ -100,6 +103,80 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     });
   }
 
+  Future<void> _toggleFollowPatient(int patientId, bool isFollowing, String patientName) async {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          isFollowing ? languageService.translate('unfollowPatient') : languageService.translate('followPatient'),
+          style: TextStyle(color: isFollowing ? Colors.orange : primaryGreen),
+        ),
+        content: Text(
+          isFollowing 
+              ? '${languageService.translate('confirmUnfollow')} "$patientName"? ${languageService.translate('youWillNoLongerSee')}'
+              : '${languageService.translate('confirmFollow')} "$patientName"? ${languageService.translate('youWillBeAbleToMonitor')}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(languageService.translate('cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: isFollowing ? Colors.orange : primaryGreen),
+            child: Text(isFollowing ? languageService.translate('unfollow') : languageService.translate('follow')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/caregivers/patients/$patientId/follow'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'follow': !isFollowing}),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          final index = _patients.indexWhere((p) => p['id'] == patientId);
+          if (index != -1) {
+            _patients[index]['is_following'] = !isFollowing;
+          }
+          final filteredIndex = _filteredPatients.indexWhere((p) => p['id'] == patientId);
+          if (filteredIndex != -1) {
+            _filteredPatients[filteredIndex]['is_following'] = !isFollowing;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFollowing 
+                  ? '${languageService.translate('unfollowSuccess')} $patientName'
+                  : '${languageService.translate('followSuccess')} $patientName',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update follow status'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error updating follow status'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -109,6 +186,47 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
         MaterialPageRoute(builder: (_) => const CaregiverLoginPage()),
       );
     }
+  }
+
+  void _showLanguageDialog(BuildContext context, LanguageService lang) {
+    final settingsService = Provider.of<SettingsService>(context, listen: false);
+    final currentLang = lang.getCurrentLanguage();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(lang.translate('language'), style: const TextStyle(color: primaryGreen, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('English'),
+                leading: Radio<String>(
+                  value: 'en',
+                  groupValue: currentLang,
+                  onChanged: (String? value) {
+                    Navigator.pop(context);
+                    settingsService.setLanguage('en');
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Français'),
+                leading: Radio<String>(
+                  value: 'fr',
+                  groupValue: currentLang,
+                  onChanged: (String? value) {
+                    Navigator.pop(context);
+                    settingsService.setLanguage('fr');
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   int get goodCount => _patients.where((p) => _getPatientStatus(p) == 'good').length;
@@ -130,19 +248,21 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       backgroundColor: bgColor,
-      drawer: _buildDrawer(),
+      drawer: _buildDrawer(languageService),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: primaryGreen))
           : SafeArea(
               child: Column(
                 children: [
-                  _buildHeader(),
+                  _buildHeader(languageService),
                   Expanded(
                     child: _filteredPatients.isEmpty
-                        ? _buildEmptyState()
-                        : _buildPatientList(),
+                        ? _buildEmptyState(languageService)
+                        : _buildPatientList(languageService),
                   ),
                 ],
               ),
@@ -150,7 +270,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(LanguageService lang) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       decoration: const BoxDecoration(
@@ -175,9 +295,9 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
               const Spacer(),
               Column(
                 children: [
-                  const Text('My Patients', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
+                  Text(lang.translate('myPatients'), style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text('${_patients.length} patients', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text('${_patients.length} ${lang.translate('patients')}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
               ),
               const Spacer(),
@@ -205,7 +325,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Search patients...',
+                hintText: lang.translate('searchPatients'),
                 hintStyle: const TextStyle(color: Colors.white70),
                 prefixIcon: const Icon(Icons.search, color: Colors.white),
                 suffixIcon: _searchController.text.isEmpty
@@ -223,11 +343,11 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _buildTopCard('$goodCount', 'On Track', Colors.green)),
+              Expanded(child: _buildTopCard('$goodCount', lang.translate('onTrack'), Colors.green)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTopCard('$warningCount', 'Attention', Colors.orange)),
+              Expanded(child: _buildTopCard('$warningCount', lang.translate('attention'), Colors.orange)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTopCard('$criticalCount', 'Critical', Colors.red)),
+              Expanded(child: _buildTopCard('$criticalCount', lang.translate('critical'), Colors.red)),
             ],
           ),
         ],
@@ -249,16 +369,18 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     );
   }
 
-  Widget _buildPatientList() {
+  Widget _buildPatientList(LanguageService lang) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _filteredPatients.length,
-      itemBuilder: (context, index) => _buildPatientCard(_filteredPatients[index]),
+      itemBuilder: (context, index) => _buildPatientCard(_filteredPatients[index], lang),
     );
   }
 
-  Widget _buildPatientCard(Map<String, dynamic> patient) {
+  Widget _buildPatientCard(Map<String, dynamic> patient, LanguageService lang) {
     final status = _getPatientStatus(patient);
+    final bool isFollowing = patient['is_following'] ?? true;
+    
     Color statusColor;
     String statusText;
 
@@ -290,64 +412,137 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
         shadowColor: Colors.black12,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () {
+          onTap: isFollowing ? () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => PatientDetailsPage(patient: patient)),
             );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(radius: 28, backgroundColor: primaryGreen, child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                          const SizedBox(height: 4),
-                          Text(patient['relationship'] ?? 'Patient', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                          const SizedBox(height: 3),
-                          Text('Active ${patient['last_active'] ?? '2h ago'}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
-                      child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                Row(
-                  children: [
-                    Expanded(child: _metric(Icons.show_chart, 'Adherence', '${patient['adherence_rate'] ?? 0}%', Colors.green)),
-                    Expanded(child: _metric(Icons.warning_amber_rounded, 'Missed', '${patient['missed_doses'] ?? 0}', Colors.red)),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: const Color(0xFFF4F7FB), borderRadius: BorderRadius.circular(16)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          } : null,
+          child: Opacity(
+            opacity: isFollowing ? 1.0 : 0.6,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Text('Next Medication', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${patient['next_medication'] ?? 'No medication'} • ${patient['next_medication_time'] ?? '--'}',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      CircleAvatar(radius: 28, backgroundColor: primaryGreen, child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                            const SizedBox(height: 4),
+                            Text(patient['relationship'] ?? 'Patient', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                            const SizedBox(height: 3),
+                            Text('Active ${patient['last_active'] ?? '2h ago'}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                            child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isFollowing ? primaryGreen.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              isFollowing ? lang.translate('following') : lang.translate('notFollowing'),
+                              style: TextStyle(
+                                color: isFollowing ? primaryGreen : Colors.grey,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 22),
+                  if (isFollowing) ...[
+                    Row(
+                      children: [
+                        Expanded(child: _metric(Icons.show_chart, lang.translate('adherence'), '${patient['adherence_rate'] ?? 0}%', Colors.green)),
+                        Expanded(child: _metric(Icons.warning_amber_rounded, lang.translate('missed'), '${patient['missed_doses'] ?? 0}', Colors.red)),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: const Color(0xFFF4F7FB), borderRadius: BorderRadius.circular(16)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(lang.translate('nextMedication'), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                const SizedBox(height: 5),
+                                Text(
+                                  '${patient['next_medication'] ?? 'No medication'} • ${patient['next_medication_time'] ?? '--'}',
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.visibility_off, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 8),
+                          Text(
+                            lang.translate('notFollowing'),
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            lang.translate('tapToFollow'),
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _toggleFollowPatient(patient['id'], isFollowing, name),
+                          icon: Icon(isFollowing ? Icons.person_remove : Icons.person_add, size: 18),
+                          label: Text(isFollowing ? lang.translate('unfollow') : lang.translate('follow')),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isFollowing ? Colors.orange : primaryGreen,
+                            side: BorderSide(color: (isFollowing ? Colors.orange : primaryGreen).withOpacity(0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -372,7 +567,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     );
   }
 
-  Widget _buildDrawer() {
+  Widget _buildDrawer(LanguageService lang) {
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -392,19 +587,49 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                 ],
               ),
             ),
-            ListTile(leading: const Icon(Icons.people), title: const Text('My Patients'), onTap: () => Navigator.pop(context)),
-            ListTile(leading: const Icon(Icons.notifications_none), title: const Text('Notifications'), onTap: () {}),
-            ListTile(leading: const Icon(Icons.settings), title: const Text('Settings'), onTap: () {}),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: Text(lang.translate('dashboard')),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(lang.translate('profile')),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/profile');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.language),
+              title: Text(lang.translate('language')),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  lang.getCurrentLanguage() == 'en' ? 'EN' : 'FR',
+                  style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold),
+                ),
+              ),
+              onTap: () => _showLanguageDialog(context, lang),
+            ),
             const Spacer(),
             const Divider(),
-            ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text('Logout', style: TextStyle(color: Colors.red)), onTap: _logout),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: Text(lang.translate('logout'), style: const TextStyle(color: Colors.red)),
+              onTap: _logout,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(LanguageService lang) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -413,9 +638,9 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
           children: [
             Icon(Icons.people_outline, size: 90, color: Colors.grey.shade400),
             const SizedBox(height: 20),
-            Text('No Patients Assigned', style: TextStyle(color: Colors.grey.shade700, fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(lang.translate('noPatientsAssigned'), style: TextStyle(color: Colors.grey.shade700, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('You currently have no patients linked to your caregiver account.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500)),
+            Text(lang.translate('noPatientsMessage'), textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500)),
             const SizedBox(height: 28),
             ElevatedButton.icon(
               onPressed: () {},
@@ -427,7 +652,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               icon: const Icon(Icons.add),
-              label: const Text('Request Access'),
+              label: Text(lang.translate('requestAccess')),
             ),
           ],
         ),
@@ -436,7 +661,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   }
 }
 
-// Patient Details Page
+// Patient Details Page (keep as is - no changes needed)
 class PatientDetailsPage extends StatefulWidget {
   final Map<String, dynamic> patient;
   const PatientDetailsPage({super.key, required this.patient});
@@ -565,18 +790,17 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
     );
   }
 
+
   Widget _buildLocationCard() {
     final location = _location;
     final hasLocation = location != null && location['lat'] != null;
     
-    // Check if location is recent (less than 10 minutes old)
     bool isRecent = false;
     String timeAgo = 'Never';
     
     if (hasLocation && location['time_ago'] != null) {
       timeAgo = location['time_ago'].toString();
       
-      // Safe parsing of time_ago
       if (timeAgo.contains('Just now')) {
         isRecent = true;
       } else if (timeAgo.contains('min')) {

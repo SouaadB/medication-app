@@ -2,7 +2,7 @@ class UserProfile {
   final int id;
   final String name;
   final String email;
-  final String phone;
+  final String? phone;  // ✅ Make phone nullable
   final String role;
   final String? chifaCardNumber;
   final String? dateOfBirth;
@@ -14,7 +14,7 @@ class UserProfile {
     required this.id,
     required this.name,
     required this.email,
-    required this.phone,
+    this.phone,  // ✅ Now nullable
     required this.role,
     this.chifaCardNumber,
     this.dateOfBirth,
@@ -25,11 +25,11 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'],
-      name: json['name'],
-      email: json['email'],
-      phone: json['phone'],
-      role: json['role'],
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      phone: json['phone']?.toString(),  // ✅ Handle null
+      role: json['role'] ?? 'patient',
       chifaCardNumber: json['chifa_card_registration_number'],
       dateOfBirth: json['date_of_birth'],
       dateOfBirthFormatted: json['date_of_birth_formatted'],
