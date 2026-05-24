@@ -1093,7 +1093,7 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
       if (timeAgo.contains('Just now') || timeAgo.contains('second')) isRecent = true;
       else if (timeAgo.contains('min')) {
         final mins = int.tryParse(timeAgo.split(' ')[0]) ?? 99;
-        isRecent = mins < 10;
+        isRecent = mins < 6;
       }
     }
 
@@ -1177,7 +1177,7 @@ class _PatientDetailsPageState extends State<PatientDetailsPage> {
               child: Row(children: [
                 Icon(Icons.warning_amber_rounded, size: 12, color: Colors.orange.shade600),
                 const SizedBox(width: 4),
-                Text('Patient may be offline or app closed',
+                Text('Patient may have disabled location sharing',
                     style: TextStyle(fontSize: 11, color: Colors.orange.shade700)),
               ]),
             ),

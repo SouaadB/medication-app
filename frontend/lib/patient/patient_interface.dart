@@ -423,11 +423,15 @@ Future<void> _startLocationTracking() async {
   }
 
   Future<void> _logout() async {
-    setState(() => _isLoggingOut = true);
-    try {
-      _locationService.stopLocationTracking();
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+setState(() => _isLoggingOut = true);
+  try {
+    _locationService.stopLocationTracking(); // stop foreground only
+    final prefs     = await SharedPreferences.getInstance();
+    final token     = prefs.getString('auth_token');
+
+    // Save location credentials before clearing
+    final userId    = prefs.getInt('user_id');
+    final isTracking = await BackgroundLocationService().isTracking();
       if (token != null) {
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
@@ -435,6 +439,11 @@ Future<void> _startLocationTracking() async {
         ).timeout(const Duration(seconds: 10));
       }
       await prefs.clear();
+         // Restore location credentials so background keeps running
+    if (isTracking && userId != null && token != null) {
+      await prefs.setString('auth_token', token);
+      await prefs.setInt('user_id', userId);
+    }
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/signin');
         ScaffoldMessenger.of(context).showSnackBar(

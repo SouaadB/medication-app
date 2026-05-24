@@ -6,6 +6,7 @@ import '../services/background_location_service.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import '../services/location_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
@@ -473,25 +474,27 @@ Future<void> _exportPdf() async {
 
   // ── BACKGROUND TRACKING ────────────────────────────────────────────────────
 
-  Future<void> _toggleBackgroundTracking(bool value) async {
-    final prefs     = await SharedPreferences.getInstance();
-    final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
-
-    if (value && patientId != null) {
-      final started = await BackgroundLocationService().startTracking(patientId);
-      if (mounted) {
-        setState(() => _backgroundTracking = started);
-        _snack(started ? '✅ 24/7 location sharing enabled' : '❌ Failed to enable. Check permissions.',
-            started ? Colors.green : Colors.red);
-      }
-    } else {
-      await BackgroundLocationService().stopTracking();
-      if (mounted) {
-        setState(() => _backgroundTracking = false);
-        _snack('🛑 24/7 location sharing disabled', Colors.orange);
-      }
+Future<void> _toggleBackgroundTracking(bool value) async {
+  final prefs     = await SharedPreferences.getInstance();
+  final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
+  if (value && patientId != null) {
+    await prefs.setBool('location_sharing_opted_out', false);
+    final started = await BackgroundLocationService().startTracking(patientId);
+    if (mounted) {
+      setState(() => _backgroundTracking = started);
+      _snack(started ? '✅ 24/7 location sharing enabled' : '❌ Failed to enable', 
+             started ? Colors.green : Colors.red);
+    }
+  } else {
+    await prefs.setBool('location_sharing_opted_out', true);
+    await BackgroundLocationService().stopTracking();
+    LocationService().stopLocationTracking();
+    if (mounted) {
+      setState(() => _backgroundTracking = false);
+      _snack('🛑 24/7 location sharing disabled', Colors.orange);
     }
   }
+}
 
   // ── DELETE ACCOUNT ─────────────────────────────────────────────────────────
 

@@ -54,6 +54,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Background location service -->
+         <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+         android:exported="true"
+            tools:replace="android:exported" />
 
         <meta-data
             android:name="flutterEmbedding"
@@ -61,17 +67,7 @@
 
 
 
-        <!-- WorkManager receivers -->
-        <receiver
-             android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
-             android:enabled="true"
-             android:exported="false"
-             tools:replace="android:exported" />
 
-        <receiver
-            android:name="be.tramckrijte.workmanager.RescheduledWorker"
-            android:enabled="true"
-            android:exported="false" />
 
 
 
