@@ -220,7 +220,7 @@ class _SignUpPageState extends State<SignUpPage>
                       const SizedBox(height: 8),
                       _formField(
                         controller: _passwordController,
-                        hint: 'Min 6 characters',
+                        hint: 'Min 8 chars, A-Z, 0-9, !@#...',
                         icon: Icons.lock_outline_rounded,
                         obscure: _obscurePassword,
                         suffixIcon: IconButton(
@@ -229,8 +229,16 @@ class _SignUpPageState extends State<SignUpPage>
                               ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                               color: Colors.grey.shade400, size: 20),
                         ),
-                        validator: (v) => (v == null || v.length < 6)
-                            ? 'Password must be at least 6 characters' : null,
+                      validator: (v) {
+  if (v == null || v.isEmpty) return 'Password is required';
+  if (v.length < 8) return 'At least 8 characters';
+  if (!RegExp(r'[A-Z]').hasMatch(v)) return 'At least one uppercase letter';
+  if (!RegExp(r'[a-z]').hasMatch(v)) return 'At least one lowercase letter';
+  if (!RegExp(r'[0-9]').hasMatch(v)) return 'At least one number';
+  if (!RegExp(r'[!@#\$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]').hasMatch(v))
+    return 'At least one special character (!@#\$%^&*)';
+  return null;
+},
                       ),
                       const SizedBox(height: 14),
 

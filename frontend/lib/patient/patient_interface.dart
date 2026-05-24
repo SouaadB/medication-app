@@ -691,167 +691,317 @@ Future<void> _startLocationTracking() async {
 
   // ── NEXT MEDICATION ────────────────────────────────────────────────────────
 
-  Widget _buildNextMedicationCard(LanguageService lang) {
-    final med  = _nextMedication!;
-    final name = med['name']?.toString() ?? 'Medication';
-    final cond = med['condition']?.toString() ?? '';
-    final time = med['time']?.toString() ?? '--:--';
-    final dose = med['dosage']?.toString() ?? '';
-    final scheduleId = med['schedule_id'];
-
+Widget _buildNextMedicationCard(LanguageService lang) {
+    final med      = _nextMedication!;
+    final name     = med['name']?.toString() ?? 'Medication';
+    final cond     = med['condition']?.toString() ?? '';
+    final time     = med['time']?.toString() ?? '--:--';
+    final dose     = med['dosage']?.toString() ?? '';
+    final priority = med['priority']?.toString() ?? '';
+    final meal     = med['meal_timing']?.toString() ?? '';
+ 
+    // countdown
+    String countdown = '';
+    try {
+      final parts   = time.split(':');
+      final now     = DateTime.now();
+      final scheduled = DateTime(now.year, now.month, now.day,
+          int.parse(parts[0]), int.parse(parts[1]));
+      final diff = scheduled.difference(now);
+      if (diff.isNegative) {
+        countdown = 'Overdue';
+      } else if (diff.inMinutes < 60) {
+        countdown = 'in ${diff.inMinutes} min';
+      } else {
+        final h = diff.inHours;
+        final m = diff.inMinutes % 60;
+        countdown = m > 0 ? 'in ${h}h ${m}m' : 'in ${h}h';
+      }
+    } catch (_) {}
+ 
+    final isUrgent  = countdown == 'Overdue' ||
+        (countdown.contains('min') && int.tryParse(countdown.split(' ')[1]) != null
+            && int.parse(countdown.split(' ')[1]) <= 30);
+    final cardColor = isUrgent
+        ? const LinearGradient(colors: [Color(0xFFB91C1C), Color(0xFFDC2626)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight)
+        : const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight);
+ 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.alarm_outlined, size: 18, color: Color(0xFF1A237E)),
         const SizedBox(width: 8),
         Text(lang.translate('nextMedication'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                color: Color(0xFF1A237E))),
+        const Spacer(),
+        if (countdown.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: isUrgent ? const Color(0xFFFEE2E2) : const Color(0xFFE3F2FD),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(countdown, style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.bold,
+              color: isUrgent ? const Color(0xFFDC2626) : const Color(0xFF1565C0),
+            )),
+          ),
       ]),
       const SizedBox(height: 10),
       GestureDetector(
-        onTap: () => _showMedicationDialog(context, lang, name, dose, cond, time, scheduleId),
+        onTap: () => _showMedicationDetail(context, lang, med),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
+            gradient: cardColor,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 14, offset: const Offset(0, 6))],
+            boxShadow: [BoxShadow(
+              color: (isUrgent ? Colors.red : Colors.blue).withOpacity(0.3),
+              blurRadius: 14, offset: const Offset(0, 6),
+            )],
           ),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(name, style: const TextStyle(fontSize: 20,
+                  fontWeight: FontWeight.bold, color: Colors.white)),
               if (dose.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(dose, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                Text(dose, style: TextStyle(
+                    color: Colors.white.withOpacity(0.8), fontSize: 14)),
               ],
               if (cond.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(_translateConditionName(cond, lang),
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                Text(_translateConditionName(cond, lang), style: TextStyle(
+                    color: Colors.white.withOpacity(0.7), fontSize: 13)),
               ],
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                child: Text(time, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(time, style: const TextStyle(
+                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                if (priority == 'HIGH') ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20)),
+                    child: const Text('⚠️ HIGH', style: TextStyle(
+                        color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ]),
             ])),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
-              child: const Icon(Icons.medication_outlined, color: Colors.white, size: 28),
-            ),
+            Column(children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+                child: const Icon(Icons.medication_outlined, color: Colors.white, size: 28),
+              ),
+              const SizedBox(height: 8),
+              Text('Tap for\ndetails', style: TextStyle(
+                  color: Colors.white.withOpacity(0.6), fontSize: 10,
+                  height: 1.4), textAlign: TextAlign.center),
+            ]),
           ]),
         ),
       ),
     ]);
   }
 
-  void _showMedicationDialog(BuildContext context, LanguageService lang,
-      String name, String dosage, String condition, String time, dynamic scheduleId) {
-    showDialog(
+ void _showMedicationDetail(BuildContext context, LanguageService lang,
+      Map<String, dynamic> med) {
+    final name     = med['name']?.toString() ?? 'Medication';
+    final dose     = med['dosage']?.toString() ?? '';
+    final cond     = med['condition']?.toString() ?? '';
+    final time     = med['time']?.toString() ?? '--:--';
+    final priority = med['priority']?.toString() ?? '';
+    final meal     = med['meal_timing']?.toString() ?? '';
+ 
+    // recompute countdown inside sheet
+    String countdown = '';
+    try {
+      final parts     = time.split(':');
+      final now       = DateTime.now();
+      final scheduled = DateTime(now.year, now.month, now.day,
+          int.parse(parts[0]), int.parse(parts[1]));
+      final diff = scheduled.difference(now);
+      if (diff.isNegative) {
+        countdown = 'Overdue';
+      } else if (diff.inMinutes < 60) {
+        countdown = '${diff.inMinutes} minutes';
+      } else {
+        final h = diff.inHours;
+        final m = diff.inMinutes % 60;
+        countdown = m > 0 ? '${h}h ${m}m' : '${h} hours';
+      }
+    } catch (_) {}
+ 
+    String mealLabel = '';
+    if (meal == 'BEFORE_MEAL') mealLabel = '🍽️ Take before meal';
+    else if (meal == 'AFTER_MEAL') mealLabel = '🍽️ Take after meal';
+    else if (meal == 'WITH_MEAL') mealLabel = '🍽️ Take with meal';
+ 
+    showModalBottomSheet(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(children: [
-                Container(
-                  width: 56, height: 56,
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                  child: const Icon(Icons.medication_outlined, color: Colors.white, size: 28),
-                ),
-                const SizedBox(height: 12),
-                Text(lang.translate('timeToTake'),
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(time, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 15)),
-              ]),
-            ),
-            // body
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(children: [
-                Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-                if (dosage.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(dosage, style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
-                ],
-                if (condition.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(_translateConditionName(condition, lang),
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
-                ],
-                const SizedBox(height: 24),
-                // Taken button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      if (scheduleId != null) {
-                        _markTaken(int.tryParse(scheduleId.toString()) ?? 0);
-                      }
-                    },
-                    icon: const Icon(Icons.check, size: 20),
-                    label: Text(lang.translate('iveTakenIt'),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF639922), foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // Snooze button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      if (scheduleId != null) {
-                        _snoozeNext(int.tryParse(scheduleId.toString()) ?? 0, 15);
-                      }
-                    },
-                    icon: const Icon(Icons.snooze, size: 20),
-                    label: Text(lang.translate('snooze10min'),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFBA7517), foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(lang.translate('close'),
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
-                ),
-              ]),
-            ),
-          ]),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
+        padding: EdgeInsets.fromLTRB(24, 8, 24,
+            MediaQuery.of(context).padding.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+ 
+          // handle
+          Container(
+            margin: const EdgeInsets.only(top: 8, bottom: 20),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2)),
+          ),
+ 
+          // icon + name
+          Row(children: [
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.medication_outlined,
+                  color: Color(0xFF1565C0), size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(name, style: const TextStyle(fontSize: 20,
+                  fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              if (dose.isNotEmpty)
+                Text(dose, style: TextStyle(fontSize: 14,
+                    color: Colors.grey.shade500)),
+            ])),
+            if (priority == 'HIGH')
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(20)),
+                child: const Text('⚠️ HIGH', style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold,
+                    color: Color(0xFFDC2626))),
+              ),
+          ]),
+          const SizedBox(height: 24),
+ 
+          // info tiles
+          Row(children: [
+            _infoTile(Icons.access_time_rounded, 'Scheduled', time,
+                const Color(0xFF1565C0), const Color(0xFFE3F2FD)),
+            const SizedBox(width: 10),
+            _infoTile(Icons.hourglass_top_rounded, 'Time left', countdown,
+                const Color(0xFF16A34A), const Color(0xFFDCFCE7)),
+          ]),
+          if (cond.isNotEmpty || mealLabel.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              if (cond.isNotEmpty)
+                Expanded(child: _infoTile(Icons.medical_information_outlined,
+                    'Condition', _translateConditionName(cond, lang),
+                    const Color(0xFF7C3AED), const Color(0xFFF5F3FF))),
+              if (cond.isNotEmpty && mealLabel.isNotEmpty)
+                const SizedBox(width: 10),
+              if (mealLabel.isNotEmpty)
+                Expanded(child: _infoTile(Icons.restaurant_outlined,
+                    'Meal timing', mealLabel,
+                    const Color(0xFFD97706), const Color(0xFFFEF3C7))),
+            ]),
+          ],
+          const SizedBox(height: 28),
+ 
+          // reminder note
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.2)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: Color(0xFF16A34A), size: 18),
+              const SizedBox(width: 10),
+              const Expanded(child: Text(
+                'You will receive a notification when it\'s time to take this medication.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF16A34A), height: 1.4),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 20),
+ 
+          // Go to Planning button
+          SizedBox(
+            width: double.infinity, height: 52,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/planning');
+              },
+              icon: const Icon(Icons.calendar_month_outlined, size: 18),
+              label: const Text('View Full Schedule',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+ 
+          // dismiss
+          SizedBox(
+            width: double.infinity, height: 48,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Dismiss',
+                  style: TextStyle(fontSize: 15, color: Colors.grey.shade500)),
+            ),
+          ),
+        ]),
       ),
     );
+  }
+ 
+  Widget _infoTile(IconData icon, String label, String value,
+      Color color, Color bg) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: bg, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(height: 6),
+        Text(label, style: TextStyle(fontSize: 10, color: color.withOpacity(0.7),
+            fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+            color: color), maxLines: 2, overflow: TextOverflow.ellipsis),
+      ]),
+    ));
   }
 
   // ── CONDITIONS ─────────────────────────────────────────────────────────────
