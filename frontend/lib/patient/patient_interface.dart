@@ -19,25 +19,28 @@ class PatientInterface extends StatefulWidget {
 }
 
 class _PatientInterfaceState extends State<PatientInterface> {
-  bool _isLoading = true;
-  bool _isLoggingOut = false;
+  bool _isLoading                  = true;
+  bool _isLoggingOut               = false;
   Map<String, dynamic>? _userData;
   String? _errorMessage;
-  int _selectedIndex = 0;
-  int _unreadNotificationsCount = 0;
+  int _selectedIndex               = 0;
+  int _unreadNotificationsCount    = 0;
 
-  double _overallAdherence = 0.0;
+  // adherence from history/stats
+  int _weeklyAdherence             = 0;
+  int _todayTaken                  = 0;
+  int _todayTotal                  = 0;
+  int _todayMissed                 = 0;
+
   List<Map<String, dynamic>> _patientConditions = [];
-  bool _loadingConditions = false;
+  bool _loadingConditions          = false;
   Map<String, dynamic>? _nextMedication;
-  
-  // Location tracking
-  final LocationService _locationService = LocationService();
-  bool _hasAskedLocationPermission = false;
-  
-  // Background location tracking
+
+  // location
+  final LocationService _locationService                     = LocationService();
   final BackgroundLocationService _backgroundLocationService = BackgroundLocationService();
-  bool _backgroundTrackingEnabled = false;
+  bool _backgroundTrackingEnabled    = false;
+  bool _hasAskedLocationPermission   = false;
   bool _hasAskedBackgroundPermission = false;
 
   @override
@@ -46,420 +49,402 @@ class _PatientInterfaceState extends State<PatientInterface> {
     _loadUserData().then((_) {
       _loadPatientConditions();
       _loadAdherenceData();
+      _loadTodayStats();
       _loadNextMedication();
       _loadUnreadNotificationsCount();
       _startLocationTracking();
       _setupBackgroundTracking();
     });
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUnreadNotificationsCount();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadUnreadNotificationsCount());
   }
 
-  // Start foreground location tracking
-  Future<void> _startLocationTracking() async {
-    // Don't track on web
-    if (kIsWeb) {
-      print('⚠️ Location tracking disabled on web platform');
-      return;
-    }
-    
-    // Only ask once per session
-    if (_hasAskedLocationPermission) return;
-    _hasAskedLocationPermission = true;
-    
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Try multiple possible keys for patient ID
-    int? patientId = prefs.getInt('user_id');
-    patientId ??= prefs.getInt('patient_id');
-    patientId ??= prefs.getInt('id');
-    
-    // Also try to get from user data if available
-    if (patientId == null && _userData != null) {
-      patientId = _userData!['id'] as int?;
-    }
-    
-    if (patientId != null) {
-      // Check if user previously opted out
-      final hasOptedOut = prefs.getBool('location_sharing_opted_out') ?? false;
-      
-      if (!hasOptedOut) {
-        // Ask user permission first
-        final shouldShare = await _askForLocationPermission();
-        if (shouldShare) {
-          await _locationService.startLocationTracking(patientId);
-        } else {
-          // Remember user opted out
-          await prefs.setBool('location_sharing_opted_out', true);
-        }
-      }
-    } else {
-      print('⚠️ Could not find patient ID for location tracking');
-    }
+  @override
+  void dispose() {
+    _locationService.stopLocationTracking();
+    super.dispose();
   }
 
-  // Setup background location tracking (24/7)
-  Future<void> _setupBackgroundTracking() async {
-    // Don't setup on web
-    if (kIsWeb) return;
-    
-    final prefs = await SharedPreferences.getInstance();
-    int? patientId = prefs.getInt('user_id');
-    patientId ??= prefs.getInt('patient_id');
-    patientId ??= prefs.getInt('id');
-    
-    if (patientId != null && _userData != null) {
-      // Check if user already agreed to background tracking
-      final hasAgreed = prefs.getBool('background_tracking_agreed') ?? false;
-      
-      if (!hasAgreed && !_hasAskedBackgroundPermission) {
-        _hasAskedBackgroundPermission = true;
-        final shouldEnable = await _askForBackgroundTrackingPermission();
-        
-        if (shouldEnable) {
-          final started = await _backgroundLocationService.startTracking(patientId);
-          setState(() {
-            _backgroundTrackingEnabled = started;
-          });
-          await prefs.setBool('background_tracking_agreed', true);
-        }
-      } else if (hasAgreed) {
-        // Restore tracking if it was enabled before
-        await _backgroundLocationService.restoreTrackingIfNeeded();
-        final isTracking = await _backgroundLocationService.isTracking();
-        setState(() {
-          _backgroundTrackingEnabled = isTracking;
-        });
-      }
+  // ── greeting helpers ───────────────────────────────────────────────────────
+
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return '🌅 Good morning';
+    if (h < 17) return '☀️ Good afternoon';
+    if (h < 21) return '🌆 Good evening';
+    return '🌙 Good night';
+  }
+
+  String _firstName() {
+    final name = _userData?['name']?.toString() ?? '';
+    return name.split(' ').first;
+  }
+
+  // ── condition helpers (same as conditions_list_page) ──────────────────────
+
+  String _iconForCondition(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('diabetes'))    return '🩸';
+    if (n.contains('hypertension') || n.contains('heart failure')) return '❤️';
+    if (n.contains('heart') || n.contains('cardio')) return '🫀';
+    if (n.contains('asthma') || n.contains('copd') || n.contains('bronch')) return '🫁';
+    if (n.contains('thyroid'))     return '🦋';
+    if (n.contains('arthritis') || n.contains('arthrose')) return '🦵';
+    if (n.contains('osteoporosis') || n.contains('bone')) return '🦴';
+    if (n.contains('kidney') || n.contains('renal')) return '🫘';
+    if (n.contains('alzheimer') || n.contains('parkinson')) return '🧠';
+    if (n.contains('depression') || n.contains('anxiety')) return '🌧️';
+    if (n.contains('insomnia')) return '🌙';
+    if (n.contains('cholesterol')) return '🫀';
+    if (n.contains('epilep')) return '⚡';
+    if (n.contains('migraine')) return '🤕';
+    if (n.contains('cancer')) return '🎗️';
+    if (n.contains('glaucoma') || n.contains('cataract')) return '👁️';
+    return '💊';
+  }
+
+  Color _bgColorForCondition(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('diabetes'))    return const Color(0xFFFAEEDA);
+    if (n.contains('hypertension') || n.contains('heart')) return const Color(0xFFE6F1FB);
+    if (n.contains('asthma') || n.contains('copd')) return const Color(0xFFEAF3DE);
+    if (n.contains('thyroid'))     return const Color(0xFFEEEDFE);
+    if (n.contains('arthritis') || n.contains('osteo')) return const Color(0xFFF1EFE8);
+    if (n.contains('kidney'))      return const Color(0xFFE1F5EE);
+    if (n.contains('cancer'))      return const Color(0xFFFCEBEB);
+    return const Color(0xFFEEEDFE);
+  }
+
+  Color _adherenceColor(int pct) {
+    if (pct >= 80) return const Color(0xFF639922);
+    if (pct >= 50) return const Color(0xFFBA7517);
+    return const Color(0xFFE24B4A);
+  }
+
+  String _translateConditionName(String name, LanguageService lang) {
+    switch (name) {
+      case 'Diabetes Type 1':  return lang.translate('diabetesType1');
+      case 'Diabetes Type 2':  return lang.translate('diabetesType2');
+      case 'Hypertension':     return lang.translate('hypertension');
+      case 'Asthma':           return lang.translate('asthma');
+      case 'Heart Disease':    return lang.translate('heartDisease');
+      case 'High Cholesterol': return lang.translate('cholesterol');
+      case 'COPD':             return lang.translate('copd');
+      case 'Arthritis':        return lang.translate('arthritis');
+      case 'Thyroid Disorder': return lang.translate('thyroidDisorder');
+      default: return name;
     }
   }
 
-  // Ask for foreground location permission
-  Future<bool> _askForLocationPermission() async {
-    if (!mounted) return false;
-    
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.location_on, color: Colors.blue, size: 28),
-            SizedBox(width: 8),
-            Text('Location Sharing'),
-          ],
-        ),
-        content: const Text(
-          'Your caregiver can track your location to ensure your safety. '
-          'This helps them know you are safe and can assist you in case of emergencies.\n\n'
-          'You can turn this off anytime in settings.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not Now'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Enable'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
+  Color _getColorForCondition(String name) {
+    if (name.isEmpty) return Colors.blue;
+    const colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal];
+    return colors[name.hashCode.abs() % colors.length];
   }
 
-  // Ask for background tracking permission (24/7)
-  Future<bool> _askForBackgroundTrackingPermission() async {
-    if (!mounted) return false;
-    
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.location_on, color: Colors.blue, size: 28),
-            SizedBox(width: 8),
-            Text('24/7 Location Sharing'),
-          ],
-        ),
-        content: const Text(
-          'To ensure your safety, MediCare can share your location with your caregiver '
-          'even when the app is closed. This feature:\n\n'
-          '• Works in the background\n'
-          '• Uses minimal battery\n'
-          '• Can be turned off anytime in settings\n\n'
-          'Do you want to enable 24/7 location sharing?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not Now'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Enable'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
-  // Toggle background tracking from settings
-  Future<void> _toggleBackgroundTracking(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    final patientId = prefs.getInt('user_id') ?? prefs.getInt('patient_id');
-    
-    if (enabled && patientId != null) {
-      final started = await _backgroundLocationService.startTracking(patientId);
-      setState(() {
-        _backgroundTrackingEnabled = started;
-      });
-      if (started && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 24/7 location sharing enabled'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
-      await _backgroundLocationService.stopTracking();
-      setState(() {
-        _backgroundTrackingEnabled = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🛑 24/7 location sharing disabled'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
+  // ── data loading ───────────────────────────────────────────────────────────
 
   Future<void> _loadUserData() async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+    setState(() { _isLoading = true; _errorMessage = null; });
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
-      if (token == null) {
-        _redirectToSignIn();
-        return;
-      }
+      final token = prefs.getString('auth_token');
+      if (token == null) { _redirectToSignIn(); return; }
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/auth/me'),
         headers: ApiConfig.getAuthHeaders(token),
       ).timeout(const Duration(seconds: 10));
 
-      final Map<String, dynamic> data = jsonDecode(response.body);
-
+      final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
-        if (mounted) {
-          setState(() {
-            _userData = data['user'];
-            _isLoading = false;
-          });
-        }
+        if (mounted) setState(() { _userData = data['user']; _isLoading = false; });
         await prefs.setString('user_name', data['user']['name']?.toString() ?? '');
-        await prefs.setString('user_email', data['user']['email']?.toString() ?? '');
         await prefs.setInt('user_id', data['user']['id'] as int? ?? 0);
       } else {
         await prefs.remove('auth_token');
         _redirectToSignIn();
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Impossible de charger les données. Vérifiez votre connexion.';
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadNextMedication() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
-      if (token == null) return;
-
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/treatments/next-medication'),
-        headers: ApiConfig.getAuthHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        if (data['success'] == true && data['medication'] != null) {
-          setState(() {
-            _nextMedication = data['medication'];
-          });
-        } else {
-          setState(() {
-            _nextMedication = null;
-          });
-        }
-      }
-    } catch (e) {
-      print('Erreur chargement prochain médicament: $e');
-      setState(() {
-        _nextMedication = null;
-      });
-    }
-  }
-
-  Future<void> _loadUnreadNotificationsCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-      if (token == null) return;
-
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/unread'),
-        headers: ApiConfig.getAuthHeaders(token),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _unreadNotificationsCount = data['data']['count'] ?? 0;
-        });
-        print('🔔 Notifications non lues: $_unreadNotificationsCount');
-      }
-    } catch (e) {
-      print('Error loading unread count: $e');
-    }
-  }
-
-  Future<void> _loadPatientConditions() async {
-    setState(() => _loadingConditions = true);
-    
-    try {
-      final conditions = await ConditionService.getPatientConditions();
-      
-      setState(() {
-        _patientConditions = conditions.map<Map<String, dynamic>>((c) {
-          final String conditionName = c['name'] as String? ?? 'Unknown';
-          return {
-            'id': c['id'] ?? 0,
-            'name': conditionName,
-            'percentage': c['adherence_rate'] ?? 85,
-            'color': _getColorForCondition(conditionName),
-          };
-        }).toList();
-        _loadingConditions = false;
-      });
-    } catch (e) {
-      print('Erreur chargement conditions: $e');
-      setState(() => _loadingConditions = false);
+      if (mounted) setState(() { _errorMessage = 'Cannot load data. Check your connection.'; _isLoading = false; });
     }
   }
 
   Future<void> _loadAdherenceData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
+      final token = prefs.getString('auth_token');
       if (token == null) return;
 
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/patient/adherence'),
+      final resp = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/history/stats?days=7'),
         headers: ApiConfig.getAuthHeaders(token),
       );
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final stats = data['data'];
+        if (mounted) {
+          setState(() {
+            _weeklyAdherence = double.tryParse(stats?['adherence_rate']?.toString() ?? '0')?.round() ?? 0;
+          });
+        }
+      }
+    } catch (e) { debugPrint('adherence error: $e'); }
+  }
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+  Future<void> _loadTodayStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final now = DateTime.now();
+      final today = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+
+      final resp = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/schedule?date=$today'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (mounted) {
+          setState(() {
+            _todayTotal  = int.tryParse(data['stats']?['total']?.toString() ?? '0') ?? 0;
+            _todayTaken  = int.tryParse(data['stats']?['completed']?.toString() ?? '0') ?? 0;
+            _todayMissed = int.tryParse(data['stats']?['missed']?.toString() ?? '0') ?? 0;
+          });
+        }
+      }
+    } catch (e) { debugPrint('today stats error: $e'); }
+  }
+
+  Future<void> _loadNextMedication() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final resp = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/next-medication'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (mounted) setState(() => _nextMedication = data['success'] == true ? data['medication'] : null);
+      }
+    } catch (e) { debugPrint('next med error: $e'); }
+  }
+
+  Future<void> _loadUnreadNotificationsCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final resp = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/notifications/unread'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (mounted) setState(() => _unreadNotificationsCount = data['data']['count'] ?? 0);
+        debugPrint('🔔 Notifications non lues: $_unreadNotificationsCount');
+      }
+    } catch (e) { debugPrint('unread error: $e'); }
+  }
+
+  Future<void> _loadPatientConditions() async {
+    setState(() => _loadingConditions = true);
+    try {
+      final conditions = await ConditionService.getPatientConditions();
+      if (mounted) {
         setState(() {
-          _overallAdherence = (data['adherence'] as num?)?.toDouble() ?? 0.0;
+          _patientConditions = conditions.map<Map<String, dynamic>>((c) {
+            final name = c['name']?.toString() ?? 'Unknown';
+            return {
+              'id':         c['id'] ?? 0,
+              'name':       name,
+              'percentage': int.tryParse(c['adherence_rate']?.toString() ?? '0') ?? 0,
+              'color':      _getColorForCondition(name),
+            };
+          }).toList();
+          _loadingConditions = false;
         });
       }
     } catch (e) {
-      print('Erreur chargement adhérence: $e');
+      debugPrint('conditions error: $e');
+      if (mounted) setState(() => _loadingConditions = false);
     }
   }
 
-  Color _getColorForCondition(String name) {
-    if (name.isEmpty) return Colors.blue;
-    final List<Color> colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal];
-    final int hash = name.hashCode.abs();
-    return colors[hash % colors.length];
+  // ── mark taken / snooze (actually calls backend) ──────────────────────────
+
+  Future<void> _markTaken(int scheduleId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final resp = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/schedule/take/$scheduleId'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (resp.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ Medication marked as taken!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+        _loadNextMedication();
+        _loadTodayStats();
+      }
+    } catch (e) { debugPrint('markTaken error: $e'); }
   }
 
-  String _translateConditionName(String name, LanguageService lang) {
-    switch(name) {
-      case 'Diabetes Type 1': return lang.translate('diabetesType1');
-      case 'Diabetes Type 2': return lang.translate('diabetesType2');
-      case 'Hypertension': return lang.translate('hypertension');
-      case 'Asthma': return lang.translate('asthma');
-      case 'Heart Disease': return lang.translate('heartDisease');
-      case 'High Cholesterol': return lang.translate('cholesterol');
-      case 'COPD': return lang.translate('copd');
-      case 'Arthritis': return lang.translate('arthritis');
-      case 'Thyroid Disorder': return lang.translate('thyroidDisorder');
-      default: return name;
+  Future<void> _snoozeNext(int scheduleId, int minutes) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/notifications/snooze/$scheduleId'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode({'minutes': minutes}),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('😴 Snoozed for $minutes minutes'),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) { debugPrint('snooze error: $e'); }
+  }
+
+  // ── location ───────────────────────────────────────────────────────────────
+
+Future<void> _startLocationTracking() async {
+  if (kIsWeb || _hasAskedLocationPermission) return;
+  _hasAskedLocationPermission = true;
+
+  final prefs     = await SharedPreferences.getInstance();
+  int? patientId  = prefs.getInt('user_id') ?? (_userData?['id'] as int?);
+  if (patientId == null) return;
+
+  final optedOut  = prefs.getBool('location_sharing_opted_out') ?? false;
+  if (!optedOut) {
+    await _locationService.startLocationTracking(patientId);
+  }
+}
+
+  Future<void> _setupBackgroundTracking() async {
+    if (kIsWeb) return;
+    final prefs    = await SharedPreferences.getInstance();
+    int? patientId = prefs.getInt('user_id') ?? (_userData?['id'] as int?);
+    if (patientId == null || _userData == null) return;
+    final agreed   = prefs.getBool('background_tracking_agreed') ?? false;
+    if (!agreed && !_hasAskedBackgroundPermission) {
+      _hasAskedBackgroundPermission = true;
+      final ok = await _askForBackgroundTrackingPermission();
+      if (ok) {
+        final started = await _backgroundLocationService.startTracking(patientId);
+        if (mounted) setState(() => _backgroundTrackingEnabled = started);
+        await prefs.setBool('background_tracking_agreed', true);
+      }
+    } else if (agreed) {
+      await _backgroundLocationService.restoreTrackingIfNeeded();
+      final isTracking = await _backgroundLocationService.isTracking();
+      if (mounted) setState(() => _backgroundTrackingEnabled = isTracking);
     }
+  }
+
+  Future<bool> _askForLocationPermission() async {
+    if (!mounted) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+     title: const Row(children: [
+    Icon(Icons.location_on, color: Colors.blue, size: 24), SizedBox(width: 8),
+    Flexible(child: Text('24/7 Location Sharing', style: TextStyle(fontSize: 16))),
+     ]),
+        content: const Text(
+          'Your caregiver can track your location to ensure your safety. '
+          'You can turn this off anytime in settings.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not Now')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<bool> _askForBackgroundTrackingPermission() async {
+    if (!mounted) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.location_on, color: Colors.blue, size: 28), SizedBox(width: 8),
+          Text('24/7 Location Sharing'),
+        ]),
+        content: const Text(
+          'To ensure your safety, MediCare can share your location with your caregiver '
+          'even when the app is closed.\n\n'
+          '• Works in the background\n• Uses minimal battery\n• Can be turned off anytime',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not Now')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void _redirectToSignIn() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/signin');
-      }
+      if (mounted) Navigator.pushReplacementNamed(context, '/signin');
     });
   }
 
   Future<void> _logout() async {
     setState(() => _isLoggingOut = true);
-
     try {
-      // Stop location tracking on logout
       _locationService.stopLocationTracking();
-      
       final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
+      final token = prefs.getString('auth_token');
       if (token != null) {
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/auth/logout'),
           headers: ApiConfig.getAuthHeaders(token),
         ).timeout(const Duration(seconds: 10));
       }
-
       await prefs.clear();
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/signin');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('👋 Déconnexion réussie !'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('👋 Logged out successfully'), backgroundColor: Colors.green),
         );
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Erreur lors de la déconnexion'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Error logging out'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -467,775 +452,554 @@ class _PatientInterfaceState extends State<PatientInterface> {
     }
   }
 
-  @override
-  void dispose() {
-    // Stop location tracking when widget is disposed
-    _locationService.stopLocationTracking();
-    super.dispose();
-  }
-
-  Widget _buildLanguageItem(BuildContext context) {
-    return Consumer<LanguageService>(
-      builder: (context, languageService, child) {
-        final currentLang = languageService.getCurrentLanguage();
-        final langText = currentLang == 'en' ? 'English' : 'Français';
-        
-        return ListTile(
-          leading: const Icon(Icons.language, color: Colors.blue, size: 24),
-          title: Text(
-            languageService.translate('language'),
-            style: const TextStyle(
-              color: Color(0xFF1A237E),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              langText,
-              style: const TextStyle(
-                color: Colors.blue,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          onTap: () => _showLanguageDialog(context, languageService),
-        );
-      },
-    );
-  }
-
-  Future<void> _showLanguageDialog(BuildContext context, LanguageService languageService) async {
-    final currentLang = languageService.getCurrentLanguage();
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            languageService.translate('language'),
-            style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('English'),
-                leading: Radio<String>(
-                  value: 'en',
-                  groupValue: currentLang,
-                  onChanged: (String? value) {
-                    Navigator.pop(context);
-                    languageService.setLanguage('en');
-                  },
-                ),
-              ),
-              ListTile(
-                title: const Text('Français'),
-                leading: Radio<String>(
-                  value: 'fr',
-                  groupValue: currentLang,
-                  onChanged: (String? value) {
-                    Navigator.pop(context);
-                    languageService.setLanguage('fr');
-                  },
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(languageService.translate('cancel')),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // ── BUILD ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final languageService = Provider.of<LanguageService>(context);
-    
+    final lang = Provider.of<LanguageService>(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Builder(
-          builder: (BuildContext context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black54),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: Colors.blue, size: 28),
-                onPressed: () {
-                  Navigator.pushNamed(context, '/notifications').then((_) {
-                    _loadUnreadNotificationsCount();
-                  });
-                },
-              ),
-              if (_unreadNotificationsCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      _unreadNotificationsCount > 9 ? '9+' : '$_unreadNotificationsCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 8),
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.favorite, color: Colors.blue, size: 24),
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(context, languageService),
+      backgroundColor: const Color(0xFFF7F8FC),
+      appBar: _buildAppBar(lang),
+      drawer: _buildDrawer(context, lang),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? _buildErrorView(theme)
+              ? _buildErrorView(lang)
               : RefreshIndicator(
                   onRefresh: () async {
-                    await _loadUserData();
-                    await _loadPatientConditions();
-                    await _loadAdherenceData();
-                    await _loadNextMedication();
-                    await _loadUnreadNotificationsCount();
+                    await Future.wait([
+                      _loadUserData(),
+                      _loadPatientConditions(),
+                      _loadAdherenceData(),
+                      _loadTodayStats(),
+                      _loadNextMedication(),
+                      _loadUnreadNotificationsCount(),
+                    ]);
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDashboardHeader(theme, languageService),
-                        const SizedBox(height: 32),
-                        _buildAdherenceCard(theme, languageService),
-                        const SizedBox(height: 32),
-                        _buildConditionsSection(theme, languageService),
-                        const SizedBox(height: 32),
-                        _buildNextMedicationCard(theme, languageService),
-                        const SizedBox(height: 32),
-                        _buildQuickActionsGrid(theme, languageService),
-                        const SizedBox(height: 32),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      _buildGreetingCard(lang),
+                      const SizedBox(height: 16),
+                      _buildTodaySummaryCard(lang),
+                      const SizedBox(height: 16),
+                      _buildWeeklyAdherenceCard(lang),
+                      const SizedBox(height: 20),
+                      if (_nextMedication != null) ...[
+                        _buildNextMedicationCard(lang),
+                        const SizedBox(height: 20),
                       ],
-                    ),
+                      if (_patientConditions.isNotEmpty) ...[
+                        _buildConditionsSection(lang),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildQuickActionsGrid(lang),
+                    ]),
                   ),
                 ),
-      bottomNavigationBar: _buildBottomNavigationBar(theme, languageService),
+      bottomNavigationBar: _buildBottomNav(lang),
     );
   }
 
-  void _showMedicationActionDialog(
-    BuildContext context,
-    LanguageService lang,
-    String name,
-    String dosage,
-    String condition,
-    String time,
-  ) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.8),
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 30),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF3498DB),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      lang.translate('timeToTake'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      time,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A237E),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      dosage,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _translateConditionName(condition, lang),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade400,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    _buildActionButton(
-                      lang.translate('iveTakenIt'),
-                      Icons.check,
-                      const Color(0xFF2ECC71),
-                      () => Navigator.pop(context),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActionButton(
-                      lang.translate('snooze10min'),
-                      Icons.access_time,
-                      const Color(0xFFF39C12),
-                      () => Navigator.pop(context),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActionButton(
-                      lang.translate('markAsMissed'),
-                      Icons.close,
-                      const Color(0xFFE74C3C),
-                      () => Navigator.pop(context),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        lang.translate('close'),
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ── APP BAR ────────────────────────────────────────────────────────────────
 
-  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(50),
-          ),
-          elevation: 0,
+  AppBar _buildAppBar(LanguageService lang) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: Builder(builder: (ctx) => IconButton(
+        icon: const Icon(Icons.menu, color: Colors.black54),
+        onPressed: () => Scaffold.of(ctx).openDrawer(),
+      )),
+      title: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
+          child: const Icon(Icons.favorite, color: Colors.blue, size: 18),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+        const SizedBox(width: 8),
+        const Text('MediCare', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 18)),
+      ]),
+      actions: [
+        Stack(children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Colors.blue, size: 26),
+            onPressed: () => Navigator.pushNamed(context, '/notifications').then((_) => _loadUnreadNotificationsCount()),
+          ),
+          if (_unreadNotificationsCount > 0)
+            Positioned(
+              right: 8, top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text(
+                  _unreadNotificationsCount > 9 ? '9+' : '$_unreadNotificationsCount',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDashboardHeader(ThemeData theme, LanguageService lang) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          lang.translate('dashboard'),
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A237E),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          lang.translate('trackMedication'),
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade600,
-          ),
-        ),
+        ]),
+        const SizedBox(width: 4),
       ],
     );
   }
 
-  Widget _buildAdherenceCard(ThemeData theme, LanguageService lang) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                lang.translate('overallAdherence'),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A237E),
-                ),
-              ),
-              Text(
-                '${(_overallAdherence * 100).toInt()}%',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_overallAdherence > 0)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: _overallAdherence,
-                backgroundColor: Colors.grey.shade100,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                minHeight: 12,
-              ),
-            ),
-          const SizedBox(height: 12),
-          Text(
-            _overallAdherence > 0 
-                ? lang.translate('greatJob')
-                : lang.translate('noAdherenceData'),
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── GREETING CARD ──────────────────────────────────────────────────────────
 
-  Widget _buildConditionsSection(ThemeData theme, LanguageService lang) {
-    if (_patientConditions.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              lang.translate('yourConditions'),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A237E),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/conditions');
-              },
-              child: Text(
-                lang.translate('viewAll'),
-                style: const TextStyle(color: Colors.blue),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 160,
-          child: _loadingConditions
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _patientConditions.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final condition = _patientConditions[index];
-                    return _buildConditionCard(condition, lang);
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConditionCard(Map<String, dynamic> condition, LanguageService lang) {
-    final String conditionName = condition['name'] as String? ?? 'Unknown';
-    
-    final int conditionPercentage;
-    final dynamic percentageValue = condition['percentage'];
-    if (percentageValue is String) {
-      conditionPercentage = int.tryParse(percentageValue) ?? 0;
-    } else if (percentageValue is int) {
-      conditionPercentage = percentageValue;
-    } else if (percentageValue is double) {
-      conditionPercentage = percentageValue.toInt();
-    } else {
-      conditionPercentage = 0;
-    }
-    
-    final Color conditionColor = condition['color'] as Color? ?? Colors.blue;
-    
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ConditionDetailPage(condition: condition),
-          ),
-        );
-      },
-      child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: conditionColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.circle, color: conditionColor, size: 24),
-            ),
-            const Spacer(),
-            Text(
-              _translateConditionName(conditionName, lang),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A237E),
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$conditionPercentage%',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: conditionColor,
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNextMedicationCard(ThemeData theme, LanguageService lang) {
-    if (_nextMedication == null) {
-      return const SizedBox.shrink();
-    }
-    
-    final medication = _nextMedication!;
-    final String medicationName = medication['name']?.toString() ?? 'Médicament';
-    final String medicationCondition = medication['condition']?.toString() ?? 'Condition';
-    final String medicationTime = medication['time']?.toString() ?? '--:--';
-    final String medicationDosage = medication['dosage']?.toString() ?? '';
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          lang.translate('nextMedication'),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A237E),
-          ),
-        ),
-        const SizedBox(height: 16),
-        GestureDetector(
-          onTap: () {
-            _showMedicationActionDialog(
-              context,
-              lang,
-              medicationName,
-              medicationDosage,
-              medicationCondition,
-              medicationTime,
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF3498DB), Color(0xFF2980B9)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF3498DB).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        medicationName,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _translateConditionName(medicationCondition, lang),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        medicationTime,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.access_time, color: Colors.white, size: 32),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionsGrid(ThemeData theme, LanguageService lang) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          lang.translate('quickActions'),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A237E),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  // Navigate to insights
-                },
-                child: _buildQuickActionCard(lang.translate('smartInsights'), Icons.show_chart, const Color(0xFF3498DB)),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(context, '/planning');
-                },
-                child: _buildQuickActionCard(lang.translate('myPlanning'), Icons.calendar_month, const Color(0xFF3498DB)),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionCard(String title, IconData icon, Color color) {
+  Widget _buildGreetingCard(LanguageService lang) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A237E),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(_greeting(), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
+          const SizedBox(height: 4),
+          Text(_firstName().isNotEmpty ? _firstName() : 'Patient',
+              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+           // FIND:
+
+// REPLACE WITH:
+         Text(
+            _isLoading
+                ? 'Loading your schedule...'
+                  : _todayTotal > 0
+               ? '$_todayTaken of $_todayTotal medications taken today'
+                 : 'No medications scheduled today',
+             style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
+            ),
+        ])),
+        Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
+          child: Center(child: Text(
+            _todayTotal > 0 ? '${((_todayTaken / _todayTotal) * 100).round()}%' : '—',
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          )),
+        ),
+      ]),
+    );
+  }
+
+  // ── TODAY SUMMARY ──────────────────────────────────────────────────────────
+
+  Widget _buildTodaySummaryCard(LanguageService lang) {
+    final pct   = _todayTotal > 0 ? (_todayTaken / _todayTotal) : 0.0;
+    final color = _adherenceColor(_todayTotal > 0 ? (pct * 100).round() : 0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.today_outlined, size: 18, color: Color(0xFF1A237E)),
+          const SizedBox(width: 8),
+          const Text("Today's progress", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+          const Spacer(),
+          Text('$_todayTaken/$_todayTotal', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 8,
+            backgroundColor: Colors.grey.shade100,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          _summaryChip(Icons.check_circle_outline, '$_todayTaken', 'Taken', const Color(0xFF639922), const Color(0xFFEAF3DE)),
+          const SizedBox(width: 8),
+          _summaryChip(Icons.cancel_outlined, '$_todayMissed', 'Missed', const Color(0xFFE24B4A), const Color(0xFFFCEBEB)),
+          const SizedBox(width: 8),
+          _summaryChip(Icons.access_time, '${_todayTotal - _todayTaken - _todayMissed}', 'Remaining', const Color(0xFFBA7517), const Color(0xFFFAEEDA)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, String value, String label, Color color, Color bg) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Flexible(child: Text('$value $label', style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis)),
+      ]),
+    ));
+  }
+
+  // ── WEEKLY ADHERENCE ───────────────────────────────────────────────────────
+
+  Widget _buildWeeklyAdherenceCard(LanguageService lang) {
+    final color = _adherenceColor(_weeklyAdherence);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(lang.translate('overallAdherence'),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+          const SizedBox(height: 2),
+          Text('Last 7 days', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _weeklyAdherence / 100,
+              minHeight: 7,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
-        ],
+        ])),
+        const SizedBox(width: 16),
+        Column(children: [
+          Text('$_weeklyAdherence%',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            _weeklyAdherence >= 80 ? 'Excellent' : _weeklyAdherence >= 50 ? 'Fair' : 'Low',
+            style: TextStyle(fontSize: 11, color: color),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  // ── NEXT MEDICATION ────────────────────────────────────────────────────────
+
+  Widget _buildNextMedicationCard(LanguageService lang) {
+    final med  = _nextMedication!;
+    final name = med['name']?.toString() ?? 'Medication';
+    final cond = med['condition']?.toString() ?? '';
+    final time = med['time']?.toString() ?? '--:--';
+    final dose = med['dosage']?.toString() ?? '';
+    final scheduleId = med['schedule_id'];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.alarm_outlined, size: 18, color: Color(0xFF1A237E)),
+        const SizedBox(width: 8),
+        Text(lang.translate('nextMedication'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+      ]),
+      const SizedBox(height: 10),
+      GestureDetector(
+        onTap: () => _showMedicationDialog(context, lang, name, dose, cond, time, scheduleId),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 14, offset: const Offset(0, 6))],
+          ),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              if (dose.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(dose, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+              ],
+              if (cond.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(_translateConditionName(cond, lang),
+                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+              ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                child: Text(time, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ])),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.medication_outlined, color: Colors.white, size: 28),
+            ),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
+  void _showMedicationDialog(BuildContext context, LanguageService lang,
+      String name, String dosage, String condition, String time, dynamic scheduleId) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Container(
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                  child: const Icon(Icons.medication_outlined, color: Colors.white, size: 28),
+                ),
+                const SizedBox(height: 12),
+                Text(lang.translate('timeToTake'),
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(time, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 15)),
+              ]),
+            ),
+            // body
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(children: [
+                Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+                if (dosage.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(dosage, style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
+                ],
+                if (condition.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(_translateConditionName(condition, lang),
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
+                ],
+                const SizedBox(height: 24),
+                // Taken button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (scheduleId != null) {
+                        _markTaken(int.tryParse(scheduleId.toString()) ?? 0);
+                      }
+                    },
+                    icon: const Icon(Icons.check, size: 20),
+                    label: Text(lang.translate('iveTakenIt'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF639922), foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Snooze button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      if (scheduleId != null) {
+                        _snoozeNext(int.tryParse(scheduleId.toString()) ?? 0, 15);
+                      }
+                    },
+                    icon: const Icon(Icons.snooze, size: 20),
+                    label: Text(lang.translate('snooze10min'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFBA7517), foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(lang.translate('close'),
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+                ),
+              ]),
+            ),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildBottomNavigationBar(ThemeData theme, LanguageService lang) {
+  // ── CONDITIONS ─────────────────────────────────────────────────────────────
+
+  Widget _buildConditionsSection(LanguageService lang) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.medical_information_outlined, size: 18, color: Color(0xFF1A237E)),
+        const SizedBox(width: 8),
+        Text(lang.translate('yourConditions'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+        const Spacer(),
+        TextButton(
+          onPressed: () => Navigator.pushNamed(context, '/conditions'),
+          child: Text(lang.translate('viewAll'), style: const TextStyle(color: Colors.blue, fontSize: 13)),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 150,
+        child: _loadingConditions
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _patientConditions.length,
+                itemBuilder: (_, i) => _buildConditionCard(_patientConditions[i], lang),
+              ),
+      ),
+    ]);
+  }
+
+  Widget _buildConditionCard(Map<String, dynamic> condition, LanguageService lang) {
+    final name  = condition['name']?.toString() ?? 'Unknown';
+    final pct   = int.tryParse(condition['percentage']?.toString() ?? '0') ?? 0;
+    final icon  = _iconForCondition(name);
+    final bg    = _bgColorForCondition(name);
+    final color = _adherenceColor(pct);
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ConditionDetailPage(condition: condition),
+      )),
+      child: Container(
+        width: 148,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+            child: Center(child: Text(icon, style: const TextStyle(fontSize: 20))),
+          ),
+          const Spacer(),
+          Text(_translateConditionName(name, lang),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A237E)),
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
+          Row(children: [
+            Text('$pct%', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+            const Spacer(),
+            Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade400),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  // ── QUICK ACTIONS ──────────────────────────────────────────────────────────
+
+  Widget _buildQuickActionsGrid(LanguageService lang) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.grid_view_outlined, size: 18, color: Color(0xFF1A237E)),
+        const SizedBox(width: 8),
+        Text(lang.translate('quickActions'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _quickCard(lang.translate('myPlanning'), Icons.calendar_month_outlined, Colors.blue,
+            () => Navigator.pushNamed(context, '/planning'))),
+        const SizedBox(width: 12),
+        Expanded(child: _quickCard(lang.translate('notifications'), Icons.notifications_outlined, Colors.purple,
+            () => Navigator.pushNamed(context, '/notifications').then((_) => _loadUnreadNotificationsCount()),
+            badge: _unreadNotificationsCount)),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _quickCard(lang.translate('history'), Icons.history_outlined, Colors.teal,
+            () => Navigator.pushNamed(context, '/history'))),
+        const SizedBox(width: 12),
+        Expanded(child: _quickCard(lang.translate('healthOverview'), Icons.favorite_border_outlined, Colors.orange,
+            () => Navigator.pushNamed(context, '/healthoverview'))),
+      ]),
+    ]);
+  }
+
+  Widget _quickCard(String title, IconData icon, Color color, VoidCallback onTap, {int badge = 0}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: Row(children: [
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Stack(children: [
+              Center(child: Icon(icon, color: color, size: 20)),
+              if (badge > 0)
+                Positioned(
+                  right: 4, top: 4,
+                  child: Container(
+                    width: 10, height: 10,
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  ),
+                ),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          Flexible(child: Text(title,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A237E)),
+              maxLines: 2, overflow: TextOverflow.ellipsis)),
+        ]),
+      ),
+    );
+  }
+
+  // ── BOTTOM NAV ─────────────────────────────────────────────────────────────
+
+  Widget _buildBottomNav(LanguageService lang) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      onTap: (int index) {
-        if (index == 3) {
-          Navigator.pushNamed(context, '/healthoverview');
-        } else if (index == 1) {
-          Navigator.pushNamed(context, '/conditions');
-        } else if (index == 2) {
-          Navigator.pushNamed(context, '/history');
-        } else {
-          setState(() {
-            _selectedIndex = index;
-          });
-        }
+      onTap: (i) {
+        if (i == 0) setState(() => _selectedIndex = 0);
+        else if (i == 1) Navigator.pushNamed(context, '/conditions');
+        else if (i == 2) Navigator.pushNamed(context, '/history');
+        else if (i == 3) Navigator.pushNamed(context, '/healthoverview');
       },
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
@@ -1245,277 +1009,166 @@ class _PatientInterfaceState extends State<PatientInterface> {
       showUnselectedLabels: true,
       elevation: 20,
       items: [
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.home_outlined),
-          activeIcon: const Icon(Icons.home),
-          label: lang.translate('home'),
-        ),
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.show_chart),
-          label: lang.translate('conditions'),
-        ),
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.history),
-          label: lang.translate('history'),
-        ),
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.person_outline),
-          activeIcon: const Icon(Icons.person),
-          label: lang.translate('healthOverview'),
-        ),
+        BottomNavigationBarItem(icon: const Icon(Icons.home_outlined), activeIcon: const Icon(Icons.home), label: lang.translate('home')),
+        BottomNavigationBarItem(icon: const Icon(Icons.show_chart), label: lang.translate('conditions')),
+        BottomNavigationBarItem(icon: const Icon(Icons.history), label: lang.translate('history')),
+        BottomNavigationBarItem(icon: const Icon(Icons.person_outline), activeIcon: const Icon(Icons.person), label: lang.translate('healthOverview')),
       ],
     );
   }
 
-  Widget _buildErrorView(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 80, color: Colors.grey),
-            const SizedBox(height: 24),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _loadUserData,
-              child: const Text('Réessayer'),
-            ),
-          ],
+  // ── ERROR VIEW ─────────────────────────────────────────────────────────────
+
+  Widget _buildErrorView(LanguageService lang) {
+    return Center(child: Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.cloud_off_rounded, size: 80, color: Colors.grey),
+        const SizedBox(height: 24),
+        Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+        const SizedBox(height: 32),
+        ElevatedButton(
+          onPressed: _loadUserData,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+          child: const Text('Retry'),
         ),
-      ),
-    );
+      ]),
+    ));
   }
+
+  // ── DRAWER ─────────────────────────────────────────────────────────────────
 
   Widget _buildDrawer(BuildContext context, LanguageService lang) {
-    final theme = Theme.of(context);
-    
     return Drawer(
-      child: Column(
-        children: [
-          _buildDrawerHeader(theme, lang),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildDrawerItem(Icons.home_outlined, lang.translate('dashboard'), _selectedIndex == 0, () {
-                  Navigator.pop(context);
-                  setState(() {
-                    _selectedIndex = 0;
-                  });
-                }),
-                _buildDrawerItem(Icons.timeline, lang.translate('conditions'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/conditions');
-                }),
-                _buildDrawerItem(Icons.access_time, lang.translate('myPlanning'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/planning');
-                }),
-                _buildDrawerItemWithBadge(Icons.notifications_none, lang.translate('notifications'), false, _unreadNotificationsCount, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/notifications').then((_) {
-                    _loadUnreadNotificationsCount();
-                  });
-                }),
-                _buildDrawerItem(Icons.favorite_border, lang.translate('healthOverview'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/healthoverview');
-                }),
-                const Divider(indent: 20, endIndent: 20, height: 40),
-
-                _buildDrawerItem(Icons.chat_bubble_outline, lang.translate('aiHealthAssistant'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/ai-chatbot');
-                }),
-                _buildDrawerItem(Icons.menu_book_outlined, lang.translate('medicationDictionary'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/med-dictionary');
-                }),
-                _buildDrawerItem(Icons.workspace_premium_outlined, lang.translate('rewardsAchievements'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/rewards');
-                }),
-                const Divider(indent: 20, endIndent: 20, height: 40),
-                
-                _buildDrawerItem(Icons.insights, lang.translate('smartInsights'), false, () {
-                  Navigator.pop(context);
-                }),
-                _buildDrawerItem(Icons.history_outlined, lang.translate('history'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/history');
-                }),
-                _buildDrawerItem(Icons.person_outline, lang.translate('profile'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/profile');
-                }),
-                _buildDrawerItem(Icons.settings_outlined, lang.translate('settings'), false, () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/settings');
-                }),
-                const Divider(indent: 20, endIndent: 20, height: 40),
-              ],
-            ),
-          ),
-          _buildLogoutItem(lang),
-        ],
-      ),
+      child: Column(children: [
+        _buildDrawerHeader(lang),
+        Expanded(child: ListView(padding: EdgeInsets.zero, children: [
+          _drawerItem(Icons.home_outlined, lang.translate('dashboard'), _selectedIndex == 0, () {
+            Navigator.pop(context); setState(() => _selectedIndex = 0);
+          }),
+          _drawerItem(Icons.timeline, lang.translate('conditions'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/conditions');
+          }),
+          _drawerItem(Icons.access_time, lang.translate('myPlanning'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/planning');
+          }),
+          _drawerItemBadge(Icons.notifications_none, lang.translate('notifications'), false, _unreadNotificationsCount, () {
+            Navigator.pop(context);
+            Navigator.pushNamed(context, '/notifications').then((_) => _loadUnreadNotificationsCount());
+          }),
+          _drawerItem(Icons.favorite_border, lang.translate('healthOverview'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/healthoverview');
+          }),
+          const Divider(indent: 20, endIndent: 20, height: 32),
+          _drawerItem(Icons.chat_bubble_outline, lang.translate('aiHealthAssistant'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/ai-chatbot');
+          }),
+          _drawerItem(Icons.menu_book_outlined, lang.translate('medicationDictionary'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/med-dictionary');
+          }),
+          _drawerItem(Icons.workspace_premium_outlined, lang.translate('rewardsAchievements'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/rewards');
+          }),
+          const Divider(indent: 20, endIndent: 20, height: 32),
+          _drawerItem(Icons.history_outlined, lang.translate('history'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/history');
+          }),
+          _drawerItem(Icons.person_outline, lang.translate('profile'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/profile');
+          }),
+          _drawerItem(Icons.settings_outlined, lang.translate('settings'), false, () {
+            Navigator.pop(context); Navigator.pushNamed(context, '/settings');
+          }),
+          const Divider(indent: 20, endIndent: 20, height: 32),
+        ])),
+        _buildLogoutItem(lang),
+      ]),
     );
   }
 
-  Widget _buildDrawerHeader(ThemeData theme, LanguageService lang) {
+  Widget _buildDrawerHeader(LanguageService lang) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 40, bottom: 30, left: 24, right: 24),
+      padding: const EdgeInsets.only(top: 40, bottom: 24, left: 20, right: 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF3498DB),
+        gradient: LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Align(alignment: Alignment.topLeft,
+          child: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 26),
+            onPressed: () => Navigator.pop(context),
+          )),
+        const SizedBox(height: 8),
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.favorite, color: Colors.white, size: 28),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.favorite, color: Color(0xFF3498DB), size: 36),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'MediCare',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    _userData?['name']?.toString() ?? 'John Doe',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+          const SizedBox(width: 14),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('MediCare', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(_userData?['name']?.toString() ?? 'Patient',
+                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13)),
+          ]),
+        ]),
+      ]),
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title, bool selected, VoidCallback onTap) {
+  Widget _drawerItem(IconData icon, String title, bool selected, VoidCallback onTap) {
     return ListTile(
-      leading: Icon(
-        icon,
-        color: selected ? Colors.blue : Colors.grey.shade600,
-        size: 24,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
+      leading: Icon(icon, color: selected ? Colors.blue : Colors.grey.shade600, size: 22),
+      title: Text(title, style: TextStyle(
+        color: selected ? Colors.blue : const Color(0xFF1A237E),
+        fontSize: 15, fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+      )),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+    );
+  }
+
+  Widget _drawerItemBadge(IconData icon, String title, bool selected, int badge, VoidCallback onTap) {
+    return ListTile(
+      leading: Stack(children: [
+        Icon(icon, color: selected ? Colors.blue : Colors.grey.shade600, size: 22),
+        if (badge > 0)
+          Positioned(right: 0, top: 0,
+            child: Container(width: 8, height: 8,
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
+      ]),
+      title: Row(children: [
+        Text(title, style: TextStyle(
           color: selected ? Colors.blue : const Color(0xFF1A237E),
-          fontSize: 16,
-          fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-    );
-  }
-
-  Widget _buildDrawerItemWithBadge(IconData icon, String title, bool selected, int badgeCount, VoidCallback onTap) {
-    return ListTile(
-      leading: Stack(
-        children: [
-          Icon(icon, color: selected ? Colors.blue : Colors.grey.shade600, size: 24),
-          if (badgeCount > 0)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 12,
-                  minHeight: 12,
-                ),
-              ),
-            ),
-        ],
-      ),
-      title: Row(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: selected ? Colors.blue : const Color(0xFF1A237E),
-              fontSize: 16,
-              fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-            ),
+          fontSize: 15, fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+        )),
+        if (badge > 0) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+            child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
           ),
-          if (badgeCount > 0)
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                badgeCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
         ],
-      ),
+      ]),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
     );
   }
 
   Widget _buildLogoutItem(LanguageService lang) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 30),
+      padding: const EdgeInsets.only(bottom: 24),
       child: ListTile(
-        leading: const Icon(Icons.logout, color: Colors.red, size: 24),
-        title: Text(
-          lang.translate('logout'),
-          style: const TextStyle(
-            color: Colors.red,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        onTap: _logout,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+        leading: _isLoggingOut
+            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+            : const Icon(Icons.logout, color: Colors.red, size: 22),
+        title: Text(lang.translate('logout'),
+            style: const TextStyle(color: Colors.red, fontSize: 15, fontWeight: FontWeight.bold)),
+        onTap: _isLoggingOut ? null : _logout,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
       ),
     );
   }

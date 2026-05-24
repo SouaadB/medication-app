@@ -155,7 +155,88 @@ exports.acceptInvitation = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error accepting invitation' });
     }
 };
+ // ── ADD THESE 3 FUNCTIONS to caregiverController.js ──────────────────────────
+ 
 
+ 
+// GET /caregivers/profile
+exports.getProfile = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const [rows] = await db.execute(
+            'SELECT id, email, name, created_at FROM caregiver_users WHERE email = ?',
+            [caregiverEmail]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Profile not found' });
+        }
+        res.json({ success: true, profile: rows[0] });
+    } catch (error) {
+        console.error('getProfile error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching profile' });
+    }
+};
+ 
+// PUT /caregivers/profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { name } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ success: false, message: 'Name is required' });
+        }
+        await db.execute(
+            'UPDATE caregiver_users SET name = ? WHERE email = ?',
+            [name.trim(), caregiverEmail]
+        );
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('updateProfile error:', error);
+        res.status(500).json({ success: false, message: 'Error updating profile' });
+    }
+};
+ 
+// PUT /caregivers/password
+exports.changePassword = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { currentPassword, newPassword } = req.body;
+ 
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Both passwords are required' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+        }
+ 
+        // Get current hashed password
+        const [rows] = await db.execute(
+            'SELECT password FROM caregiver_users WHERE email = ?',
+            [caregiverEmail]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+ 
+        // Verify current password
+        const isValid = await bcrypt.compare(currentPassword, rows[0].password);
+        if (!isValid) {
+            return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        }
+ 
+        // Hash and save new password
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await db.execute(
+            'UPDATE caregiver_users SET password = ? WHERE email = ?',
+            [hashed, caregiverEmail]
+        );
+ 
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        console.error('changePassword error:', error);
+        res.status(500).json({ success: false, message: 'Error changing password' });
+    }
+};
 // Get patients for logged-in caregiver
 exports.getPatientsForCaregiver = async (req, res) => {
     try {
@@ -269,7 +350,27 @@ exports.getPatientsForCaregiver = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching patients' });
     }
 };
+// DELETE /caregivers/unfollow/:patientId
+exports.unfollowPatient = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { patientId }  = req.params;
 
+        const [result] = await db.execute(
+            'DELETE FROM caregivers WHERE email = ? AND patient_id = ?',
+            [caregiverEmail, patientId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Patient not found' });
+        }
+
+        res.json({ success: true, message: 'You are no longer supervising this patient' });
+    } catch (error) {
+        console.error('unfollowPatient error:', error);
+        res.status(500).json({ success: false, message: 'Error unfollowing patient' });
+    }
+};
 // Get detailed information for a specific patient
 exports.getPatientDetails = async (req, res) => {
     try {
@@ -436,5 +537,96 @@ if (permissions.view_location) {
     } catch (error) {
         console.error('Get Patient Details Error:', error);
         res.status(500).json({ success: false, message: 'Error fetching patient details' });
+    }
+};
+const CaregiverNotificationService = require('../services/caregiverNotificationService');
+ 
+// GET /caregivers/notifications
+exports.getNotifications = async (req, res) => {
+        try {
+        const result = await CaregiverNotificationService.getForCaregiver(req.user.email);
+        await CaregiverNotificationService.markAllRead(req.user.email);
+        res.json({ 
+            success: true, 
+            notifications: Array.isArray(result.notifications) ? result.notifications : [],
+            unreadCount: result.unreadCount || 0
+        });
+    } catch (error) {
+        console.error('getNotifications error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching notifications' });
+    }
+};
+ 
+// GET /caregivers/notifications/count
+exports.getNotificationCount = async (req, res) => {
+    try {
+        const count = await CaregiverNotificationService.getUnreadCount(req.user.email);
+        res.json({ success: true, count });
+    } catch (error) {
+        res.status(500).json({ success: false, count: 0 });
+    }
+};
+// POST /caregivers/remind/:patientId
+exports.sendReminder = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { patientId }  = req.params;
+
+        // Check caregiver has access to this patient
+const [access] = await db.execute(
+    `SELECT c.*, cu.name AS caregiver_name 
+     FROM caregivers c 
+     JOIN caregiver_users cu ON c.email = cu.email
+     WHERE c.email = ? AND c.patient_id = ? AND c.status = 'ACTIVE'`,
+    [caregiverEmail, patientId]
+);
+
+        if (access.length === 0) {
+            return res.status(403).json({ success: false, message: 'No access to this patient' });
+        }
+
+        const caregiverName = access[0].caregiver_name || 'Your caregiver';
+
+        // Get patient FCM token
+        const [[patient]] = await db.execute(
+            `SELECT p.fcm_token, u.name AS patient_name 
+             FROM patients p 
+             JOIN users u ON p.id = u.id 
+             WHERE p.id = ?`,
+            [patientId]
+        );
+
+        if (!patient?.fcm_token) {
+            return res.status(400).json({ success: false, message: 'Patient has no FCM token' });
+        }
+
+        // Send Firebase push to patient
+        const FirebaseService = require('../services/firebaseService');
+        await FirebaseService.sendPushNotification(
+            patient.fcm_token,
+            `💊 Reminder from ${caregiverName}`,
+            `${caregiverName} is checking on you. Please don't forget to take your medication!`,
+            { type: 'caregiver_reminder' },
+            false
+        );
+
+        // Also create a notification in patient's notifications table
+        await db.execute(
+            `INSERT INTO notifications (patient_id, type, title, message, data)
+             VALUES (?, 'reminder', ?, ?, ?)`,
+            [
+                patientId,
+                `💊 Reminder from ${caregiverName}`,
+                `${caregiverName} is checking on you. Please don't forget to take your medication!`,
+                JSON.stringify({ type: 'caregiver_reminder', caregiver: caregiverName })
+            ]
+        );
+
+        console.log(`[Caregiver] 💬 Reminder sent from ${caregiverEmail} to patient ${patientId}`);
+        res.json({ success: true, message: 'Reminder sent successfully' });
+
+    } catch (error) {
+        console.error('sendReminder error:', error);
+        res.status(500).json({ success: false, message: 'Error sending reminder' });
     }
 };

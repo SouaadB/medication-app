@@ -1,33 +1,40 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
     <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />
-    
-    <!-- ✅ Keep CALL_PHONE from your friend -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Phone -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    
+
+    <!-- Storage (for PDF export) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
     <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    
-    <!-- Foreground service for Android -->
+
+    <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    
-    <!-- Camera (for QR scanning) -->
+
+    <!-- Camera (QR scanning) -->
     <uses-permission android:name="android.permission.CAMERA" />
-    
+
     <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
+
     <application
         android:label="MediCare"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -37,27 +44,40 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
-            
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-            
-        <!-- Google Play Services location service -->
-        <service android:name="com.google.android.gms.location.LocationServices" />
+
+
+
+        <!-- WorkManager receivers -->
+        <receiver
+             android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
+             android:enabled="true"
+             android:exported="false"
+             tools:replace="android:exported" />
+
+        <receiver
+            android:name="be.tramckrijte.workmanager.RescheduledWorker"
+            android:enabled="true"
+            android:exported="false" />
+
+
+
     </application>
-    
+
     <queries>
-        <!-- Keep both query sections -->
         <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />
@@ -66,5 +86,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
+
 </manifest>

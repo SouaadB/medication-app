@@ -7,70 +7,66 @@ import '../services/language_service.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
-
   @override
   State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
-class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+class _ForgotPasswordPageState extends State<ForgotPasswordPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
-  bool _isLoading = false;
+  bool    _isLoading = false;
   String? _message;
-  bool _isSuccess = false;
+  bool    _isSuccess = false;
+
+  late AnimationController _animCtrl;
+  late Animation<double>   _fadeAnim;
+  late Animation<Offset>   _slideAnim;
+
+  static const Color primary  = Color(0xFF1565C0);
+  static const Color accent   = Color(0xFF64B5F6);
+  static const Color darkText = Color(0xFF0F172A);
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnim  = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+    _animCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> _sendResetLink() async {
     if (emailController.text.isEmpty) {
-      setState(() => _message = 'Veuillez entrer votre email');
+      setState(() { _message = 'Please enter your email'; _isSuccess = false; });
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _message = null;
-      _isSuccess = false;
-    });
-
+    setState(() { _isLoading = true; _message = null; _isSuccess = false; });
     try {
-      print('📤 Envoi à ${ApiConfig.baseUrl}/auth/request-reset-code');
-      print('📤 Email: ${emailController.text.trim()}');
-      
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/request-reset-code'),
         headers: ApiConfig.headers,
         body: jsonEncode({'email': emailController.text.trim()}),
       ).timeout(const Duration(seconds: 10));
 
-      print('📥 Statut réponse: ${response.statusCode}');
       final data = jsonDecode(response.body);
-      print('📥 Données reçues: $data');
-
       if (response.statusCode == 200 && data['success'] == true) {
-        setState(() {
-          _message = data['message'] ?? 'Code envoyé avec succès';
-          _isSuccess = true;
-        });
-        
-        String email = emailController.text.trim();
-        print('📧 Redirection vers verifycode avec email: $email');
-        
+        setState(() { _message = data['message'] ?? 'Code sent successfully'; _isSuccess = true; });
         Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushNamed(
-            context,
-            '/verifycode?email=$email',
-          );
+          Navigator.pushNamed(context, '/verifycode?email=${emailController.text.trim()}');
         });
       } else {
-        setState(() {
-          _message = data['message'] ?? 'Erreur lors de l\'envoi';
-          _isSuccess = false;
-        });
+        setState(() { _message = data['message'] ?? 'Failed to send code'; _isSuccess = false; });
       }
-    } catch (e) {
-      print('❌ Erreur: $e');
-      setState(() {
-        _message = '❌ Erreur de connexion au serveur';
-        _isSuccess = false;
-      });
+    } catch (_) {
+      setState(() { _message = 'Connection error. Check your network.'; _isSuccess = false; });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,138 +74,159 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final languageService = Provider.of<LanguageService>(context);
-    
+    final lang = Provider.of<LanguageService>(context);
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          languageService.translate('forgotPassword'),
-          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lock_reset_rounded,
-                  size: 80,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 40),
-              
-              Text(
-                languageService.translate('resetPassword'),
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 10),
-              
-              Text(
-                '${languageService.translate('sendCode')}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  hintText: languageService.translate('email'),
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.blue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.blue, width: 2),
-                  ),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 20),
-              
-              if (_message != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Text(
-                    _message!,
-                    style: TextStyle(
-                      color: _isSuccess ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendResetLink,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
+      backgroundColor: primary,
+      body: Stack(children: [
+        Positioned(top: -60, right: -60,
+          child: Container(width: 200, height: 200,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withOpacity(0.1)))),
+        SafeArea(child: Column(children: [
+
+          // header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 28, 20),
+            child: FadeTransition(opacity: _fadeAnim,
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(
-                          languageService.translate('sendCode'),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  languageService.translate('back'),
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
+                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Forgot Password', style: TextStyle(color: Colors.white,
+                      fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+                  Text('Reset your access', style: TextStyle(
+                      color: Colors.white.withOpacity(0.55), fontSize: 13)),
+                ]),
+              ]),
+            ),
           ),
-        ),
-      ),
+
+          // white card
+          Expanded(child: FadeTransition(opacity: _fadeAnim,
+            child: SlideTransition(position: _slideAnim,
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(36), topRight: Radius.circular(36)),
+                ),
+                padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+
+                  // icon
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: primary.withOpacity(0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_reset_rounded, size: 38, color: primary),
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Text('Reset your password', style: TextStyle(fontSize: 22,
+                      fontWeight: FontWeight.w900, color: darkText, letterSpacing: -0.3)),
+                  const SizedBox(height: 8),
+                  Text('Enter your email and we\'ll send you a verification code',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500, height: 1.5)),
+                  const SizedBox(height: 32),
+
+                  // email field
+                  Align(alignment: Alignment.centerLeft,
+                    child: Text('Email Address', style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600, color: darkText))),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(fontSize: 15, color: darkText),
+                    decoration: InputDecoration(
+                      hintText: 'your@email.com',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                      prefixIcon: Icon(Icons.mail_outline_rounded,
+                          color: Colors.grey.shade400, size: 20),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+
+                  // message
+                  if (_message != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _isSuccess ? Colors.green.shade50 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _isSuccess
+                            ? Colors.green.shade100 : Colors.red.shade100),
+                      ),
+                      child: Row(children: [
+                        Icon(_isSuccess ? Icons.check_circle_outline_rounded
+                            : Icons.error_outline_rounded,
+                            color: _isSuccess ? Colors.green.shade500 : Colors.red.shade400, size: 16),
+                        const SizedBox(width: 8),
+                        Flexible(child: Text(_message!, style: TextStyle(
+                            color: _isSuccess ? Colors.green.shade700 : Colors.red.shade700,
+                            fontSize: 13))),
+                      ]),
+                    ),
+                  ],
+                  const SizedBox(height: 28),
+
+                  SizedBox(
+                    width: double.infinity, height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _sendResetLink,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary, foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(width: 22, height: 22,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Text(lang.translate('sendCode'), style: const TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.send_rounded, size: 18),
+                            ]),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(lang.translate('back'),
+                        style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                  ),
+                ]),
+              ),
+            ),
+          )),
+        ])),
+      ]),
     );
   }
 }

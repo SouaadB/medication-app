@@ -46,7 +46,7 @@ class SettingsService extends ChangeNotifier {
 
   // Getters
   Locale get locale => _locale;
-  bool get isDarkMode => _isDarkMode;
+  bool get isDarkMode => false;
   bool get allNotifications => _allNotifications;
   bool get medReminders => _medReminders;
   bool get adherenceAlerts => _adherenceAlerts;

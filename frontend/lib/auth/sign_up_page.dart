@@ -7,107 +7,44 @@ import '../services/language_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
-
   @override
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignUpPageState extends State<SignUpPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _chifaCardController = TextEditingController();
+  final TextEditingController _nameController       = TextEditingController();
+  final TextEditingController _emailController      = TextEditingController();
+  final TextEditingController _passwordController   = TextEditingController();
+  final TextEditingController _phoneController      = TextEditingController();
+  final TextEditingController _chifaCardController  = TextEditingController();
   final TextEditingController _dateOfBirthController = TextEditingController();
-  String? _selectedSmartphoneSkillLevel;
-  bool _isLoading = false;
+  String? _selectedSkillLevel;
+  bool _isLoading       = false;
+  bool _obscurePassword = true;
 
-  final List<String> _smartphoneSkillLevels = [
-    'BASIC',
-    'INTERMEDIATE',
-    'ADVANCED',
-  ];
+  late AnimationController _animCtrl;
+  late Animation<double>   _fadeAnim;
+  late Animation<Offset>   _slideAnim;
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 20)),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      String formattedDate = "${picked.day.toString().padLeft(2, '0')}-"
-          "${picked.month.toString().padLeft(2, '0')}-"
-          "${picked.year}";
-      setState(() {
-        _dateOfBirthController.text = formattedDate;
-      });
-    }
-  }
+  static const Color primary  = Color(0xFF1565C0);
+  static const Color accent   = Color(0xFF64B5F6);
+  static const Color darkText = Color(0xFF0F172A);
 
-  Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedSmartphoneSkillLevel == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez sélectionner votre niveau en smartphone')),
-        );
-        return;
-      }
-
-      setState(() => _isLoading = true);
-
-      try {
-        Map<String, dynamic> userData = {
-          'name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'password': _passwordController.text,
-          'phone': _phoneController.text.trim(),
-          'chifaCardRegistrationNumber': _chifaCardController.text.trim(),
-          'dateOfBirth': _dateOfBirthController.text,
-          'smartphoneSkillLevel': _selectedSmartphoneSkillLevel,
-        };
-
-        final response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/auth/register'),
-          headers: ApiConfig.headers,
-          body: jsonEncode(userData),
-        ).timeout(const Duration(seconds: 10));
-
-        final responseData = jsonDecode(response.body);
-
-        if (response.statusCode == 201 && responseData['success'] == true) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ ${responseData['message']}'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            Future.delayed(const Duration(seconds: 2), () {
-              Navigator.pop(context);
-            });
-          }
-        } else {
-          throw Exception(responseData['message'] ?? 'Erreur lors de l\'inscription');
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('❌ $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    }
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnim  = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+    _animCtrl.forward();
   }
 
   @override
   void dispose() {
+    _animCtrl.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -117,176 +54,394 @@ class _SignUpPageState extends State<SignUpPage> {
     super.dispose();
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 20)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _dateOfBirthController.text =
+            '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}';
+      });
+    }
+  }
+
+  Future<void> _signUp() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedSkillLevel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select your smartphone skill level'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/register'),
+        headers: ApiConfig.headers,
+        body: jsonEncode({
+          'name':                       _nameController.text.trim(),
+          'email':                      _emailController.text.trim(),
+          'password':                   _passwordController.text,
+          'phone':                      _phoneController.text.trim(),
+          'chifaCardRegistrationNumber': _chifaCardController.text.trim(),
+          'dateOfBirth':                _dateOfBirthController.text,
+          'smartphoneSkillLevel':       _selectedSkillLevel,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 201 && data['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('✅ ${data['message']}'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ));
+          Future.delayed(const Duration(seconds: 2), () => Navigator.pop(context));
+        }
+      } else {
+        throw Exception(data['message'] ?? 'Registration failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final languageService = Provider.of<LanguageService>(context);
-    
+    final lang = Provider.of<LanguageService>(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      appBar: AppBar(
-        title: Text(languageService.translate('signUp')),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                languageService.translate('welcome'),
-                style: theme.textTheme.headlineMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                languageService.translate('helpUs'),
-                style: theme.textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              
-              _buildFieldTitle(languageService.translate('profile')),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('profile'),
-                  prefixIcon: const Icon(Icons.person_outline),
-                ),
-                validator: (value) => (value == null || value.isEmpty) ? 'Requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('email'),
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'Requis';
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Email invalide';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('password'),
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
-                validator: (value) => (value == null || value.length < 6) ? 'Min 6 caractères' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('phone'),
-                  prefixIcon: Icon(Icons.phone_outlined),
-                  hintText: '0612345678',
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) => (value == null || value.length != 10) ? '10 chiffres requis' : null,
-              ),
-              
-              const SizedBox(height: 32),
-              _buildFieldTitle(languageService.translate('medications')),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _chifaCardController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('chifaNumber'),
-                  prefixIcon: Icon(Icons.card_membership_outlined),
-                  hintText: '9 chiffres',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) => (value == null || value.length != 9) ? '9 chiffres requis' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _dateOfBirthController,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('dateOfBirth'),
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                  hintText: 'JJ-MM-AAAA',
-                ),
-                readOnly: true,
-                onTap: () => _selectDate(context),
-                validator: (value) => (value == null || value.isEmpty) ? 'Requis' : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: languageService.translate('skillLevel'),
-                  prefixIcon: Icon(Icons.smartphone_outlined),
-                ),
-                value: _selectedSmartphoneSkillLevel,
-                items: _smartphoneSkillLevels.map((level) {
-                  return DropdownMenuItem(
-                    value: level, 
-                    child: Text(
-                      level,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedSmartphoneSkillLevel = value),
-                validator: (value) => value == null ? 'Requis' : null,
-              ),
-              
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _signUp,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : Text(languageService.translate('signUp')),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 4,
-                  children: [
-                    Text(
-                      languageService.translate('alreadyHaveAccount'),
-                      style: TextStyle(color: Colors.grey),
+      backgroundColor: primary,
+      body: Stack(children: [
+        Positioned(top: -60, right: -60,
+          child: Container(width: 220, height: 220,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                color: accent.withOpacity(0.1)))),
+        Positioned(bottom: 300, left: -60,
+          child: Container(width: 160, height: 160,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.03)))),
+
+        SafeArea(child: Column(children: [
+
+          // header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 28, 20),
+            child: FadeTransition(opacity: _fadeAnim,
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        languageService.translate('signIn'),
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
+                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Create Account', style: TextStyle(color: Colors.white,
+                      fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+                  Text('Join MediCare today', style: TextStyle(
+                      color: Colors.white.withOpacity(0.55), fontSize: 13)),
+                ]),
+              ]),
+            ),
+          ),
+
+          // white card
+          Expanded(child: FadeTransition(opacity: _fadeAnim,
+            child: SlideTransition(position: _slideAnim,
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(36), topRight: Radius.circular(36)),
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                      // section: personal
+                      _sectionHeader('Personal Information', Icons.person_outline_rounded),
+                      const SizedBox(height: 16),
+
+                      _label(lang.translate('profile')),
+                      const SizedBox(height: 8),
+                      _formField(
+                        controller: _nameController,
+                        hint: 'Your full name',
+                        icon: Icons.person_outline_rounded,
+                        validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label(lang.translate('email')),
+                      const SizedBox(height: 8),
+                      _formField(
+                        controller: _emailController,
+                        hint: 'email@example.com',
+                        icon: Icons.mail_outline_rounded,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Email is required';
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) return 'Invalid email format';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label(lang.translate('password')),
+                      const SizedBox(height: 8),
+                      _formField(
+                        controller: _passwordController,
+                        hint: 'Min 6 characters',
+                        icon: Icons.lock_outline_rounded,
+                        obscure: _obscurePassword,
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: Colors.grey.shade400, size: 20),
+                        ),
+                        validator: (v) => (v == null || v.length < 6)
+                            ? 'Password must be at least 6 characters' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label(lang.translate('phone')),
+                      const SizedBox(height: 8),
+                      _formField(
+                        controller: _phoneController,
+                        hint: '0612345678',
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        validator: (v) => (v == null || v.length != 10)
+                            ? 'Phone must be 10 digits' : null,
+                      ),
+                      const SizedBox(height: 28),
+
+                      // section: medical
+                      _sectionHeader('Medical Information', Icons.medical_information_outlined),
+                      const SizedBox(height: 16),
+
+                      _label(lang.translate('chifaNumber')),
+                      const SizedBox(height: 8),
+                      _formField(
+                        controller: _chifaCardController,
+                        hint: '9 digits',
+                        icon: Icons.card_membership_outlined,
+                        keyboardType: TextInputType.number,
+                        validator: (v) => (v == null || v.length != 9)
+                            ? 'Chifa number must be 9 digits' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _label(lang.translate('dateOfBirth')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _dateOfBirthController,
+                        readOnly: true,
+                        onTap: () => _selectDate(context),
+                        style: const TextStyle(fontSize: 15, color: darkText),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Date of birth is required' : null,
+                        decoration: InputDecoration(
+                          hintText: 'DD-MM-YYYY',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                          prefixIcon: Icon(Icons.calendar_today_outlined,
+                              color: Colors.grey.shade400, size: 20),
+                          suffixIcon: Icon(Icons.arrow_drop_down_rounded,
+                              color: Colors.grey.shade400),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: primary, width: 1.5),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+
+                      _label(lang.translate('skillLevel')),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _selectedSkillLevel,
+                        isExpanded: true,
+                        style: const TextStyle(fontSize: 15, color: darkText),
+                        decoration: InputDecoration(
+                          hintText: 'Select your level',
+                          prefixIcon: Icon(Icons.smartphone_outlined,
+                              color: Colors.grey.shade400, size: 20),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: primary, width: 1.5),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem(value: 'BASIC',
+                              child: Text(lang.translate('basic'))),
+                          DropdownMenuItem(value: 'INTERMEDIATE',
+                              child: Text(lang.translate('intermediate'))),
+                          DropdownMenuItem(value: 'ADVANCED',
+                              child: Text(lang.translate('advanced'))),
+                        ],
+                        onChanged: (v) => setState(() => _selectedSkillLevel = v),
+                        validator: (v) => v == null ? 'Please select your skill level' : null,
+                      ),
+                      const SizedBox(height: 32),
+
+                      // register button
+                      SizedBox(
+                        width: double.infinity, height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _signUp,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primary, foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(width: 22, height: 22,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                              : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                  Text(lang.translate('signUp'), style: const TextStyle(
+                                      fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.2)),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_rounded, size: 20),
+                                ]),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      Center(child: Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+                        Text(lang.translate('alreadyHaveAccount'),
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Text(lang.translate('signIn'),
+                              style: const TextStyle(color: primary,
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
+                        ),
+                      ])),
+                    ]),
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
+          )),
+        ])),
+      ]),
     );
   }
 
-  Widget _buildFieldTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF1A237E),
+  Widget _sectionHeader(String title, IconData icon) {
+    return Row(children: [
+      Container(
+        width: 34, height: 34,
+        decoration: BoxDecoration(color: primary.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: primary, size: 18),
+      ),
+      const SizedBox(width: 10),
+      Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+          color: darkText, letterSpacing: -0.2)),
+    ]);
+  }
+
+  Widget _label(String text) => Text(text, style: const TextStyle(
+      fontSize: 13, fontWeight: FontWeight.w600, color: darkText));
+
+  Widget _formField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    TextInputType? keyboardType,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(fontSize: 15, color: darkText),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+        prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
       ),
     );
   }

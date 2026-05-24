@@ -286,7 +286,15 @@ exports.login = async (req, res) => {
                         process.env.JWT_SECRET,
                         { expiresIn: process.env.JWT_EXPIRE || '7d' }
                     );
-                    
+                    // Save FCM token if provided
+const fcmToken = req.body.fcmToken || req.body.fcm_token;
+if (fcmToken) {
+    await db.execute(
+        'UPDATE caregiver_users SET fcm_token = ? WHERE email = ?',
+        [fcmToken, caregiverUser.email]
+    );
+    console.log('🔔 Caregiver FCM token saved for:', caregiverUser.email);
+}
                     return res.json({
                         success: true,
                         message: 'Login successful',

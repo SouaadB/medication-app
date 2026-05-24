@@ -1,31 +1,41 @@
-const express = require('express');
-const router = express.Router();
+const express    = require('express');
+const router     = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const notificationController = require('../controllers/notificationController');
 const db = require('../config/database');
 
 router.use(protect);
 
-// Notifications
-router.get('/', notificationController.getNotifications);
+// ── Read ──────────────────────────────────────────────────────────────────────
+router.get('/',       notificationController.getNotifications);
 router.get('/unread', notificationController.getUnreadNotifications);
+
+// ── Mark read ─────────────────────────────────────────────────────────────────
 router.put('/read/:notificationId', notificationController.markAsRead);
-router.put('/read-all', notificationController.markAllAsRead);
-router.post('/save-token', protect, async (req, res) => {
+router.put('/read-all',             notificationController.markAllAsRead);
+
+// ── Snooze ────────────────────────────────────────────────────────────────────
+// Body: { minutes: 15 | 30 | 60 }
+router.post('/snooze/:scheduleId', notificationController.snoozeNotification);
+
+// ── Save FCM token ─────────────────────────────────────────────────────────────
+router.post('/save-token', async (req, res) => {
     try {
         const { token } = req.body;
-        const userId = req.user.id;
+        const userId    = req.user.id;
 
         if (!token) {
             return res.status(400).json({ success: false, message: 'Token is required' });
         }
 
-        await db.execute(
-            `UPDATE patients SET fcm_token = ? WHERE id = ?`,
-            [token, userId]
-        );
+        const [result] = await db.execute(
+    'UPDATE patients SET fcm_token = ? WHERE id = ?',
+    [token, userId]
+);
 
-        res.json({ success: true, message: 'Token saved successfully' });
+console.log(`FCM token update: userId=${userId}, affectedRows=${result.affectedRows}, token=${token.substring(0, 20)}...`);
+
+res.json({ success: true, message: 'Token saved successfully' });
 
     } catch (error) {
         console.error('Save token error:', error);

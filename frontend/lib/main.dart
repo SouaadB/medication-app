@@ -153,13 +153,8 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white,
       ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-      ),
-      themeMode: settingsService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+
+      
       locale: languageService.locale,
       supportedLocales: const [
         Locale('en', ''),

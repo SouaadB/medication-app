@@ -1,3 +1,5 @@
+process.env.TZ = 'Africa/Algiers';
+
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
@@ -14,15 +16,14 @@ const educationRoutes = require('./routes/educationRoutes');
 const rewardsRoutes = require('./routes/rewardsRoutes');
 const caregiverRoutes = require('./routes/caregiverRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const { startNotificationJobs } = require('./jobs/notificationJob');
 
 const app = express();
 
-// ✅ IMPORTANT: Middleware MUST be FIRST - before any routes
 app.use(cors());
-app.use(express.json());        // Parse JSON bodies
-app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ✅ Then register all routes AFTER middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
@@ -39,23 +40,15 @@ app.use('/api/caregivers', caregiverRoutes);
 app.use('/api/location', locationRoutes);
 
 app.get('/', (req, res) => {
-    res.json({ 
-        message: 'Medication App API is running!', 
-        version: '1.0.0',
-        endpoints: {
-            auth: ['/api/auth/register', '/api/auth/login', '/api/auth/me', '/api/auth/logout'],
-            admin: ['/api/admin/patients', '/api/admin/statistics'],
-            healthReview: ['/api/health-review/dashboard'],
-            conditions: ['/api/conditions', '/api/conditions/available', '/api/conditions/add', '/api/conditions/remove/:id'],
-            treatments: ['/api/treatments', '/api/treatments/condition/:conditionId/add'],
-            schedule: ['/api/schedule/today', '/api/schedule/date/:date', '/api/schedule/stats', '/api/schedule/take/:scheduleId'],
-            notifications: ['/api/notifications', '/api/notifications/unread', '/api/notifications/read/:id', '/api/notifications/read-all']
-        }
-    });
+    res.json({ message: 'Medication App API is running!', version: '1.0.0' });
 });
+
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
+
+startNotificationJobs();
+
 
 module.exports = app;

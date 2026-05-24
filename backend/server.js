@@ -1,10 +1,12 @@
+process.env.TZ = 'Africa/Algiers';
 const dotenv = require('dotenv');
 const result = dotenv.config();
 
 if (result.error) {
     console.log('⚠️  Error loading .env file:', result.error.message);
 }
-require('./src/jobs/notificationJob');
+const { startNotificationJobs } = require('./src/jobs/notificationJob');
+startNotificationJobs();
 
 const app = require('./src/app');
 

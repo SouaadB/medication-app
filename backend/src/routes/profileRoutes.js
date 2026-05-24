@@ -1,42 +1,44 @@
-const express = require('express');
-const router = express.Router();
+const express    = require('express');
+const router     = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { 
-    getProfile, 
-    updateProfile, 
+const {
+    getProfile,
+    updateProfile,
     changePassword,
     setupPatientProfile,
     getAllChronicConditions,
     updateSettings,
     updateDailySchedule,
-    deleteAccount
+    deleteAccount,
+    // ── NEW ──
+    getSchedule,
+    updateSchedule,
+    getQuietHours,
+    updateQuietHours,
 } = require('../controllers/profileController');
 
-// Toutes les routes sont protégées
 router.use(protect);
 
-// GET /profile/me
-router.get('/me', getProfile);
-
-// GET /profile/conditions
+// ── Core profile ──────────────────────────────────────────────────────────────
+router.get('/me',         getProfile);
 router.get('/conditions', getAllChronicConditions);
+router.post('/setup',     setupPatientProfile);
+router.put('/update',     updateProfile);
+router.put('/password',   changePassword);
+router.delete('/account', deleteAccount);
 
-// POST /profile/setup
-router.post('/setup', setupPatientProfile);
-
-// PUT /profile/update
-router.put('/update', updateProfile);
-
-// PUT /profile/password (garde celle-ci)
-router.put('/password', changePassword);
-
-// PUT /profile/settings
+// ── Settings ──────────────────────────────────────────────────────────────────
 router.put('/settings', updateSettings);
 
-// PUT /profile/daily-schedule
+// ── Daily schedule (legacy route — keep for backward compat) ──────────────────
 router.put('/daily-schedule', updateDailySchedule);
 
-// DELETE /profile/account
-router.delete('/account', deleteAccount);
+// ── Daily schedule (new dedicated routes used by DailySchedulePage) ───────────
+router.get('/schedule',   getSchedule);
+router.patch('/schedule', updateSchedule);
+
+// ── Quiet hours (new dedicated routes used by QuietHoursPage) ────────────────
+router.get('/quiet-hours',   getQuietHours);
+router.patch('/quiet-hours', updateQuietHours);
 
 module.exports = router;

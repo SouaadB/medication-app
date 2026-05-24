@@ -14,12 +14,12 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
-  
+
   UserProfile? _profile;
-  bool _isLoading = true;
-  bool _isEditing = false;
-  
-  // Controllers
+  bool _isLoading  = true;
+  bool _isSaving   = false;
+  bool _isEditing  = false;
+
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _chifaController;
@@ -41,307 +41,403 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
+  // ── data ───────────────────────────────────────────────────────────────────
+
   Future<void> _loadProfile() async {
     try {
       final profile = await _profileService.getProfile();
-      setState(() {
-        _profile = profile;
-        _isLoading = false;
-        _initializeControllers();
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
-        _showErrorSnackBar(e.toString());
+        setState(() {
+          _profile = profile;
+          _isLoading = false;
+          _initControllers();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showSnack('Error loading profile: $e', Colors.red);
       }
     }
   }
 
-  void _initializeControllers() {
-    _nameController = TextEditingController(text: _profile?.name);
-    _phoneController = TextEditingController(text: _profile?.phone);
-    _chifaController = TextEditingController(text: _profile?.chifaCardNumber);
-    _dobController = TextEditingController(text: _profile?.dateOfBirthFormatted);
+  void _initControllers() {
+    _nameController   = TextEditingController(text: _profile?.name);
+    _phoneController  = TextEditingController(text: _profile?.phone);
+    _chifaController  = TextEditingController(text: _profile?.chifaCardNumber);
+    _dobController    = TextEditingController(text: _profile?.dateOfBirthFormatted);
     _selectedSkillLevel = _profile?.smartphoneSkillLevel;
   }
 
-  Future<void> _updateProfile() async {
+  Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
+    setState(() => _isSaving = true);
     try {
-      final updatedProfile = _profile!.copyWith(
-        name: _nameController.text,
-        phone: _phoneController.text,
-        chifaCardNumber: _profile?.role == 'patient' ? _chifaController.text : null,
-        dateOfBirth: _profile?.role == 'patient' ? _dobController.text : null,
+      final updated = _profile!.copyWith(
+        name:                _nameController.text.trim(),
+        phone:               _phoneController.text.trim(),
+        chifaCardNumber:     _profile?.role == 'patient' ? _chifaController.text.trim() : null,
+        dateOfBirth:         _profile?.role == 'patient' ? _dobController.text.trim() : null,
         smartphoneSkillLevel: _profile?.role == 'patient' ? _selectedSkillLevel : null,
       );
-
-      final result = await _profileService.updateProfile(updatedProfile);
-      setState(() {
-        _profile = result;
-        _isEditing = false;
-        _isLoading = false;
-      });
-      
+      final result = await _profileService.updateProfile(updated);
       if (mounted) {
-        final languageService = Provider.of<LanguageService>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(languageService.translate('save')), // Using 'save' which means "Enregistrer" in French
-            backgroundColor: Colors.green,
-          ),
-        );
+        setState(() { _profile = result; _isEditing = false; _isSaving = false; });
+        _showSnack('Profile updated successfully', Colors.green);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorSnackBar(e.toString());
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _showSnack('Error saving profile: $e', Colors.red);
+      }
     }
   }
 
-  void _showErrorSnackBar(String error) {
-    final languageService = Provider.of<LanguageService>(context, listen: false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${languageService.translate('delete')}: $error'), // Using existing translation
-        backgroundColor: Colors.red,
-      ),
-    );
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
+
+  // ── BUILD ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final languageService = Provider.of<LanguageService>(context);
-    
-    if (_isLoading && _profile == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+    final lang = Provider.of<LanguageService>(context);
+
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: const Color(0xFFF7F8FC),
       appBar: AppBar(
-        title: Text(languageService.translate('profile')), // Using 'profile'
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(lang.translate('profile'),
+            style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
-          TextButton.icon(
-            onPressed: () => setState(() => _isEditing = !_isEditing),
-            icon: Icon(_isEditing ? Icons.close_rounded : Icons.edit_rounded, size: 18),
-            label: Text(_isEditing 
-                ? languageService.translate('cancel') // Using 'cancel'
-                : languageService.translate('edit')), // Using 'edit'
-          ),
+          if (_isEditing)
+            TextButton(
+              onPressed: () => setState(() { _isEditing = false; _initControllers(); }),
+              child: Text(lang.translate('cancel'), style: const TextStyle(color: Colors.grey)),
+            )
+          else
+            TextButton.icon(
+              onPressed: () => setState(() => _isEditing = true),
+              icon: const Icon(Icons.edit_outlined, size: 16, color: Colors.blue),
+              label: Text(lang.translate('edit'), style: const TextStyle(color: Colors.blue)),
+            ),
           const SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(theme, languageService),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildSectionTitle(theme, languageService.translate('setupProfile')), // Using 'setupProfile' for basic info
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _nameController,
-                      label: languageService.translate('setupProfile'), // Using existing key
-                      prefixIcon: Icons.person_outline_rounded,
-                      enabled: _isEditing,
-                      validator: (v) => v!.isEmpty ? languageService.translate('cancel') : null, // Using 'cancel' as placeholder for "Requis"
-                      languageService: languageService,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: TextEditingController(text: _profile?.email),
-                      label: languageService.translate('email'), // Using 'email'
-                      prefixIcon: Icons.email_outlined,
-                      enabled: false,
-                      languageService: languageService,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: languageService.translate('phone'), // Using 'phone'
-                      prefixIcon: Icons.phone_outlined,
-                      enabled: _isEditing,
-                      validator: (v) => v!.isEmpty ? languageService.translate('cancel') : null, // Using 'cancel' as placeholder for "Requis"
-                      languageService: languageService,
-                    ),
-                    
-                    if (_profile?.role == 'patient') ...[
-                      const SizedBox(height: 32),
-                      _buildSectionTitle(theme, languageService.translate('chronicConditions')), // Using 'chronicConditions' for medical details
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _chifaController,
-                        label: languageService.translate('chifaNumber'), // Using 'chifaNumber'
-                        prefixIcon: Icons.card_membership_rounded,
-                        enabled: _isEditing,
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return languageService.translate('cancel'); // Placeholder for "Requis"
-                          if (v.length != 9) return '9 ${languageService.translate('chifaNumber')}'; // Simple validation message
-                          return null;
-                        },
-                        languageService: languageService,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _dobController,
-                        label: languageService.translate('dateOfBirth'), // Using 'dateOfBirth'
-                        prefixIcon: Icons.calendar_today_rounded,
-                        enabled: _isEditing,
-                        hint: 'DD-MM-YYYY',
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return languageService.translate('cancel'); // Placeholder for "Requis"
-                          final regExp = RegExp(r'^\d{2}-\d{2}-\d{4}$');
-                          if (!regExp.hasMatch(v)) return 'Format: DD-MM-YYYY';
-                          return null;
-                        },
-                        languageService: languageService,
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedSkillLevel,
-                        decoration: InputDecoration(
-                          labelText: languageService.translate('skillLevel'), // Using 'skillLevel'
-                          prefixIcon: const Icon(Icons.smartphone_rounded),
-                          filled: true,
-                          fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                        ),
-                        items: [
-                          {'value': 'BASIC', 'label': languageService.translate('basic')},
-                          {'value': 'INTERMEDIATE', 'label': languageService.translate('intermediate')},
-                          {'value': 'ADVANCED', 'label': languageService.translate('advanced')},
-                        ].map((item) => DropdownMenuItem(
-                              value: item['value'],
-                              child: Text(item['label']!),
-                            )).toList(),
-                        onChanged: _isEditing ? (v) => setState(() => _selectedSkillLevel = v) : null,
-                      ),
-                    ],
-                    
-                    const SizedBox(height: 40),
-                    if (_isEditing)
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _updateProfile,
-                        child: _isLoading 
-                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text(languageService.translate('save')), // Using 'save'
-                      ),
-                    const SizedBox(height: 20),
-                  ],
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+        child: Form(
+          key: _formKey,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            // ── avatar header ─────────────────────────────────────────────
+            _buildHeader(lang),
+            const SizedBox(height: 24),
+
+            // ── personal info ─────────────────────────────────────────────
+            _sectionLabel('Personal Information', Icons.person_outline),
+            const SizedBox(height: 12),
+            _buildCard(children: [
+              _field(
+                controller: _nameController,
+                label: 'Full name',
+                icon: Icons.person_outline,
+                enabled: _isEditing,
+                validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
+              ),
+              _divider(),
+              _field(
+                controller: TextEditingController(text: _profile?.email),
+                label: 'Email',
+                icon: Icons.email_outlined,
+                enabled: false,
+              ),
+              _divider(),
+              _field(
+                controller: _phoneController,
+                label: lang.translate('phone'),
+                icon: Icons.phone_outlined,
+                enabled: _isEditing,
+                keyboardType: TextInputType.phone,
+              ),
+            ]),
+            const SizedBox(height: 20),
+
+            // ── medical info (patients only) ──────────────────────────────
+            if (_profile?.role == 'patient') ...[
+              _sectionLabel('Medical Information', Icons.medical_information_outlined),
+              const SizedBox(height: 12),
+              _buildCard(children: [
+                _field(
+                  controller: _chifaController,
+                  label: lang.translate('chifaNumber'),
+                  icon: Icons.card_membership_outlined,
+                  enabled: _isEditing,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Chifa number is required';
+                    if (v.trim().length != 9) return 'Chifa number must be 9 digits';
+                    return null;
+                  },
+                ),
+                _divider(),
+                _field(
+                  controller: _dobController,
+                  label: lang.translate('dateOfBirth'),
+                  icon: Icons.calendar_today_outlined,
+                  enabled: _isEditing,
+                  hint: 'DD-MM-YYYY',
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Date of birth is required';
+                    if (!RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(v.trim())) return 'Format: DD-MM-YYYY';
+                    return null;
+                  },
+                ),
+                _divider(),
+                _skillLevelTile(lang),
+              ]),
+              const SizedBox(height: 20),
+            ],
+
+            // ── account info (read only) ──────────────────────────────────
+            _sectionLabel('Account', Icons.shield_outlined),
+            const SizedBox(height: 12),
+            _buildCard(children: [
+              _infoTile('Role', (_profile?.role ?? '').toUpperCase(), Icons.badge_outlined),
+
+            ]),
+            const SizedBox(height: 32),
+
+            // ── save button ───────────────────────────────────────────────
+            if (_isEditing)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _saveProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(width: 22, height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(lang.translate('save'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
-            ),
-          ],
+          ]),
         ),
       ),
     );
   }
 
-  Widget _buildProfileHeader(ThemeData theme, LanguageService languageService) {
+  // ── AVATAR HEADER ──────────────────────────────────────────────────────────
+
+  Widget _buildHeader(LanguageService lang) {
+    final name    = _profile?.name ?? '';
+    final initials = name.trim().isNotEmpty
+        ? name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        : '?';
+    final role = _profile?.role ?? '';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 32, top: 16),
+      padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                child: Icon(Icons.person_rounded, size: 60, color: theme.colorScheme.primary),
-              ),
-              if (_isEditing)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                    ),
-                    child: const Icon(Icons.camera_alt_rounded, size: 20, color: Colors.white),
-                  ),
+      child: Column(children: [
+        Stack(children: [
+          CircleAvatar(
+            radius: 52,
+            backgroundColor: Colors.blue.shade50,
+            child: Text(initials,
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
+          ),
+          if (_isEditing)
+            Positioned(
+              bottom: 0, right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _profile?.name ?? '',
-            style: theme.textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _profile?.role.toUpperCase() ?? '',
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
               ),
             ),
+        ]),
+        const SizedBox(height: 14),
+        Text(name,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(20),
           ),
+          child: Text(role.toUpperCase(),
+              style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        if (_profile?.email != null) ...[
+          const SizedBox(height: 8),
+          Text(_profile!.email!, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
         ],
+      ]),
+    );
+  }
+
+  // ── SECTION LABEL ──────────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String title, IconData icon) {
+    return Row(children: [
+      Icon(icon, size: 16, color: Colors.grey.shade500),
+      const SizedBox(width: 6),
+      Text(title.toUpperCase(),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+              color: Colors.grey.shade500, letterSpacing: 0.8)),
+    ]);
+  }
+
+  // ── CARD WRAPPER ───────────────────────────────────────────────────────────
+
+  Widget _buildCard({required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
+      child: Column(children: children),
     );
   }
 
-  Widget _buildSectionTitle(ThemeData theme, String title) {
-    return Text(
-      title,
-      style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-    );
-  }
+  Widget _divider() => Divider(height: 1, indent: 56, color: Colors.grey.shade100);
 
-  Widget _buildTextField({
+  // ── FORM FIELD ─────────────────────────────────────────────────────────────
+
+  Widget _field({
     required TextEditingController controller,
     required String label,
-    required IconData prefixIcon,
-    required LanguageService languageService,
+    required IconData icon,
     bool enabled = true,
     String? hint,
+    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(prefixIcon),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey[100],
+    if (!enabled) {
+      // read-only display tile
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(children: [
+          Icon(icon, size: 20, color: Colors.grey.shade400),
+          const SizedBox(width: 16),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            const SizedBox(height: 2),
+            Text(controller.text.isNotEmpty ? controller.text : '—',
+                style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
+          ]),
+        ]),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: validator,
+        style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E)),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade400),
+          border: InputBorder.none,
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
       ),
-      validator: validator,
     );
   }
+
+  // ── INFO TILE (read only) ──────────────────────────────────────────────────
+
+  Widget _infoTile(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(children: [
+        Icon(icon, size: 20, color: Colors.grey.shade400),
+        const SizedBox(width: 16),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
+        ]),
+      ]),
+    );
+  }
+
+  // ── SKILL LEVEL DROPDOWN ───────────────────────────────────────────────────
+
+  Widget _skillLevelTile(LanguageService lang) {
+    if (!_isEditing) {
+      return _infoTile(
+        lang.translate('skillLevel'),
+        _selectedSkillLevel != null ? _skillLabel(_selectedSkillLevel!, lang) : '—',
+        Icons.smartphone_outlined,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: DropdownButtonFormField<String>(
+        value: _selectedSkillLevel,
+        decoration: InputDecoration(
+          labelText: lang.translate('skillLevel'),
+          prefixIcon: Icon(Icons.smartphone_outlined, size: 20, color: Colors.grey.shade400),
+          border: InputBorder.none,
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        items: [
+          DropdownMenuItem(value: 'BASIC',        child: Text(lang.translate('basic'))),
+          DropdownMenuItem(value: 'INTERMEDIATE', child: Text(lang.translate('intermediate'))),
+          DropdownMenuItem(value: 'ADVANCED',     child: Text(lang.translate('advanced'))),
+        ],
+        onChanged: (v) => setState(() => _selectedSkillLevel = v),
+      ),
+    );
+  }
+
+  String _skillLabel(String level, LanguageService lang) {
+    switch (level) {
+      case 'BASIC':        return lang.translate('basic');
+      case 'INTERMEDIATE': return lang.translate('intermediate');
+      case 'ADVANCED':     return lang.translate('advanced');
+      default: return level;
+    }
+  }
+
+
 }

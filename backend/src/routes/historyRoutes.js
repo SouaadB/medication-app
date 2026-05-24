@@ -20,5 +20,7 @@ router.get('/trends', historyController.getWeeklyTrends);
 
 // Médicaments les plus manqués
 router.get('/missed', historyController.getMostMissedMedications);
+//pdf export 
+router.get('/export-pdf', historyController.exportPdf);
 
 module.exports = router;

@@ -38,7 +38,6 @@ exports.processPrescriptionOCR = async (req, res) => {
         });
 
     } finally {
-        // Clean up uploaded file after processing
         if (req.file?.path && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
@@ -49,7 +48,7 @@ exports.processPrescriptionOCR = async (req, res) => {
 exports.createTreatment = async (req, res) => {
     try {
         const patientId = req.user.id;
-        let { condition_id, medication_name, dosage, frequency, priority, start_date, end_date } = req.body;
+        let { condition_id, medication_name, dosage, frequency, priority, start_date, end_date, barcode_data } = req.body;
 
         console.log('Received treatment data:', req.body);
 
@@ -72,7 +71,8 @@ exports.createTreatment = async (req, res) => {
             frequency: frequency || 'Once daily',
             priority: priority || 'MEDIUM',
             start_date: start_date,
-            end_date: end_date || null
+            end_date: end_date || null,
+            barcode_data: barcode_data ? JSON.stringify(barcode_data) : null
         };
 
         console.log('Saving treatment:', treatmentData);
@@ -94,6 +94,138 @@ exports.createTreatment = async (req, res) => {
             success: false, 
             message: 'Error creating treatment',
             error: error.message 
+        });
+    }
+};
+
+// ─── UPDATE TREATMENT ────────────────────────────────────────────────────────
+// PUT /treatments/:id
+// Updates editable fields: medication_name, dosage, frequency, priority,
+// is_active, start_date, end_date, barcode_data
+// If frequency changed → clears future schedules and regenerates them
+exports.updateTreatment = async (req, res) => {
+    try {
+        const patientId   = req.user.id;
+        const treatmentId = req.params.id;
+
+        // Verify ownership — patient can only edit their own treatments
+        const [rows] = await db.execute(
+            'SELECT * FROM treatments WHERE id = ? AND patient_id = ?',
+            [treatmentId, patientId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Treatment not found or access denied'
+            });
+        }
+
+        const existing = rows[0];
+
+        // Extract only the fields we allow to be updated
+        const {
+            medication_name,
+            dosage,
+            frequency,
+            priority,
+            is_active,
+            start_date,
+            end_date,
+            barcode_data
+        } = req.body;
+
+        // Build update — fall back to existing values if not provided
+        const updatedName      = medication_name  ?? existing.medication_name;
+        const updatedDosage    = dosage           !== undefined ? dosage    : existing.dosage;
+        const updatedFrequency = frequency        ?? existing.frequency;
+        const updatedPriority  = priority         ?? existing.priority;
+        const updatedIsActive  = is_active        !== undefined ? (is_active ? 1 : 0) : existing.is_active;
+        const updatedStart     = start_date       ?? existing.start_date;
+        const updatedEnd       = end_date         !== undefined ? end_date  : existing.end_date;
+
+        // barcode_data: keep existing if not sent, update if sent (even if null to remove it)
+        let updatedBarcode = existing.barcode_data;
+        if ('barcode_data' in req.body) {
+            updatedBarcode = barcode_data ? JSON.stringify(barcode_data) : null;
+        }
+
+        await db.execute(
+            `UPDATE treatments SET
+                medication_name = ?,
+                dosage          = ?,
+                frequency       = ?,
+                priority        = ?,
+                is_active       = ?,
+                start_date      = ?,
+                end_date        = ?,
+                barcode_data    = ?
+             WHERE id = ? AND patient_id = ?`,
+            [
+                updatedName,
+                updatedDosage,
+                updatedFrequency,
+                updatedPriority,
+                updatedIsActive,
+                updatedStart,
+                updatedEnd    || null,
+                updatedBarcode,
+                treatmentId,
+                patientId
+            ]
+        );
+
+        // If frequency or dates changed, regenerate the schedule
+        const frequencyChanged  = updatedFrequency !== existing.frequency;
+        const startChanged      = updatedStart     !== existing.start_date;
+        const endChanged        = updatedEnd       !== existing.end_date;
+
+        if (frequencyChanged || startChanged || endChanged) {
+            console.log(`[Treatment ${treatmentId}] Schedule changed — regenerating`);
+            await SchedulerService.clearFutureSchedules(treatmentId);
+
+            if (updatedFrequency !== 'As needed' && updatedIsActive) {
+                await SchedulerService.generateSchedule(
+                    patientId,
+                    treatmentId,
+                    updatedFrequency,
+                    updatedStart,
+                    updatedEnd
+                );
+            }
+        }
+
+        // If deactivated, clear future schedules
+        if (updatedIsActive === 0 && existing.is_active !== 0) {
+            console.log(`[Treatment ${treatmentId}] Deactivated — clearing future schedules`);
+            await SchedulerService.clearFutureSchedules(treatmentId);
+        }
+
+        // If reactivated, regenerate schedules
+        if (updatedIsActive === 1 && existing.is_active === 0) {
+            console.log(`[Treatment ${treatmentId}] Reactivated — regenerating schedules`);
+            if (updatedFrequency !== 'As needed') {
+                await SchedulerService.generateSchedule(
+                    patientId,
+                    treatmentId,
+                    updatedFrequency,
+                    updatedStart,
+                    updatedEnd
+                );
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Treatment updated successfully'
+        });
+
+    } catch (error) {
+        console.error('Update Treatment Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating treatment',
+            error: error.message
         });
     }
 };
@@ -135,7 +267,7 @@ exports.getNextDose = async (req, res) => {
     }
 };
 
-// NOUVEAU - Get Next Medication for Dashboard (format compatible avec le frontend)
+// Get Next Medication for Dashboard
 exports.getNextMedication = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -160,17 +292,10 @@ exports.getNextMedication = async (req, res) => {
         
         const [rows] = await db.execute(query, [patientId]);
         
-        if (rows.length > 0) {
-            res.json({ 
-                success: true, 
-                medication: rows[0] 
-            });
-        } else {
-            res.json({ 
-                success: true, 
-                medication: null 
-            });
-        }
+        res.json({ 
+            success: true, 
+            medication: rows.length > 0 ? rows[0] : null
+        });
     } catch (error) {
         console.error('Error in getNextMedication:', error);
         res.status(500).json({ 
@@ -194,7 +319,7 @@ exports.deleteTreatment = async (req, res) => {
     }
 };
 
-// Récupérer le planning pour une date spécifique
+// Get schedule for a specific date
 exports.getScheduleByDate = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -207,8 +332,6 @@ exports.getScheduleByDate = async (req, res) => {
             });
         }
 
-        console.log(`📅 Fetching schedule for patient ${patientId} on date ${date}`);
-        
         const schedule = await ScheduleService.getScheduleByDate(patientId, date);
         
         res.json({
@@ -230,13 +353,11 @@ exports.getScheduleByDate = async (req, res) => {
     }
 };
 
-// Récupérer le planning du jour
+// Get today's schedule
 exports.getTodaySchedule = async (req, res) => {
     try {
         const patientId = req.user.id;
         const today = new Date().toISOString().split('T')[0];
-        
-        console.log(`📅 Fetching today's schedule for patient ${patientId}`);
         
         const schedule = await ScheduleService.getScheduleByDate(patientId, today);
         
