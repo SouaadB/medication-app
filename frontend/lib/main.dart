@@ -31,16 +31,19 @@ import 'services/language_service.dart';
 import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 import 'services/location_service.dart';
-import 'services/background_location_service.dart'; // ✅ Add this import
+import 'services/background_location_service.dart';
 import 'patient/caregiver_access_page.dart';
 import 'caregiver/caregiver_login_page.dart';
 import 'caregiver/caregiver_dashboard.dart';
 import 'caregiver/accept_invitation_page.dart';
+import 'caregiver/caregiver_forgot_password_page.dart';
+import 'caregiver/caregiver_verify_code_page.dart';
+import 'caregiver/caregiver_reset_password_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Initialize background location service BEFORE running app
+  // Initialize background location service BEFORE running app
   if (!kIsWeb) {
     await BackgroundLocationService().initialize();
   }
@@ -67,7 +70,7 @@ void main() async {
   );
 }
 
-// ✅ This widget checks the URL and navigates to the correct page
+// This widget checks the URL and navigates to the correct page
 class AppRouter extends StatelessWidget {
   const AppRouter({super.key});
 
@@ -153,8 +156,13 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white,
       ),
-
-      
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+      ),
+      themeMode: settingsService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       locale: languageService.locale,
       supportedLocales: const [
         Locale('en', ''),
@@ -165,7 +173,6 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // ✅ Use AppRouter as the home widget to check URL first
       home: const AppRouter(),
       onGenerateRoute: (settings) {
         // Reset password with token
@@ -249,10 +256,26 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => const QuietHoursPage());
           case '/daily-schedule':
             return MaterialPageRoute(builder: (context) => const DailySchedulePage());
+          
+          // Caregiver routes
           case '/caregiver-login':
             return MaterialPageRoute(builder: (context) => const CaregiverLoginPage());
           case '/caregiver-dashboard':
             return MaterialPageRoute(builder: (context) => const CaregiverDashboard());
+          case '/caregiver-forgot-password':
+            return MaterialPageRoute(builder: (context) => const CaregiverForgotPasswordPage());
+          case '/caregiver-verify-code':
+            final email = settings.arguments as String;
+            return MaterialPageRoute(builder: (context) => CaregiverVerifyCodePage(email: email));
+          case '/caregiver-reset-password':
+            final args = settings.arguments as Map<String, String>;
+            return MaterialPageRoute(
+              builder: (context) => CaregiverResetPasswordPage(
+                resetToken: args['token']!,
+                email: args['email']!,
+              ),
+            );
+          
           default:
             return MaterialPageRoute(builder: (context) => const SignInPage());
         }

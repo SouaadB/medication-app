@@ -681,3 +681,200 @@ exports.resetPasswordWithCode = async (req, res) => {
         });
     }
 };
+// ===========================================
+// CAREGIVER PASSWORD RESET FUNCTIONS
+// ===========================================
+
+// 1. Request reset code for caregiver
+exports.requestCaregiverResetCode = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email requis pour la réinitialisation'
+            });
+        }
+
+        // Check if caregiver exists
+        const [caregivers] = await db.execute(
+            'SELECT * FROM caregiver_users WHERE email = ?',
+            [email]
+        );
+        
+        if (caregivers.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Aucun compte caregiver trouvé avec cet email'
+            });
+        }
+
+        const caregiver = caregivers[0];
+
+        // Generate a 6-digit code
+        const code = codeService.generateCode();
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+        // Save code to reset_codes table
+        await db.execute(
+            'INSERT INTO reset_codes (user_id, code, type, expires_at, is_caregiver) VALUES (?, ?, ?, ?, ?)',
+            [caregiver.id, code, 'email', expiresAt, 1]
+        );
+
+        // Send code by email
+        const sendResult = await codeService.sendCodeByEmail(email, code);
+
+        if (!sendResult.success) {
+            return res.status(500).json({
+                success: false,
+                message: 'Erreur lors de l\'envoi du code'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: `Code de vérification envoyé à votre adresse email`,
+            debug_code: code
+        });
+
+    } catch (error) {
+        console.error('Erreur requestCaregiverResetCode:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la demande de code'
+        });
+    }
+};
+
+// 2. Verify reset code for caregiver
+exports.verifyCaregiverResetCode = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+
+        if (!email || !code) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email et code requis'
+            });
+        }
+
+        // Find caregiver by email
+        const [caregivers] = await db.execute(
+            'SELECT id FROM caregiver_users WHERE email = ?',
+            [email]
+        );
+
+        if (caregivers.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utilisateur non trouvé'
+            });
+        }
+
+        const caregiverId = caregivers[0].id;
+
+        // Verify the code
+        const [codes] = await db.execute(
+            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = "email" AND is_caregiver = 1 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+            [caregiverId, code]
+        );
+
+        if (codes.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Code invalide ou expiré'
+            });
+        }
+
+        // Mark code as used
+        await db.execute(
+            'UPDATE reset_codes SET used = TRUE WHERE id = ?',
+            [codes[0].id]
+        );
+
+        // Generate temporary token for password reset
+        const resetToken = jwt.sign(
+            { id: caregiverId, type: 'caregiver_reset' },
+            process.env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        res.json({
+            success: true,
+            message: 'Code vérifié avec succès',
+            resetToken
+        });
+
+    } catch (error) {
+        console.error('Erreur verifyCaregiverResetCode:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la vérification du code'
+        });
+    }
+};
+
+// 3. Reset caregiver password
+exports.resetCaregiverPassword = async (req, res) => {
+    try {
+        const { resetToken, newPassword } = req.body;
+
+        if (!resetToken || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Token et nouveau mot de passe requis'
+            });
+        }
+
+        // Verify the token
+        let decoded;
+        try {
+            decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+        } catch (err) {
+            return res.status(400).json({
+                success: false,
+                message: 'Token invalide ou expiré'
+            });
+        }
+
+        if (decoded.type !== 'caregiver_reset') {
+            return res.status(400).json({
+                success: false,
+                message: 'Token invalide'
+            });
+        }
+
+        // Validate new password
+        const passwordValidation = RegisterRequest.isValidPassword(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                message: passwordValidation.message
+            });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update password
+        await db.execute(
+            'UPDATE caregiver_users SET password = ? WHERE id = ?',
+            [hashedPassword, decoded.id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Mot de passe réinitialisé avec succès'
+        });
+
+    } catch (error) {
+        console.error('Erreur resetCaregiverPassword:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la réinitialisation du mot de passe'
+        });
+    }
+};

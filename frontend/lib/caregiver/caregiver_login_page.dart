@@ -7,6 +7,7 @@ import 'caregiver_dashboard.dart';
 import 'accept_invitation_page.dart';
 import '../auth/sign_in_page.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'caregiver_forgot_password_page.dart';
 
 class CaregiverLoginPage extends StatefulWidget {
   const CaregiverLoginPage({super.key});
@@ -104,7 +105,6 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
     return Scaffold(
       backgroundColor: primaryDk,
       body: Stack(children: [
-
         // decorative circles
         Positioned(top: -60, right: -60,
           child: Container(width: 220, height: 220,
@@ -120,10 +120,29 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                 color: primaryLt.withOpacity(0.05)))),
 
         SafeArea(child: Column(children: [
+          // ✅ Back button row at top
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           // top header
           Padding(
-            padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+            padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
             child: FadeTransition(opacity: _fadeAnim,
               child: SlideTransition(position: _slideAnim,
                 child: Column(children: [
@@ -163,7 +182,6 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(28, 36, 28, 32),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
                     // badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -180,7 +198,6 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                       ]),
                     ),
                     const SizedBox(height: 16),
-
                     const Text('Welcome back', style: TextStyle(fontSize: 30,
                         fontWeight: FontWeight.w900, color: darkText,
                         height: 1.1, letterSpacing: -0.5)),
@@ -210,6 +227,29 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                         icon: Icon(_obscurePassword
                             ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                             color: Colors.grey.shade400, size: 20),
+                      ),
+                    ),
+
+                    // Forgot Password link
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CaregiverForgotPasswordPage()),
+                          );
+                        },
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        child: Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
 
@@ -289,37 +329,37 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                     ),
                     const SizedBox(height: 20),
 
-                   Row(children: [
-  Expanded(child: Divider(color: Colors.grey.shade200)),
-  Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Text('or', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-  ),
-  Expanded(child: Divider(color: Colors.grey.shade200)),
-]),
-const SizedBox(height: 16),
-SizedBox(
-  width: double.infinity, height: 50,
-  child: OutlinedButton(
-    onPressed: () => Navigator.pushReplacement(context,
-        MaterialPageRoute(builder: (_) => const SignInPage())),
-    style: OutlinedButton.styleFrom(
-      side: BorderSide(color: Colors.grey.shade200),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    ),
-    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(Icons.person_outline_rounded, size: 18, color: Colors.grey.shade600),
-      const SizedBox(width: 10),
-      Text('Patient Login',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700)),
-    ]),
-  ),
-),
-const SizedBox(height: 12),
-Center(child: Text('New here? Ask your patient to send you an invitation.',
-    textAlign: TextAlign.center,
-    style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
+                    Row(children: [
+                      Expanded(child: Divider(color: Colors.grey.shade200)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('or', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade200)),
+                    ]),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity, height: 50,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pushReplacement(context,
+                            MaterialPageRoute(builder: (_) => const SignInPage())),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey.shade200),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.person_outline_rounded, size: 18, color: Colors.grey.shade600),
+                          const SizedBox(width: 10),
+                          Text('Patient Login',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700)),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(child: Text('New here? Ask your patient to send you an invitation.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
                   ]),
                 ),
               ),
