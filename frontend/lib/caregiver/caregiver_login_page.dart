@@ -81,6 +81,7 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
           await prefs.setString('user_name',  data['user']['name']  ?? '');
           await prefs.setString('user_email', data['user']['email'] ?? '');
           await prefs.setString('user_role',  role);
+          await prefs.setInt('user_id', data['user']['id'] as int? ?? 0);
           final isFirstSet = prefs.containsKey('caregiver_first_login');
           if (!isFirstSet) await prefs.setBool('caregiver_first_login', true);
           if (mounted) {

@@ -37,6 +37,8 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/education', educationRoutes);
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/caregivers', caregiverRoutes);
+const chatRoutes = require('./routes/chatRoutes');
+app.use('/api/chat', chatRoutes);
 app.use('/api/location', locationRoutes);
 
 app.get('/', (req, res) => {

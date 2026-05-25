@@ -226,7 +226,7 @@ Future<void> _exportPdf() async {
           const SizedBox(height: 20),
 
           // ── FAMILY & CARE ───────────────────────────────────────────────
-          _section('Family & Care', Icons.people_outline, Colors.teal, isDark),
+         _section('Family & Care', Icons.people_outline, Colors.teal, isDark),
           _card(isDark, [
             _switchTile(
               icon: Icons.location_on_outlined, iconColor: Colors.teal,
@@ -234,14 +234,6 @@ Future<void> _exportPdf() async {
               subtitle: 'Share location with caregiver even when app is closed',
               value: _backgroundTracking,
               onChanged: (v) => _toggleBackgroundTracking(v),
-              isDark: isDark,
-            ),
-            _divider(isDark),
-            _navTile(
-              icon: Icons.shield_outlined, iconColor: Colors.teal,
-              title: 'Caregiver Access',
-              subtitle: 'Manage who can monitor you',
-              onTap: () => Navigator.pushNamed(context, '/caregiver-access'),
               isDark: isDark,
             ),
           ]),

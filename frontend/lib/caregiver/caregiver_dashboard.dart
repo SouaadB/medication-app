@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
 import 'caregiver_login_page.dart';
 import 'caregiver_profile_page.dart';
+import '../patient/chat_page.dart';
 import 'caregiver_notifications_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -504,7 +505,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
               const SizedBox(height: 12),
 
               // action buttons
-              Row(children: [
+Row(children: [
                 Expanded(child: _actionBtn(
                   icon: Icons.phone_rounded,
                   label: 'Call',
@@ -512,12 +513,26 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
                   bg: const Color(0xFFDCFCE7),
                   onTap: () => _callPatient(p['phone']?.toString()),
                 )),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
+                Expanded(child: _actionBtn(
+                  icon: Icons.chat_rounded,
+                  label: 'Chat',
+                  color: const Color(0xFF1565C0),
+                  bg: const Color(0xFFEFF6FF),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ChatPage(
+                      partnerId:   p['id'],
+                      partnerName: p['name']?.toString() ?? 'Patient',
+                      partnerRole: 'patient',
+                    ),
+                  )),
+                )),
+                const SizedBox(width: 8),
                 Expanded(child: _actionBtn(
                   icon: Icons.notifications_rounded,
                   label: 'Remind',
-                  color: const Color(0xFF1565C0),
-                  bg: const Color(0xFFEFF6FF),
+                  color: const Color(0xFF7C3AED),
+                  bg: const Color(0xFFF5F3FF),
                   onTap: () => _sendReminder(p),
                 )),
               ]),

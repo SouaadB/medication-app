@@ -9,6 +9,7 @@ import 'condition_detail_page.dart';
 import '../services/language_service.dart';
 import '../services/condition_service.dart';
 import '../services/location_service.dart';
+import 'patient_caregivers_page.dart';
 import '../services/background_location_service.dart';
 
 class PatientInterface extends StatefulWidget {
@@ -1221,6 +1222,11 @@ Widget _buildNextMedicationCard(LanguageService lang) {
           const Divider(indent: 20, endIndent: 20, height: 32),
           _drawerItem(Icons.chat_bubble_outline, lang.translate('aiHealthAssistant'), false, () {
             Navigator.pop(context); Navigator.pushNamed(context, '/ai-chatbot');
+          }),
+                    _drawerItem(Icons.people_outline_rounded, 'Caregivers', false, () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(
+                builder: (_) => const PatientCaregiversPage()));
           }),
           _drawerItem(Icons.menu_book_outlined, lang.translate('medicationDictionary'), false, () {
             Navigator.pop(context); Navigator.pushNamed(context, '/med-dictionary');
