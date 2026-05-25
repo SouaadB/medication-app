@@ -396,7 +396,7 @@ Future<void> _startLocationTracking() async {
       builder: (_) => AlertDialog(
         title: const Row(children: [
           Icon(Icons.location_on, color: Colors.blue, size: 28), SizedBox(width: 8),
-          Text('24/7 Location Sharing'),
+          Flexible(child: Text('24/7 Location Sharing')),
         ]),
         content: const Text(
           'To ensure your safety, MediCare can share your location with your caregiver '
