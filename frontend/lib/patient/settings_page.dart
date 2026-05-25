@@ -6,6 +6,7 @@ import '../services/background_location_service.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'about_medicare_page.dart';
 import '../services/location_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -182,27 +183,6 @@ Future<void> _exportPdf() async {
               onChanged: settings.allNotifications ? (v) => settings.setSmartInsights(v) : null,
               isDark: isDark,
             ),
-          ]),
-          const SizedBox(height: 20),
-
-          // ── SOUND & ALERTS ──────────────────────────────────────────────
-          _section('Sound & Alerts', Icons.volume_up_outlined, Colors.green, isDark),
-          _card(isDark, [
-            _switchTile(
-              icon: Icons.volume_up_outlined, iconColor: Colors.green,
-              title: 'Sound', subtitle: 'Play notification sounds',
-              value: settings.soundEnabled,
-              onChanged: (v) => settings.setSoundEnabled(v),
-              isDark: isDark,
-            ),
-            _divider(isDark),
-            _switchTile(
-              icon: Icons.vibration_outlined, iconColor: Colors.green,
-              title: 'Vibration', subtitle: 'Vibrate on notifications',
-              value: settings.vibrationEnabled,
-              onChanged: (v) => settings.setVibrationEnabled(v),
-              isDark: isDark,
-            ),
             _divider(isDark),
             _navTile(
               icon: Icons.bedtime_outlined, iconColor: Colors.indigo,
@@ -215,22 +195,7 @@ Future<void> _exportPdf() async {
           ]),
           const SizedBox(height: 20),
 
-          // ── APPEARANCE ──────────────────────────────────────────────────
-          _section('Appearance', Icons.palette_outlined, Colors.orange, isDark),
-          _card(isDark, [
-
-            _navTile(
-              icon: Icons.language_outlined, iconColor: Colors.orange,
-              title: settings.translate('language'),
-              badge: settings.getCurrentLanguage() == 'en' ? 'English' : 'Français',
-              badgeColor: Colors.orange,
-              onTap: () => _showLanguageDialog(context, settings),
-              isDark: isDark,
-            ),
-          ]),
-          const SizedBox(height: 20),
-
-          // ── MEDICATION ──────────────────────────────────────────────────
+// ── MEDICATION ──────────────────────────────────────────────────
           _section('Medication', Icons.medication_outlined, Colors.purple, isDark),
           _card(isDark, [
             _switchTile(
@@ -283,36 +248,16 @@ Future<void> _exportPdf() async {
           const SizedBox(height: 20),
 
           // ── SUPPORT ─────────────────────────────────────────────────────
-          _section('Support & Legal', Icons.help_outline, Colors.grey, isDark),
+       _section('Support & Legal', Icons.help_outline, Colors.grey, isDark),
           _card(isDark, [
-            _navTile(
-              icon: Icons.help_outline, iconColor: Colors.grey,
-              title: 'Help & Support',
-              onTap: () {},
-              isDark: isDark, showChevron: false,
-            ),
-            _divider(isDark),
-            _navTile(
-              icon: Icons.lock_outline, iconColor: Colors.grey,
-              title: 'Privacy Policy',
-              onTap: () {},
-              isDark: isDark, showChevron: false,
-            ),
-            _divider(isDark),
-            _navTile(
-              icon: Icons.description_outlined, iconColor: Colors.grey,
-              title: 'Terms of Service',
-              onTap: () {},
-              isDark: isDark, showChevron: false,
-            ),
-            _divider(isDark),
             _navTile(
               icon: Icons.info_outline, iconColor: Colors.grey,
               title: 'About MediCare',
               badge: 'v1.0.0',
               badgeColor: Colors.grey,
-              onTap: () {},
-              isDark: isDark, showChevron: false,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AboutMediCarePage())),
+              isDark: isDark, showChevron: true,
             ),
           ]),
           const SizedBox(height: 32),
