@@ -11,6 +11,7 @@ import '../config/api_config.dart';
 class AIChatbotPage extends StatefulWidget {
   const AIChatbotPage({super.key});
 
+// REPLACE WITH:
   @override
   State<AIChatbotPage> createState() => _AIChatbotPageState();
 }
@@ -19,14 +20,64 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'isBot': true,
-      'text': 'Hello! I\'m your MediCare AI assistant. I\'m here to help you with medication questions, first-aid guidance, and health concerns. How can I assist you today?',
-      'time': DateFormat('HH:mm').format(DateTime.now())
+  bool _isLoadingHistory = true;
+
+  final List<Map<String, dynamic>> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/ai/chat/history'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final history = data['history'] as List? ?? [];
+        setState(() {
+          _messages.clear();
+          if (history.isEmpty) {
+            // First time — show welcome message
+            _messages.add({
+              'isBot': true,
+              'text': 'Hello! I\'m your MediCare AI assistant. I\'m here to help you with medication questions, first-aid guidance, and health concerns. How can I assist you today?',
+              'time': DateFormat('HH:mm').format(DateTime.now()),
+            });
+          } else {
+            for (final h in history) {
+              _messages.add({
+                'isBot': h['role'] == 'assistant',
+                'text': h['message'],
+                'time': DateFormat('HH:mm').format(
+                    DateTime.parse(h['created_at'].toString())),
+              });
+            }
+          }
+          _isLoadingHistory = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (_) {
+      setState(() {
+        _isLoadingHistory = false;
+        _messages.add({
+          'isBot': true,
+          'text': 'Hello! I\'m your MediCare AI assistant. How can I assist you today?',
+          'time': DateFormat('HH:mm').format(DateTime.now()),
+        });
+      });
     }
-  ];
+  }
 
 
 
@@ -248,7 +299,9 @@ Future<void> _openDialerDirectly() async {
           ),
           
           Expanded(
-            child: ListView(
+               child: _isLoadingHistory
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
               controller: _scrollController,
               padding: const EdgeInsets.all(20),
               children: [

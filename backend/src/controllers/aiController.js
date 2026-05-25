@@ -44,9 +44,22 @@ exports.handleChatQuery = async (req, res) => {
 
         const medContext = treatments.map(t => `${t.medication_name} (${t.dosage}) taken ${t.frequency}`).join(', ');
 
-        // 3. Call Groq AI
+              // 3. Load last 10 messages from history for context
+        const [history] = await db.execute(
+            `SELECT role, message FROM chat_history
+             WHERE patient_id = ?
+             ORDER BY created_at DESC
+             LIMIT 10`,
+            [userId]
+        );
+        const historyMessages = history.reverse().map(h => ({
+            role: h.role,
+            content: h.message
+        }));
+
+        // 4. Call Groq AI with history
         console.log('--- AI Assistant Request ---');
-        console.log('User ID:', userId);
+        console.log('User ID:', userId, '| History:', historyMessages.length, 'messages');
 
         const completion = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
@@ -60,8 +73,10 @@ exports.handleChatQuery = async (req, res) => {
 - NO long paragraphs. Use short sentences and bullet points.
 - The patient is currently taking: ${medContext || 'No medications listed'}.
 - If they ask about a missed dose, advise them not to double dose and to contact their doctor.
-- Be empathetic, patient, and calm.`
+- Be empathetic, patient, and calm.
+- You remember previous messages in this conversation.`
                 },
+                ...historyMessages,
                 {
                     role: "user",
                     content: message
@@ -74,6 +89,16 @@ exports.handleChatQuery = async (req, res) => {
         if (!aiText.includes("professional medical advice")) {
             aiText += "\n\nDisclaimer: This assistant does not replace professional medical advice.";
         }
+
+        // 5. Save both messages to history
+        await db.execute(
+            'INSERT INTO chat_history (patient_id, role, message) VALUES (?, ?, ?)',
+            [userId, 'user', message]
+        );
+        await db.execute(
+            'INSERT INTO chat_history (patient_id, role, message) VALUES (?, ?, ?)',
+            [userId, 'assistant', aiText]
+        );
 
         return res.json({
             success: true,
@@ -89,5 +114,21 @@ exports.handleChatQuery = async (req, res) => {
             success: false,
             message: "The assistant is temporarily unavailable. Please try again later."
         });
+    }
+};
+exports.getChatHistory = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const [rows] = await db.execute(
+            `SELECT role, message, created_at FROM chat_history
+             WHERE patient_id = ?
+             ORDER BY created_at ASC
+             LIMIT 50`,
+            [userId]
+        );
+        return res.json({ success: true, history: rows });
+    } catch (error) {
+        console.error('getChatHistory error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load history' });
     }
 };
