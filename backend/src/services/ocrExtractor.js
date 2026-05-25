@@ -15,6 +15,7 @@ async function extractRawText(imagePath) {
             }
         );
         console.log('\n[OCR] Extraction complete.');
+        console.log('[OCR] Full extracted text:\n' + text);
         return text;
 
     } catch (err) {

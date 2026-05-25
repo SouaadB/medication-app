@@ -499,15 +499,18 @@ class NotificationService {
         }
     }
 
-    static _getRelationText(freq) {
+        static _getRelationText(freq) {
         if (!freq) return '';
-        if (freq.includes('Before breakfast')) return 'before breakfast';
-        if (freq.includes('After breakfast'))  return 'after breakfast';
-        if (freq.includes('Before lunch'))     return 'before lunch';
-        if (freq.includes('After lunch'))      return 'after lunch';
-        if (freq.includes('Before dinner'))    return 'before dinner';
-        if (freq.includes('After dinner'))     return 'after dinner';
-        if (freq.includes('Before sleeping'))  return 'before sleeping';
+        if (freq.includes('Before breakfast'))  return 'before breakfast';
+        if (freq.includes('During breakfast'))  return 'with breakfast';
+        if (freq.includes('After breakfast'))   return 'after breakfast';
+        if (freq.includes('Before lunch'))      return 'before lunch';
+        if (freq.includes('During lunch'))      return 'with lunch';
+        if (freq.includes('After lunch'))       return 'after lunch';
+        if (freq.includes('Before dinner'))     return 'before dinner';
+        if (freq.includes('During dinner'))     return 'with dinner';
+        if (freq.includes('After dinner'))      return 'after dinner';
+        if (freq.includes('Before sleeping'))   return 'before sleeping';
         return '';
     }
 

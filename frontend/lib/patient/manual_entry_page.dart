@@ -107,13 +107,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Every 4 hours','Every 6 hours','Every 8 hours','Every 12 hours','As needed',
   ];
   final List<String> _mealAnchorsFr = [
-    'Avant le petit-déjeuner','Après le petit-déjeuner',
-    'Avant le déjeuner','Après le déjeuner',
-    'Avant le dîner','Après le dîner','Avant de dormir',
+    'Avant le petit-déjeuner','Pendant le petit-déjeuner','Après le petit-déjeuner',
+    'Avant le déjeuner','Pendant le déjeuner','Après le déjeuner',
+    'Avant le dîner','Pendant le dîner','Après le dîner','Avant de dormir',
   ];
   final List<String> _mealAnchorsEn = [
-    'Before breakfast','After breakfast','Before lunch','After lunch',
-    'Before dinner','After dinner','Before sleeping',
+    'Before breakfast','During breakfast','After breakfast',
+    'Before lunch','During lunch','After lunch',
+    'Before dinner','During dinner','After dinner','Before sleeping',
   ];
   final Map<String, String> _frToEnMap = {
     'Une fois par jour':'Once daily','Deux fois par jour':'Twice daily',
@@ -121,9 +122,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Toutes les 4 heures':'Every 4 hours','Toutes les 6 heures':'Every 6 hours',
     'Toutes les 8 heures':'Every 8 hours','Toutes les 12 heures':'Every 12 hours',
     'Au besoin':'As needed','Avant le petit-déjeuner':'Before breakfast',
-    'Après le petit-déjeuner':'After breakfast','Avant le déjeuner':'Before lunch',
-    'Après le déjeuner':'After lunch','Avant le dîner':'Before dinner',
-    'Après le dîner':'After dinner','Avant de dormir':'Before sleeping',
+    'Pendant le petit-déjeuner':'During breakfast',
+    'Après le petit-déjeuner':'After breakfast',
+    'Avant le déjeuner':'Before lunch',
+    'Pendant le déjeuner':'During lunch',
+    'Après le déjeuner':'After lunch',
+    'Avant le dîner':'Before dinner',
+    'Pendant le dîner':'During dinner',
+    'Après le dîner':'After dinner',
+    'Avant de dormir':'Before sleeping',
   };
 
   List<String> _getCurrentFrequencyBase(LanguageService ls) =>

@@ -58,6 +58,14 @@ class _AddMedicationPageState extends State<AddMedicationPage> {
       print('🔍 OCR Status: ${response.statusCode}');
       print('🔍 OCR Body: ${response.body}');
       var data = jsonDecode(response.body);
+       // TEMP DEBUG
+      final meds = (data['medications'] as List?) ?? [];
+      debugPrint('=== OCR DEBUG ===');
+      debugPrint('Total medications received: ${meds.length}');
+      for (var med in meds) {
+        debugPrint('  → ${med['name']} | freq: ${med['frequency']} | duration: ${med['duration_days']}');
+      }
+      debugPrint('=================');
 
       if (!mounted) return;
       Navigator.pop(context);

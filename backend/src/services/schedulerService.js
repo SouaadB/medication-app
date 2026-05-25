@@ -159,15 +159,18 @@ class SchedulerService {
         };
 
         switch (anchor) {
-            case 'Before breakfast': return format(prefs.breakfast_time || '08:00', -30);
-            case 'After breakfast':  return format(prefs.breakfast_time || '08:00', 15);
-            case 'Before lunch':     return format(prefs.lunch_time || '12:30', -30);
-            case 'After lunch':      return format(prefs.lunch_time || '12:30', 15);
-            case 'Before dinner':    return format(prefs.dinner_time || '18:30', -30);
-            case 'After dinner':     return format(prefs.dinner_time || '18:30', 15);
+          case 'Before breakfast':  return format(prefs.breakfast_time || '08:00', -30);
+            case 'During breakfast':  return format(prefs.breakfast_time || '08:00', 0);
+            case 'After breakfast':   return format(prefs.breakfast_time || '08:00', 15);
+            case 'Before lunch':      return format(prefs.lunch_time || '12:30', -30);
+            case 'During lunch':      return format(prefs.lunch_time || '12:30', 0);
+            case 'After lunch':       return format(prefs.lunch_time || '12:30', 15);
+            case 'Before dinner':     return format(prefs.dinner_time || '18:30', -30);
+            case 'During dinner':     return format(prefs.dinner_time || '18:30', 0);
+            case 'After dinner':      return format(prefs.dinner_time || '18:30', 15);
             case 'Before sleeping':
-            case 'Bedtime':          return format(prefs.bedtime || '23:00', -30);
-            case 'Empty stomach':    return format(prefs.breakfast_time || '08:00', -60);
+            case 'Bedtime':           return format(prefs.bedtime || '23:00', -30);
+            case 'Empty stomach':     return format(prefs.breakfast_time || '08:00', -60);
             default: return null;
         }
     }

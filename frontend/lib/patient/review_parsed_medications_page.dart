@@ -43,23 +43,32 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
     'Une fois par jour','Deux fois par jour','Trois fois par jour','Quatre fois par jour',
     'Toutes les 12 heures','Toutes les 8 heures','Toutes les 6 heures','Au besoin',
   ];
-  final List<String> _mealAnchorsFr = [
-    'Avant le petit-déjeuner','Après le petit-déjeuner','Avant le déjeuner',
-    'Après le déjeuner','Avant le dîner','Après le dîner','Avant de dormir',
+   final List<String> _mealAnchorsFr = [
+    'Avant le petit-déjeuner','Pendant le petit-déjeuner','Après le petit-déjeuner',
+    'Avant le déjeuner','Pendant le déjeuner','Après le déjeuner',
+    'Avant le dîner','Pendant le dîner','Après le dîner','Avant de dormir',
   ];
   final List<String> _mealAnchorsEn = [
-    'Before breakfast','After breakfast','Before lunch','After lunch',
-    'Before dinner','After dinner','Before sleeping',
+    'Before breakfast','During breakfast','After breakfast',
+    'Before lunch','During lunch','After lunch',
+    'Before dinner','During dinner','After dinner','Before sleeping',
   ];
   final Map<String, String> _frToEnMap = {
     'Une fois par jour':'Once daily','Deux fois par jour':'Twice daily',
     'Trois fois par jour':'Three times daily','Quatre fois par jour':'Four times daily',
     'Toutes les 4 heures':'Every 4 hours','Toutes les 6 heures':'Every 6 hours',
     'Toutes les 8 heures':'Every 8 hours','Toutes les 12 heures':'Every 12 hours',
-    'Au besoin':'As needed','Avant le petit-déjeuner':'Before breakfast',
-    'Après le petit-déjeuner':'After breakfast','Avant le déjeuner':'Before lunch',
-    'Après le déjeuner':'After lunch','Avant le dîner':'Before dinner',
-    'Après le dîner':'After dinner','Avant de dormir':'Before sleeping',
+    'Au besoin':'As needed',
+    'Avant le petit-déjeuner':'Before breakfast',
+    'Pendant le petit-déjeuner':'During breakfast',
+    'Après le petit-déjeuner':'After breakfast',
+    'Avant le déjeuner':'Before lunch',
+    'Pendant le déjeuner':'During lunch',
+    'Après le déjeuner':'After lunch',
+    'Avant le dîner':'Before dinner',
+    'Pendant le dîner':'During dinner',
+    'Après le dîner':'After dinner',
+    'Avant de dormir':'Before sleeping',
   };
 
   late List<_EditableMedication> _items;
@@ -80,24 +89,34 @@ class _ReviewParsedMedicationsPageState extends State<ReviewParsedMedicationsPag
   void initState() {
     super.initState();
     _isConditionPreSelected = widget.conditionId != null;
-    _items = widget.medications.map((m) {
-      final freq = m['frequency'];
-      final safeFreq = _frequenciesEn.contains(freq) ? freq : 'Once daily';
+_items = widget.medications.map((m) {
       final durationDays = m['duration_days'] is int ? m['duration_days'] as int : null;
       return _EditableMedication(
         name: m['name']?.toString() ?? '',
         dosage: m['dosage']?.toString() ?? '',
-        frequency: safeFreq,
+        frequency: 'Once daily',
         durationDays: durationDays,
       );
     }).toList();
 
     for (int i = 0; i < _items.length; i++) {
       _selectedConditionIds[i] = widget.conditionId;
-      _mainFrequencies[i]      = _items[i].frequency;
-      _mealAnchorsPerItem[i]   = [];
       _priorityPerItem[i]      = 'MEDIUM';
-      _scannedBarcodes[i]      = null;  // ← NEW
+      _scannedBarcodes[i]      = null;
+
+      // ── Parse combined frequency string from OCR ──────────
+      final rawFreq = widget.medications[i]['frequency']?.toString() ?? '';
+      final parts = rawFreq.split(' + ');
+      
+      // First part is always the base frequency
+      final base = parts.isNotEmpty ? parts[0].trim() : 'Once daily';
+      _mainFrequencies[i] = _frequenciesEn.contains(base) ? base : 'Once daily';
+
+      // Remaining parts are meal anchors
+      final anchors = parts.length > 1
+          ? parts.sublist(1).map((a) => a.trim()).where((a) => _mealAnchorsEn.contains(a)).toList()
+          : <String>[];
+      _mealAnchorsPerItem[i] = anchors;
     }
     _loadPatientConditions();
   }

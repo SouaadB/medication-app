@@ -15,14 +15,14 @@ async function preprocessImage(imagePath) {
     );
 
     try {
-        await sharp(imagePath)
-            .resize({ width: 2000, withoutEnlargement: false }) // upscale small images
+         await sharp(imagePath)
+            .resize({ width: 2400, withoutEnlargement: false })
             .grayscale()
-            .normalize()                  // maximize contrast
-            .median(1)                    // remove salt-and-pepper noise
-            .sharpen({ sigma: 2, m1: 0.5, m2: 3 }) // stronger sharpening for printed text
-            .linear(1.4, -30)            // increase contrast, darken text
-            .threshold(145)              // binarize — tuned for colored-text prescriptions
+            .normalize()
+            .median(1)
+            .sharpen({ sigma: 1.5, m1: 0.5, m2: 2.5 })
+            .linear(1.3, -20)
+            .threshold(150)
             .toFile(processedPath);
 
         return processedPath;
