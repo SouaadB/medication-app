@@ -22,9 +22,28 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
   late TabController _tabController;
 
   final List<String> _categories = [
-    'All', 'Diabetes', 'Hypertension', 'Heart', 'Thyroid',
-    'Pain', 'Stomach', 'Antibiotics', 'Vitamins', 'Other'
-  ];
+  'All',
+  'Diabetes',
+  'Hypertension',
+  'Heart',
+  'Neurological',
+  'Respiratory',
+  'Pain',
+  'Stomach',
+  'Antibiotics',
+  'Allergy',
+  'Thyroid',
+  'Rheumatology',
+  'Vitamins',
+  'Dermatology',
+  'Gynecology',
+  'Urology',
+  'Endocrine',
+  'Infectious Disease',
+  'Ophthalmology',
+  'ENT',
+  'Oncology Support',
+];
   String _selectedCategory = 'All';
 
   @override
@@ -65,6 +84,7 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
         });
       }
     } catch (e) {
+      debugPrint('Loaded ${_medications.length} medications');
       debugPrint('Error fetching medications: $e');
     } finally {
       setState(() => _isLoading = false);
@@ -73,8 +93,7 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
 
   // ── NEW: call POST /education/track-view when a card is opened ─────────────
   // This is what actually feeds the medication_views table and drives the
-  // Knowledge Seeker achievement. The bottom sheet uses local data so
-  // GET /dictionary/:id is never called — this endpoint fills that gap.
+  // Knowledge Seeker achievement. The bottom sheet uses local data 
   Future<void> _trackView(String medicationName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -623,6 +642,10 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
                         iconColor: Colors.purple,
                       ),
                     ],
+                    if (med['pharmnet'] != null) ...[
+  const SizedBox(height: 20),
+  _buildPharmnetSection(med['pharmnet'], isFr),
+],
                     const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -690,6 +713,154 @@ class _MedicationDictionaryPageState extends State<MedicationDictionaryPage>
       ],
     );
   }
+  Widget _buildPharmnetSection(dynamic pharmnet, bool isFr) {
+  if (pharmnet == null) return const SizedBox.shrink();
+  final p = pharmnet as Map<String, dynamic>;
+
+  final lab           = p['lab']?.toString() ?? '';
+  final generic       = p['generic_official']?.toString() ?? '';
+  final list          = p['prescription_list']?.toString() ?? '';
+  final refundable    = p['refundable'];
+  final noticeUrl     = p['notice_url']?.toString() ?? '';
+  final pharmnetUrl   = p['pharmnet_url']?.toString() ?? '';
+  final variants      = p['dosage_variants'] as List<dynamic>? ?? [];
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(children: [
+        const Icon(Icons.local_pharmacy_outlined,
+            color: Color(0xFF0891B2), size: 20),
+        const SizedBox(width: 8),
+        Text(isFr ? 'Informations Algérie (PharmNet)' : 'Algeria Info (PharmNet)',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ]),
+      const SizedBox(height: 10),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE0F2FE),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // Refundable badge
+          if (refundable != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: refundable == true
+                    ? const Color(0xFFDCFCE7)
+                    : const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: refundable == true
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFFDC2626),
+                ),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  refundable == true
+                      ? Icons.check_circle_outline
+                      : Icons.cancel_outlined,
+                  size: 14,
+                  color: refundable == true
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFFDC2626),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  refundable == true
+                      ? (isFr ? 'Remboursé par la Sécurité Sociale' : 'Reimbursed by Social Security')
+                      : (isFr ? 'Non remboursé' : 'Not reimbursed'),
+                  style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.bold,
+                    color: refundable == true
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFDC2626),
+                  ),
+                ),
+              ]),
+            ),
+
+          // Info rows
+          if (lab.isNotEmpty)
+            _pharmnetRow(Icons.business_outlined,
+                isFr ? 'Laboratoire' : 'Laboratory', lab),
+          if (generic.isNotEmpty)
+            _pharmnetRow(Icons.science_outlined,
+                isFr ? 'DCI officielle' : 'Generic name', generic),
+          if (list.isNotEmpty)
+            _pharmnetRow(Icons.list_alt_outlined,
+                isFr ? 'Liste' : 'Prescription list', list),
+
+          // Dosage variants table
+          if (variants.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              isFr ? 'Présentations disponibles' : 'Available presentations',
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            ...variants.map((v) {
+              final vMap    = v as Map<String, dynamic>;
+              final dosage  = vMap['dosage']?.toString() ?? '';
+              final form    = vMap['form']?.toString() ?? '';
+              final cond    = vMap['conditioning']?.toString() ?? '';
+              final ppa     = vMap['ppa']?.toString() ?? '';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  if (dosage.isNotEmpty)
+                    Text(dosage, style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12, color: Color(0xFF0891B2))),
+                  if (form.isNotEmpty || cond.isNotEmpty)
+                    Text('$form${cond.isNotEmpty ? ' — $cond' : ''}',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600)),
+                  if (ppa.isNotEmpty)
+                    Text('Prix: $ppa', style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600,
+                        color: Color(0xFF16A34A))),
+                ]),
+              );
+            }),
+          ],
+        ]),
+      ),
+    ],
+  );
+}
+
+Widget _pharmnetRow(IconData icon, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 14, color: const Color(0xFF0891B2)),
+      const SizedBox(width: 8),
+      Text('$label: ', style: const TextStyle(
+          fontSize: 12, fontWeight: FontWeight.bold,
+          color: Color(0xFF0F172A))),
+      Expanded(child: Text(value, style: TextStyle(
+          fontSize: 12, color: Colors.grey.shade700))),
+    ]),
+  );
+}
 
   Widget _buildListSection({
     required IconData icon,

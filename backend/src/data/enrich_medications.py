@@ -1,18 +1,6 @@
 """
-enrich_medications.py
-─────────────────────────────────────────────────────────────────────────────
-Enriches your algerianmedication.js with official Algerian pharmnet data.
-
-HOW TO USE
-──────────
-1. Place this script in the same folder as:
-      algerianmedication.js   ← your existing dictionary
-      meds.json               ← DZ-Pharma-Data file
-2. pip install pyjson5
-3. python enrich_medications.py
-4. Outputs:
-      enriched_medications.js   → rename to algerianmedication.js
-      pharmnet_lookup.json      → keep in backend/data/ for runtime use
+enrich_medications.py  — fixed version
+Handles apostrophes and special characters in medication descriptions.
 """
 
 import json, re, sys
@@ -23,203 +11,194 @@ try:
     import pyjson5
 except ImportError:
     import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyjson5", "--break-system-packages", "-q"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyjson5",
+                           "--break-system-packages", "-q"])
     import pyjson5
-
-# ─── CONFIGURATION ───────────────────────────────────────────────────────────
 
 PHARMNET_JSON   = Path("meds.json")
 INPUT_DICT_PATH = Path("algerianMedications.js")
 OUTPUT_PATH     = Path("enriched_Medications.js")
 
-# Verified aliases: your dict name (UPPERCASE) → pharmnet commercial_name
-# None = confirmed not in the Algerian registry
 ALIASES = {
-    # ── DIABETES ────────────────────────────────────────────────
-    'NOVOMIX':      'NOVOMIX 30 FLEXPEN',
-    'GLUCOR':       'GLUCOBAY',
-    'NOVORAPID':    'NOVORAPID FLEXPEN',
-    'GALVUS MET':   'GALVUS',
-    'LEVEMIR':      'LEVEMIR FLEXPEN',
-    'MIXTARD':      'MIXTARD 30HM',
-    'AMARYL':       None,
-    'TRAJENTA':     None,
-    'ONGLYZA':      None,
-    'FORXIGA':      None,
-    'JARDIANCE':    None,
-    'OZEMPIC':      None,
-    'TRULICITY':    None,
-    'HUMINSULIN':   None,
-    'JANUMET':      None,
-    'EUCREAS':      None,
-    'INVOKANA':     None,
+    "NOVOMIX":              "NOVOMIX 30 FLEXPEN",
+    "NOVORAPID":            "NOVORAPID FLEXPEN",
+    "LEVEMIR":              "LEVEMIR FLEXPEN",
+    "MIXTARD":              "MIXTARD 30HM",
+    "GALVUS MET":           "GALVUS",
+    "LERCAN":               "LERCA",
+    "KONAKION":             "KONAKION  MM",
+    "THYROZOL":             "ATHYROZOL",
+    "SERETIDE":             "SERETIDE DISKUS",
+    "SYMBICORT":            "SYMBICORT TURBUHALER",
+    "ATROVENT":             "ATROVENT ADUL .",
+    "RHINATHIOL":           "RHINATHIOL  ADULTE",
+    "TRAMADOL":             "TRAMADOL BEKER",
+    "HYDROCORTISONE":       "HYDROCORTISONE ROUSSEL",
+    "COLCHICINE":           "COLCHICINE OPOCALCIUM",
+    "NEXIUM":               "INEXIUM",
+    "AMOXICILLINE":         "AMOXICILLINE EG",
+    "VITAMINE D3":          "VITAMINE D3 B.O.N",
+    "ACIDE FOLIQUE":        "ACIDE FOLIQUE - API",
+    "VITAMINE B12":         "VITAMINE B12 RAZES",
+    "EFFEXOR":              "EFFEXOR LP",
+    "XATRAL":               "XATRAL LP",
+    "SOMATULINE":           "SOMATULINE LP",
+    "TERBINAFINE":          "TERBINAFINE BEKER",
+    "MÉTOCLOPRAMIDE":       "CLOPRAMID",
+    "KARDÉGIC":             "KARDEGIC",
+    "VOLTARÈNE":            "VOLTARENE",
+    "DÉBRIDAT":             "DEBRIDAT",
+    "TÉGRÉTOL":             "TEGRETOL",
+    "MÉTHOTREXATE":         "METHOTREXATE BELLON",
+    "PÉNICILLINE V":        "PENICILLINE-CIMEX",
+    "BI-PROFÉNID":          "BIPROFENID",
+    "DAKTARIN":             "DAKTAZOL",
+    "LEUCOVORINE":          "LEUCODININE B",
+    "VITAMINE C":           "VITAMINE C 500MG",
+    "VITAMAG":              "VITAMAG",
+    "TARDYFERON":           "TARDYFERON",
+    "SMECTA":               "SMECTA",
+    "NIFUROXAZIDE":         "NIFUROXAZIDE",
+    "FORLAX":               "FORLAX",
+    "DUPHALAC":             "DUPHALAC",
+    "METEOSPASMYL":         "METEOSPASMYL",
+    "GAVISCON":             "GAVISCON",
+    "DAFLON":               "DAFLON",
+    "URSOLVAN":             "URSOLVAN",
+    "AUGMENTIN":            "AUGMENTIN",
+    "ZOMAX":                "ZOMAX",
+    "OFLOCET":              "OFLOCET",
+    "TAVANIC":              "TAVANIC",
+    "ZINNAT":               "ZINNAT",
+    "FLAGYL":               "FLAGYL",
+    "JOSACINE":             "JOSACINE",
+    "ROVAMYCINE":           "ROVAMYCINE",
+    "KEFORAL":              "KEFORAL",
+    "ISONIAZIDE":           "ISONIAZIDE",
+    "CUTACNYL":             "CUTACNYL",
+    "LAMISIL":              "LAMISIL",
+    "PLAQUENIL":            "PLAQUENIL",
+    "DEPAKINE":             "DEPAKINE",
+    "HALDOL":               "HALDOL",
+    "RISPERDAL":            "RISPERDAL",
+    "STILNOX":              "STILNOX",
+    "LAROXYL":              "LAROXYL",
+    "ANAFRANIL":            "ANAFRANIL",
+    "ZOLOFT":               "ZOLOFT",
+    "SURMONTIL":            "SURMONTIL",
+    "TEMESTA":              "TEMESTA",
+    "ACTONEL":              "ACTONEL",
+    "DOSTINEX":             "DOSTINEX",
+    "XALATAN":              "XALATAN",
+    "DUPHASTON":            "DUPHASTON",
+    "UTROGESTAN":           "UTROGESTAN",
+    "CLOMID":               "CLOMID",
+    "FASIGYNE":             "FASIGYNE",
+    "NIVAQUINE":            "NIVAQUINE",
+    "ZYRTEC":               "ZYRTEC",
+    "CLARITYNE":            "CLARITYNE",
+    "NASONEX":              "NASONEX",
+    "AVAMYS":               "AVAMYS",
+    "POLARAMINE":           "POLARAMINE",
+    "HEXASPRAY":            "HEXASPRAY",
+    "RHINOFLUIMUCIL":       "RHINOFLUIMUCIL",
+    "TOPLEXIL":             "TOPLEXIL",
+    "SALAZOPYRINE":         "SALAZOPYRIN EN",
+    "PLAVIX":               "PLAVIX",
+    "SINTROM":              "SINTROM",
+    "TAHOR":                "TAHOR",
+    "COVERSYL":             "COVERSYL",
+    "APROVEL":              "APROVEL",
+    "TAREG":                "TAREG",
+    "AMLOR":                "AMLOR",
+    "SECTRAL":              "SECTRAL",
+    "LASILIX":              "LASILIX",
+    "ALDACTONE":            "ALDACTONE",
+    "MICARDIS":             "MICARDIS",
+    "COZAAR":               "COZAAR",
+    "RENITEC":              "RENITEC",
+    "SPIROZIDE":            "SPIROZIDE",
+    "CATAPRESSAN":          "CATAPRESSAN",
+    "HYZAAR":               "HYZAAR",
+    "EXFORGE":              "EXFORGE",
+    "ATACAND":              "ATACAND",
+    "CORDARONE":            "CORDARONE",
+    "TILDIEM":              "TILDIEM",
+    "VASTAREL":             "VASTAREL",
+    "PROCORALAN":           "PROCORALAN",
+    "EZETROL":              "EZETROL",
+    "LESCOL":               "LESCOL",
+    "CRESTOR":              "CRESTOR",
+    "LIPANTHYL":            "LIPANTHYL",
+    "DIGOXINE":             "DIGOXINE",
+    "XARELTO":              "XARELTO",
+    "ELIQUIS":              "ELIQUIS",
+    "PRADAXA":              "PRADAXA",
+    "LEVOTHYROX":           "LEVOTHYROX",
+    "BASDÈNE":              "BASDENE",
+    "VENTOLINE":            "VENTOLINE",
+    "SPIRIVA":              "SPIRIVA",
+    "FOSTER":               "FOSTER",
+    "FLIXOTIDE":            "FLIXOTIDE",
+    "BRICANYL":             "BRICANYL",
+    "PULMICORT":            "PULMICORT",
+    "SINGULAIR":            "SINGULAIR",
+    "SOLMUCOL":             "SOLMUCOL",
+    "DOLYC":                "DOLYC",
+    "PROFENID":             "PROFENID",
+    "CELEBREX":             "CELEBREX",
+    "ACUPAN":               "ACUPAN",
+    "DEXAMETHASONE":        "DEXAMETHASONE",
+    "LYRICA":               "LYRICA",
+    "INEXIUM":              "INEXIUM",
+    "PANTOLOC":             "PANTODAR",
+    "MOPRAL":               None,
+    "INEXIUM":              "INEXIUM",
+    "MEDROL":               "MEDROL",
+    "LANTUS":               "LANTUS",
+    "JANUVIA":              "JANUVIA",
+    "STAGID":               "STAGID",
+    "VICTOZA":              "VICTOZA",
+    "ACTOS":                "ACTOS",
+    "HUMALOG":              "HUMALOG",
+    "DIAMICRON":            "DIAMICRON",
+    "GALVUS":               "GALVUS",
 
-    # ── CARDIOLOGY ──────────────────────────────────────────────
-    'TENORMINE':    'TENORMED',
-    'KARDÉGIC':     'KARDEGIC',
-    'KONAKION':     'KONAKION  MM',
-    'LERCAN':       'LERCA',
-    'LISINOPRIL':   'LISINOX',
-    'ZOCOR':        None,
-    'NORVASC':      None,
-    'ADALATE':      None,
-    'LODOZ':        None,
-    'NATRILIX':     None,
-    'CARDENSIEL':   None,
-    'MONICOR':      None,
-    'CONCOR':       None,
-    'TRANDATE':     None,
-    'TRITACE':      None,
-    'ISOPTINE':     None,
-    'PREVISCAN':    None,
-    'NICORANDIL':   None,
-
-    # ── THYROID ─────────────────────────────────────────────────
-    'BASDÈNE':      'BASDENE',
-    'THYROZOL':     None,
-    'NÉOMERCAZOLE': None,
-    'PROPYLEX':     None,
-    'L-THYROXINE':  None,
-    'IODE 131':     None,
-
-    # ── RESPIRATORY ─────────────────────────────────────────────
-    'SERETIDE':     'SERETIDE DISKUS',
-    'SYMBICORT':    'SYMBICORT TURBUHALER',
-    'ATROVENT':     'ATROVENT ADUL .',
-    'RHINATHIOL':   'RHINATHIOL  ADULTE',
-    'THÉOPHYLLINE': 'THEOPHYLLINE',
-    'BERODUAL':     None,
-    'ALVESCO':      None,
-    'ONBREZ':       None,
-    'ULTIBRO':      None,
-
-    # ── PAIN / INFLAMMATION ─────────────────────────────────────
-    'VOLTARÈNE':            'VOLTARENE',
-    'BI-PROFÉNID':          'BIPROFENID',
-    'MÉDROL':               'MEDROL',
-    'HYDROCORTISONE':       'HYDROCORTISONE ROUSSEL',
-    'TRAMADOL':             'TRAMADOL BEKER',
-    'COLCHICINE':           'COLCHICINE OPOCALCIUM',
-    'BÉTAMÉTHASONE CRÈME':  'BETAMETHASONE NOVAGENERICS',
-    'CORTANCYL':            None,
-    'ARCOXIA':              None,
-    'BREXIN':               None,
-    'COLTRAMYL':            None,
-    'SOLPADOL':             None,
-
-    # ── GASTRO ──────────────────────────────────────────────────
-    'DÉBRIDAT':         'DEBRIDAT',
-    'DOMPÉRIDONE':      'DOMPERIDONE',
-    'MÉTOCLOPRAMIDE':   'METOCLOPRAMIDE',
-    'HÉMORROÏDAL':      'HEMORECT',
-    'CRÉON':            'CREON',
-    'PANTOLOC':         'PANTODAR',
-    'MOPRAL':           None,
-    'PARIET':           None,
-    'ANTACID MAGNÉ':    None,
-    'NEXIUM':           None,
-
-    # ── ANTIBIOTICS ─────────────────────────────────────────────
-    'AMOXICILLINE':     'AMOXICILLINE EG',
-    'PÉNICILLINE V':    'PENICILLINE-CIMEX',
-    'NITROFURANTOÏNE':  'NITROCINE',
-    'CIFLOX':           None,   # Ciprofloxacin ≠ Ciflodine (Folic acid)
-    'BACTRIM':          None,   # Trimethoprim ≠ Bactroban (Mupirocin)
-    'RIFAMPICINE':      None,   # Rifampicin ≠ Rifamycine Chibret
-    'RULID':            None,
-    'DOXYCYCLINE':      None,
-    'ROCÉPHINE':        None,
-    'AMIKACINE':        None,
-    'PÉFLACINE':        None,
-
-    # ── VITAMINS / SUPPLEMENTS ──────────────────────────────────
-    'ACIDE FOLIQUE':            'ACIDE FOLIQUE - API',
-    'VITAMINE B12':             'VITAMINE B1 B6 BGL',
-    'POTASSIUM EFFERVESCENT':   'POTASSIUM GLUCONATE',
-    'CALCIPRAT':                None,
-    'FERO-GRAD':                None,
-    'NEUROBION':                None,
-    'VITAMINE D3':              None,
-    'PHOSPHORE SANDOZ':         None,
-    'OMÉGA 3':                  None,
-    'ALVITYL':                  None,
-    'BEFOL':                    None,
-    'RÉÉQUILIBRE':              None,
-
-    # ── NEUROLOGY ───────────────────────────────────────────────
-    'TÉGRÉTOL':     'TEGRETOL',
-    'PHENOBARBITAL': 'PHENOBARBIAL',
-    'NEURONTIN':    None,   # Gabapentin ≠ Phenobarbital (NEUROLAL)
-    'LAMICTAL':     None,
-    'RIVOTRIL':     None,
-
-    # ── PSYCHIATRY ──────────────────────────────────────────────
-    'EFFEXOR':      'EFFEXOR LP',
-    'TÉMÉSTA':      'TEMESTA',
-    'SÉROPLEX':     None,
-    'PROZAC':       None,
-    'LEXOMIL':      None,
-    'TERCIAN':      None,
-    'ZYPREXA':      None,
-    'IMOVANE':      None,
-    'PAXIL':        None,
-    'STABLON':      None,
-    'URBANYL':      None,
-
-    # ── UROLOGY ─────────────────────────────────────────────────
-    'XATRAL':           'XATRAL LP',
-    'JOSIR':            None,
-    'CHIBRO-PROSCAR':   None,   # Finasteride ≠ Chibro-Cadron
-
-    # ── BONE / EYE ──────────────────────────────────────────────
-    'FOSAMAX':      None,
-    'TIMOPTOL':     None,
-
-    # ── DERMATOLOGY ─────────────────────────────────────────────
-    'TERBINAFINE':  'TERBINAFINE BEKER',
-    'DAKTARIN':     'DAKTAZOL',
-
-    # ── MIGRAINE ────────────────────────────────────────────────
-    'MIGRANAL':     None,   # DHE ≠ Migramol (Paracetamol)
-    'IMIGRANE':     None,
-
-    # ── ONCOLOGY / RHEUMATOLOGY ─────────────────────────────────
-    'MÉTHOTREXATE': 'METHOTREXATE BELLON',
-    'SALAZOPYRINE': 'SALAZOPYRIN EN',
-    'SOMATULINE':   'SOMATULINE LP',
-    'LEUCOVORINE':  'LEUCODININE B',
-    'SYNACTHEN':    None,
-    'ADALIMUMAB':   None,
-    'ZOFRAN':       None,
-    'MIFÉGYNE':     None,
-    'PREMARIN':     None,
-    'DECADRON':     None,   # Dexamethasone ≠ Deca-Durabolin (Nandrolone)
-    'CYTOTEC':      None,   # Misoprostol ≠ Cytotam (Tamoxifen)
-
-    # ── ANTIPARASITIC / ANTIMALARIAL ────────────────────────────
-    'ZENTEL':       None,
-    'ARALEN':       None,
-    'MALARONE':     None,
-
-    # ── ALLERGY ─────────────────────────────────────────────────
-    'AERIUS':       None,
-    'PHENERGAN':    None,
-
-    # ── OTHER ────────────────────────────────────────────────────
-    'SILYMARINE':       None,
-    'STREPSILS':        None,
-    'NAPHAZOLINE':      None,
-    'CODIPRONT':        None,
-    'IMODIUM':          None,
-    'ACTIVATED CHARCOAL': None,
+    # Confirmed not in registry
+    "GLUCOR":None,"AMARYL":None,"TRAJENTA":None,"ONGLYZA":None,
+    "FORXIGA":None,"JARDIANCE":None,"OZEMPIC":None,"TRULICITY":None,
+    "HUMINSULIN":None,"JANUMET":None,"EUCREAS":None,"INVOKANA":None,
+    "TENORMINE":None,"NORVASC":None,"ADALATE":None,"LODOZ":None,
+    "NATRILIX":None,"CONCOR":None,"TRANDATE":None,"TRITACE":None,
+    "LISINOPRIL":None,"ZOCOR":None,"CARDENSIEL":None,"MONICOR":None,
+    "ISOPTINE":None,"PREVISCAN":None,"NICORANDIL":None,"NÉOMERCAZOLE":None,
+    "PROPYLEX":None,"L-THYROXINE":None,"IODE 131":None,"BERODUAL":None,
+    "THÉOPHYLLINE":None,"ALVESCO":None,"ONBREZ":None,"ULTIBRO":None,
+    "CODIPRONT":None,"SPASFON":None,"CORTANCYL":None,"ARCOXIA":None,
+    "BREXIN":None,"COLTRAMYL":None,"SOLPADOL":None,"MÉDROL":None,
+    "NEURONTIN":None,"ALLOPURINOL":None,"FÉBURIC":None,"MYOLASTAN":None,
+    "PARIET":None,"DOMPÉRIDONE":None,"ANTACID MAGNÉ":None,
+    "HÉMORROÏDAL":None,"CRÉON":None,"SILYMARINE":None,"IMODIUM":None,
+    "ACTIVATED CHARCOAL":None,"CIFLOX":None,"RULID":None,
+    "DOXYCYCLINE":None,"ROCÉPHINE":None,"AMIKACINE":None,
+    "RIFAMPICINE":None,"NITROFURANTOÏNE":None,"PÉFLACINE":None,
+    "BACTRIM":None,"CALCIPRAT":None,"FERO-GRAD":None,"NEUROBION":None,
+    "PHOSPHORE SANDOZ":None,"POTASSIUM EFFERVESCENT":None,"OMÉGA 3":None,
+    "ALVITYL":None,"BEFOL":None,"RÉÉQUILIBRE":None,"LAMICTAL":None,
+    "RIVOTRIL":None,"PHENOBARBITAL":None,"SÉROPLEX":None,"PROZAC":None,
+    "LEXOMIL":None,"TERCIAN":None,"ZYPREXA":None,"IMOVANE":None,
+    "PAXIL":None,"STABLON":None,"TÉMÉSTA":None,"URBANYL":None,
+    "MIGRANAL":None,"IMIGRANE":None,"JOSIR":None,"CHIBRO-PROSCAR":None,
+    "FOSAMAX":None,"SYNACTHEN":None,"BÉTAMÉTHASONE CRÈME":None,
+    "ADALIMUMAB":None,"ZOFRAN":None,"DECADRON":None,"MIFÉGYNE":None,
+    "PREMARIN":None,"CYTOTEC":None,"ZENTEL":None,"ARALEN":None,
+    "MALARONE":None,"AERIUS":None,"PHENERGAN":None,"STREPSILS":None,
 }
 
-# ─── LOAD PHARMNET ───────────────────────────────────────────────────────────
-
+# ── LOAD PHARMNET ─────────────────────────────────────────────────────────────
 print("Loading pharmnet data...")
 with open(PHARMNET_JSON, encoding="utf-8") as f:
     raw = json.load(f)
-
 all_entries = [med for letter in raw.values() for med in letter]
 print(f"  {len(all_entries)} total entries loaded")
 
@@ -230,16 +209,13 @@ for entry in all_entries:
         index[key].append(entry)
 print(f"  {len(index)} unique commercial names indexed\n")
 
-# ─── BUILD ENRICHMENT BLOCK ──────────────────────────────────────────────────
-
+# ── BUILD PHARMNET BLOCK ──────────────────────────────────────────────────────
 def build_pharmnet_block(commercial_name):
     key = commercial_name.strip().upper()
-
-    # Check alias map first
     if key in ALIASES:
         alias = ALIASES[key]
         if alias is None:
-            return None          # confirmed not in registry
+            return None
         lookup_key = alias.upper()
     else:
         lookup_key = key
@@ -264,112 +240,104 @@ def build_pharmnet_block(commercial_name):
     return {
         "refundable":        first.get("refundable"),
         "prescription_list": first.get("list"),
-        "lab":               first.get("lab", {}).get("name"),
+        "lab":               first.get("lab", {}).get("name") if isinstance(first.get("lab"), dict) else first.get("lab"),
         "generic_official":  first.get("generic"),
         "notice_url":        first.get("notice"),
         "pharmnet_url":      first.get("link"),
         "dosage_variants":   dosage_variants,
     }
 
-# ─── PARSE YOUR JS DICTIONARY ────────────────────────────────────────────────
+# ── PARSE JS — using node.js to avoid Python parser issues ───────────────────
+print(f"Reading {INPUT_DICT_PATH} via Node.js...")
+import subprocess, tempfile, os
 
-print(f"Reading {INPUT_DICT_PATH}...")
-js_source = INPUT_DICT_PATH.read_text(encoding="utf-8")
-js_clean = re.sub(r"//[^\n]*", "", js_source)
-js_clean = re.sub(r"const\s+\w+\s*=\s*", "", js_clean)
-js_clean = re.sub(r";\s*module\.exports.*", "", js_clean).strip().rstrip(";")
+node_script = """
+const fs = require('fs');
+const src = fs.readFileSync('algerianMedications.js', 'utf8');
+// Execute the module
+const m = {};
+const fn = new Function('module','exports', src + '\\nmodule.exports = module.exports || exports;');
+fn(m, m);
+const meds = m.exports || require('./algerianMedications');
+fs.writeFileSync('C:/Users/HP/AppData/Local/Temp/meds_parsed.json', JSON.stringify(meds), 'utf8');
+console.log('Parsed:', meds.length, 'medications');
+"""
 
-try:
-    medications = pyjson5.loads(js_clean)
-    print(f"  Parsed {len(medications)} medications\n")
-except Exception as e:
-    print(f"ERROR: Could not parse JS file: {e}")
+with open('C:/Users/HP/AppData/Local/Temp/parse_meds.js', 'w') as f:
+    f.write(node_script)
+
+result = subprocess.run(
+    ['node', 'C:/Users/HP/AppData/Local/Temp/parse_meds.js'],
+    capture_output=True, text=True,
+    cwd=str(INPUT_DICT_PATH.parent)
+)
+if result.returncode != 0:
+    print(f"Node error: {result.stderr}")
     sys.exit(1)
 
-# ─── ENRICH ──────────────────────────────────────────────────────────────────
+print(f"  {result.stdout.strip()}")
+with open('C:/Users/HP/AppData/Local/Temp/meds_parsed.json', encoding='utf-8') as f:
+    medications = json.load(f)
+print(f"  Loaded {len(medications)} medications\n")
 
+# ── ENRICH ────────────────────────────────────────────────────────────────────
 matched, unmatched = [], []
 for med in medications:
     block = build_pharmnet_block(med.get("name", ""))
     med["pharmnet"] = block
     (matched if block else unmatched).append(med["name"])
 
-# ─── WRITE ENRICHED JS ───────────────────────────────────────────────────────
-
-def to_js_value(v, indent=0):
-    pad   = "  " * indent
-    inner = "  " * (indent + 1)
-    if v is None:               return "null"
-    if isinstance(v, bool):     return "true" if v else "false"
-    if isinstance(v, (int, float)): return str(v)
-    if isinstance(v, str):
-        return "'" + v.replace("\\", "\\\\").replace("'", "\\'") + "'"
-    if isinstance(v, list):
-        if not v: return "[]"
-        items = [f"{inner}{to_js_value(i, indent+1)}" for i in v]
-        return "[\n" + ",\n".join(items) + f"\n{pad}]"
-    if isinstance(v, dict):
-        if not v: return "{}"
-        parts = [f"{inner}{k}: {to_js_value(dv, indent+1)}" for k, dv in v.items()]
-        return "{\n" + ",\n".join(parts) + f"\n{pad}}}"
-
-def med_to_js(med, indent=2):
-    pad   = "  " * indent
-    inner = "  " * (indent + 1)
-    parts = [f"{inner}{k}: {to_js_value(v, indent+1)}" for k, v in med.items()]
-    return f"{pad}{{\n" + ",\n".join(parts) + f"\n{pad}}}"
-
+# ── WRITE OUTPUT as JSON-compatible JS ───────────────────────────────────────
 print(f"Writing {OUTPUT_PATH}...")
-lines = ["const algerianMedications = ["]
+
+def js_str(s):
+    """Safely encode a string for JS using backtick template literals."""
+    if s is None:
+        return 'null'
+    s = str(s)
+    # escape backticks and backslashes
+    s = s.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+    return f'`{s}`'
+
+def to_js(v, indent=0):
+    pad   = '  ' * indent
+    inner = '  ' * (indent + 1)
+    if v is None:               return 'null'
+    if isinstance(v, bool):     return 'true' if v else 'false'
+    if isinstance(v, (int, float)): return str(v)
+    if isinstance(v, str):      return js_str(v)
+    if isinstance(v, list):
+        if not v: return '[]'
+        items = [f'{inner}{to_js(i, indent+1)}' for i in v]
+        return '[\n' + ',\n'.join(items) + f'\n{pad}]'
+    if isinstance(v, dict):
+        if not v: return '{}'
+        parts = [f'{inner}{k}: {to_js(dv, indent+1)}' for k, dv in v.items()]
+        return '{\n' + ',\n'.join(parts) + f'\n{pad}}}'
+    return 'null'
+
+lines = ['const algerianMedications = [']
 current_cat = None
 for med in medications:
-    cat = med.get("category", "")
+    cat = med.get('category', '')
     if cat != current_cat:
         current_cat = cat
-        lines.append(f"\n  // ─── {cat.upper()} {'─' * max(0, 50 - len(cat))}────")
-    lines.append(med_to_js(med) + ",")
-lines.append("];\n")
-lines.append("module.exports = algerianMedications;")
-OUTPUT_PATH.write_text("\n".join(lines), encoding="utf-8")
-print(f"  Done. {len(medications)} medications written.\n")
+        lines.append(f'\n  // ─── {cat.upper()} ───────────────────────────────────────────────────────────')
+    inner = '  '
+    parts = [f'{inner}  {k}: {to_js(v, 2)}' for k, v in med.items()]
+    lines.append(f'  {{\n' + ',\n'.join(parts) + f'\n  }},')
 
-# ─── RUNTIME LOOKUP INDEX ────────────────────────────────────────────────────
+lines.append('];\n')
+lines.append('module.exports = algerianMedications;')
+OUTPUT_PATH.write_text('\n'.join(lines), encoding='utf-8')
+print(f"  Written {len(medications)} medications to {OUTPUT_PATH}\n")
 
-lookup_path = Path("pharmnet_lookup.json")
-print(f"Writing runtime lookup → {lookup_path}")
-runtime = {}
-for key, entries in index.items():
-    first = entries[0]
-    prices = [
-        {"dosage": e.get("dosage"), "ppa": e.get("ppa")}
-        for e in entries
-        if e.get("ppa") and e["ppa"] not in ("--- DA", "", None)
-    ]
-    runtime[key] = {
-        "refundable":   first.get("refundable"),
-        "list":         first.get("list"),
-        "lab":          first.get("lab", {}).get("name"),
-        "generic":      first.get("generic"),
-        "notice_url":   first.get("notice"),
-        "pharmnet_url": first.get("link"),
-        "prices":       prices,
-    }
-with open(lookup_path, "w", encoding="utf-8") as f:
-    json.dump(runtime, f, ensure_ascii=False, indent=2)
-print(f"  {len(runtime)} entries written.\n")
-
-# ─── MATCH REPORT ────────────────────────────────────────────────────────────
-
-print("=" * 60)
-print("MATCH REPORT")
-print("=" * 60)
-print(f"✅ Matched:   {len(matched)} / {len(medications)}")
-print(f"⚠️  Unmatched: {len(unmatched)} / {len(medications)}")
-if unmatched:
-    print("\nNot in Algerian registry (pharmnet: null):")
-    for n in unmatched:
-        print(f"  - {n}")
-print("=" * 60)
-print("\nDone! ✅")
-print(f"→ Rename enriched_medications.js to algerianMedications.js")
-print(f"→ Keep pharmnet_lookup.json in backend/src/data/")
+# ── REPORT ────────────────────────────────────────────────────────────────────
+print('=' * 60)
+print('MATCH REPORT')
+print('=' * 60)
+print(f'✅ With pharmnet data: {len(matched)}')
+print(f'⚪ pharmnet: null:     {len(unmatched)}')
+print(f'Total:                {len(medications)}')
+print('=' * 60)
+print(f'\nDone! → copy enriched_Medications.js to algerianMedications.js')
