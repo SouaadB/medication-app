@@ -122,6 +122,7 @@ class _CaregiverForgotPasswordPageState extends State<CaregiverForgotPasswordPag
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(36), topRight: Radius.circular(36)),
                 ),
+                child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Container(
@@ -216,6 +217,7 @@ class _CaregiverForgotPasswordPageState extends State<CaregiverForgotPasswordPag
                         style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
                   ),
                 ]),
+                ),
               ),
             ),
           )),

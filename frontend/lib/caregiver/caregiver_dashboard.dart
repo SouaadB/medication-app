@@ -671,33 +671,49 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
 
   // ── EMPTY / ERROR ──────────────────────────────────────────────────────────
 
-  Widget _buildEmpty() {
-    return Center(child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(
-          width: 100, height: 100,
-          decoration: BoxDecoration(
-            color: primary.withOpacity(0.08),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.people_outline_rounded, size: 50, color: primary.withOpacity(0.5)),
-        ),
-        const SizedBox(height: 20),
-        const Text('No patients yet', style: TextStyle(fontSize: 20,
-            fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        const SizedBox(height: 8),
-        Text('Ask your patient to add you as their caregiver.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14, height: 1.5)),
-      ]),
-    ));
+    Widget _buildEmpty() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 250;
+        return Center(child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+            if (!isCompact) ...[
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.people_outline_rounded, size: 40, color: primary.withOpacity(0.5)),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Text(
+              _searchController.text.isNotEmpty
+                  ? 'No patients found'
+                  : 'No patients yet',
+              style: TextStyle(
+                  fontSize: isCompact ? 15 : 20,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF0F172A)),
+            ),
+            if (!isCompact) ...[
+              const SizedBox(height: 8),
+              Text('Ask your patient to add you as their caregiver.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14, height: 1.5)),
+            ],
+          ]),
+        ));
+      },
+    );
   }
 
   Widget _buildError() {
     return Center(child: Padding(
       padding: const EdgeInsets.all(32),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey.shade300),
         const SizedBox(height: 16),
         Text('Could not load patients', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),

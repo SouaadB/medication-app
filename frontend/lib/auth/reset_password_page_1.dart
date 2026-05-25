@@ -145,6 +145,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     final lang = Provider.of<LanguageService>(context);
     return Scaffold(
       backgroundColor: primary,
+       resizeToAvoidBottomInset: true,
       body: Stack(children: [
         Positioned(top: -60, right: -60,
           child: Container(width: 200, height: 200,
@@ -188,8 +189,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(36), topRight: Radius.circular(36)),
                 ),
-                child: SingleChildScrollView(
+                  child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(28, 36, 28, 32),
+                  
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
                     Container(
@@ -225,6 +227,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Colors.grey.shade200),
                       ),
+                      
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(lang.translate('passwordRequirements'),
                             style: const TextStyle(fontWeight: FontWeight.bold,

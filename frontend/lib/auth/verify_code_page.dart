@@ -84,6 +84,7 @@ class _VerifyCodePageState extends State<VerifyCodePage>
     final lang = Provider.of<LanguageService>(context);
     return Scaffold(
       backgroundColor: primary,
+       resizeToAvoidBottomInset: true,
       body: Stack(children: [
         Positioned(top: -60, right: -60,
           child: Container(width: 200, height: 200,
@@ -128,6 +129,7 @@ class _VerifyCodePageState extends State<VerifyCodePage>
                     topLeft: Radius.circular(36), topRight: Radius.circular(36)),
                 ),
                 padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
+                child: SingleChildScrollView(
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
 
                   Container(
@@ -228,11 +230,13 @@ class _VerifyCodePageState extends State<VerifyCodePage>
                         style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
                   ),
                 ]),
+                ),
+                   
               ),
             ),
           )),
         ])),
-      ]),
+              ]),
     );
   }
 }
