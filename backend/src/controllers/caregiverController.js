@@ -545,7 +545,6 @@ const CaregiverNotificationService = require('../services/caregiverNotificationS
 exports.getNotifications = async (req, res) => {
         try {
         const result = await CaregiverNotificationService.getForCaregiver(req.user.email);
-        await CaregiverNotificationService.markAllRead(req.user.email);
         res.json({ 
             success: true, 
             notifications: Array.isArray(result.notifications) ? result.notifications : [],
@@ -554,6 +553,20 @@ exports.getNotifications = async (req, res) => {
     } catch (error) {
         console.error('getNotifications error:', error);
         res.status(500).json({ success: false, message: 'Error fetching notifications' });
+    }
+};
+// PUT /caregivers/notifications/read/:id
+exports.markNotificationRead = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.execute(
+            'UPDATE caregiver_notifications SET is_read = 1 WHERE id = ? AND caregiver_email = ?',
+            [id, req.user.email]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('markNotificationRead error:', error);
+        res.status(500).json({ success: false });
     }
 };
  

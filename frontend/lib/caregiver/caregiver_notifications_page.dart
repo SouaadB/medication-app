@@ -23,9 +23,13 @@ class _CaregiverNotificationsPageState extends State<CaregiverNotificationsPage>
   @override
   void initState() {
     super.initState();
-    _load();
+ _load();
   }
-
+    @override
+  void dispose() {
+    
+    super.dispose();
+  }
   Future<void> _load() async {
     setState(() { _isLoading = true; _hasError = false; });
     try {
@@ -309,7 +313,7 @@ Widget _card(Map<String, dynamic> n) {
                   fontWeight: FontWeight.bold)),
             ]),
           ),
-          if (patient.isNotEmpty) ...[
+if (patient.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -326,11 +330,41 @@ Widget _card(Map<String, dynamic> n) {
             ),
           ],
         ]),
+
+        // Got it button — only for unread
+        if (!isRead) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: OutlinedButton(
+              onPressed: () => _markAsRead(n['id']),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: color,
+                side: BorderSide(color: color.withOpacity(0.4)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Got it ✓',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
       ]),
     ),
   );
 }
-
+  Future<void> _markAsRead(dynamic id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/caregivers/notifications/read/$id'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      );
+      _load();
+    } catch (_) {}
+  }
   Widget _buildEmpty() {
     return Center(child: Padding(
       padding: const EdgeInsets.all(32),

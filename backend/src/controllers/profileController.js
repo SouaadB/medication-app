@@ -3,6 +3,7 @@ const Patient         = require('../models/Patient');
 const bcrypt          = require('bcryptjs');
 const RegisterRequest = require('../dto/RegisterRequest');
 const db              = require('../config/database');
+const SchedulerService = require('../services/schedulerService');
 
 // ── GET full profile ──────────────────────────────────────────────────────────
 exports.getProfile = async (req, res) => {
@@ -270,6 +271,24 @@ exports.updateSchedule = async (req, res) => {
                 patientId,
             ]
         );
+
+     // Regenerate future schedules with new meal times
+        try {
+            const [treatments] = await db.execute(
+                'SELECT id, frequency, start_date, end_date FROM treatments WHERE patient_id = ? AND is_active = 1',
+                [patientId]
+            );
+            for (const t of treatments) {
+                await SchedulerService.clearFutureSchedules(t.id);
+                await SchedulerService.generateSchedule(
+                    patientId, t.id, t.frequency,
+                    new Date(), t.end_date || null
+                );
+            }
+            console.log(`[Profile] ♻️ Rescheduled ${treatments.length} treatments after meal time update for patient ${patientId}`);
+        } catch (rescheduleErr) {
+            console.error('[Profile] Reschedule error (non-fatal):', rescheduleErr.message);
+        }
 
         res.json({ success: true, message: 'Schedule updated successfully' });
     } catch (error) {

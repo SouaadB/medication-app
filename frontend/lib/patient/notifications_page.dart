@@ -161,7 +161,8 @@ class _NotificationsPageState extends State<NotificationsPage>
         final barcodeRaw = treatment['barcode_data'];
         if (barcodeRaw == null) return null;
         final parsed = barcodeRaw is String ? jsonDecode(barcodeRaw) : barcodeRaw;
-        return parsed['barcode']?.toString();
+        // Try all possible field names
+        return (parsed['barcode'] ?? parsed['raw'] ?? parsed['rawValue'] ?? parsed['displayValue'])?.toString();
       }
     } catch (_) {}
     return null;
@@ -473,7 +474,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     final stage    = (data['stage'] ?? '').toString();
     final title    = (notification['title'] ?? '').toString();
    // ── Caregiver reminder ────────────────────────────
-if (type == 'reminder' || (data['type'] ?? '') == 'caregiver_reminder') {
+if ((data['type'] ?? '') == 'caregiver_reminder') {
   return _NotifStyle(
     color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
     icon: Icons.favorite_outline_rounded, stage: 'reminder',

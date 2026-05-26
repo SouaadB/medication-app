@@ -165,7 +165,7 @@ static async create(caregiverEmail, patientId, type, title, message) {
                         row.patient_id,
                         'emergency',
                         `📍 ${row.patient_name}'s location not updated`,
-                        `${row.patient_name}'s location hasn't been updated for ${hoursAgo} hour${hoursAgo > 1 ? 's' : ''}. Their phone may be off or the app closed.`
+                        `${row.patient_name}'s location hasn't been updated for ${hoursAgo} hour${hoursAgo > 1 ? 's' : ''}. Their location's tracking may be off.`
                     );
                     console.log(`[CaregiverNotif] 📍 Stale location alert → ${row.caregiver_email}`);
                 }

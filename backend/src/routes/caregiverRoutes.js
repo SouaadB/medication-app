@@ -13,7 +13,8 @@ const {
      unfollowPatient,
     getNotifications,
     getNotificationCount, 
-    sendReminder 
+    sendReminder ,
+     markNotificationRead,
 } = require('../controllers/caregiverController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -23,7 +24,8 @@ router.get('/test-notifs', async (req, res) => {
     await CaregiverNotificationService.sendEmergencyAlerts();
     res.json({ success: true, message: 'Emergency alerts triggered' });
 });
-
+// FIND where other notification routes are and ADD:
+router.put('/notifications/read/:id', protect, markNotificationRead);
 router.get('/test-summary', async (req, res) => {
     const CaregiverNotificationService = require('../services/caregiverNotificationService');
     await CaregiverNotificationService.sendDailySummary();
