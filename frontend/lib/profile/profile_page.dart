@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 import '../services/language_service.dart';
+import '../services/user_role_service.dart';
+import '../services/settings_service.dart';
+import '../config/api_config.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,22 +18,29 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final ProfileService _profileService = ProfileService();
   final _formKey = GlobalKey<FormState>();
-
+  
   UserProfile? _profile;
-  bool _isLoading  = true;
-  bool _isSaving   = false;
-  bool _isEditing  = false;
-
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isEditing = false;
+  bool _isChangingPassword = false;
+  String? _userRole;
+  
+  // Controllers
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _chifaController;
   late TextEditingController _dobController;
+  late TextEditingController _currentPasswordController;
+  late TextEditingController _newPasswordController;
+  late TextEditingController _confirmPasswordController;
   String? _selectedSkillLevel;
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _initializeControllers();
+    _loadRoleAndProfile();
   }
 
   @override
@@ -38,62 +49,135 @@ class _ProfilePageState extends State<ProfilePage> {
     _phoneController.dispose();
     _chifaController.dispose();
     _dobController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // ── data ───────────────────────────────────────────────────────────────────
+  void _initializeControllers() {
+    _nameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _chifaController = TextEditingController();
+    _dobController = TextEditingController();
+    _currentPasswordController = TextEditingController();
+    _newPasswordController = TextEditingController();
+    _confirmPasswordController = TextEditingController();
+  }
+
+  Future<void> _loadRoleAndProfile() async {
+    _userRole = await UserRoleService.getUserRole();
+    await _loadProfile();
+  }
 
   Future<void> _loadProfile() async {
     try {
-      final profile = await _profileService.getProfile();
-      if (mounted) {
-        setState(() {
-          _profile = profile;
-          _isLoading = false;
-          _initControllers();
-        });
+      UserProfile? profile;
+      
+      if (_userRole == 'caregiver') {
+        profile = await _profileService.getCaregiverProfile();
+      } else {
+        profile = await _profileService.getProfile();
       }
+      
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+        _nameController.text = profile?.name ?? '';
+        _phoneController.text = profile?.phone ?? '';
+        _chifaController.text = profile?.chifaCardNumber ?? '';
+        _dobController.text = profile?.dateOfBirthFormatted ?? '';
+        _selectedSkillLevel = profile?.smartphoneSkillLevel;
+      });
     } catch (e) {
+      setState(() => _isLoading = false);
       if (mounted) {
-        setState(() => _isLoading = false);
-        _showSnack('Error loading profile: $e', Colors.red);
+        _showSnackBar('Error loading profile: $e', Colors.red);
       }
     }
   }
 
-  void _initControllers() {
-    _nameController   = TextEditingController(text: _profile?.name);
-    _phoneController  = TextEditingController(text: _profile?.phone);
-    _chifaController  = TextEditingController(text: _profile?.chifaCardNumber);
-    _dobController    = TextEditingController(text: _profile?.dateOfBirthFormatted);
-    _selectedSkillLevel = _profile?.smartphoneSkillLevel;
-  }
-
-  Future<void> _saveProfile() async {
+  Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isSaving = true);
     try {
-      final updated = _profile!.copyWith(
-        name:                _nameController.text.trim(),
-        phone:               _phoneController.text.trim(),
-        chifaCardNumber:     _profile?.role == 'patient' ? _chifaController.text.trim() : null,
-        dateOfBirth:         _profile?.role == 'patient' ? _dobController.text.trim() : null,
-        smartphoneSkillLevel: _profile?.role == 'patient' ? _selectedSkillLevel : null,
-      );
-      final result = await _profileService.updateProfile(updated);
+      UserProfile? result;
+      
+      if (_userRole == 'caregiver') {
+        final updatedProfile = _profile!.copyWith(
+          name: _nameController.text.trim(),
+          phone: null,
+        );
+        result = await _profileService.updateCaregiverProfile(updatedProfile);
+      } else {
+        final updatedProfile = _profile!.copyWith(
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          chifaCardNumber: _userRole == 'patient' ? _chifaController.text.trim() : null,
+          dateOfBirth: _userRole == 'patient' ? _dobController.text.trim() : null,
+          smartphoneSkillLevel: _userRole == 'patient' ? _selectedSkillLevel : null,
+        );
+        result = await _profileService.updateProfile(updatedProfile);
+      }
+      
+      setState(() {
+        _profile = result;
+        _isEditing = false;
+        _isSaving = false;
+      });
+      
       if (mounted) {
-        setState(() { _profile = result; _isEditing = false; _isSaving = false; });
-        _showSnack('Profile updated successfully', Colors.green);
+        final languageService = Provider.of<LanguageService>(context, listen: false);
+        _showSnackBar(languageService.translate('save'), Colors.green);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        _showSnack('Error saving profile: $e', Colors.red);
-      }
+      setState(() => _isSaving = false);
+      _showSnackBar('Error saving profile: $e', Colors.red);
     }
   }
 
-  void _showSnack(String msg, Color color) {
+  Future<void> _changePassword() async {
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showSnackBar('Passwords do not match', Colors.red);
+      return;
+    }
+    
+    if (_newPasswordController.text.length < 6) {
+      _showSnackBar('Password must be at least 6 characters', Colors.red);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      if (_userRole == 'caregiver') {
+        await _profileService.changeCaregiverPassword(
+          _currentPasswordController.text,
+          _newPasswordController.text,
+        );
+      } else {
+        await _profileService.changePassword(
+          _currentPasswordController.text,
+          _newPasswordController.text,
+        );
+      }
+      
+      setState(() {
+        _isChangingPassword = false;
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+        _isSaving = false;
+      });
+      
+      _showSnackBar('Password changed successfully', Colors.green);
+    } catch (e) {
+      setState(() => _isSaving = false);
+      _showSnackBar(e.toString(), Colors.red);
+    }
+  }
+
+  void _showSnackBar(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: color,
@@ -102,18 +186,33 @@ class _ProfilePageState extends State<ProfilePage> {
     ));
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  String _getInitials() {
+    final name = _profile?.name ?? '';
+    if (name.trim().isEmpty) return '?';
+    return name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+  }
+
+  String _getRoleDisplay() {
+    if (_userRole == 'admin') return 'ADMINISTRATOR';
+    if (_userRole == 'caregiver') return 'CAREGIVER';
+    return 'PATIENT';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final lang = Provider.of<LanguageService>(context);
-
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final languageService = Provider.of<LanguageService>(context);
+    final settingsService = Provider.of<SettingsService>(context);
+    final isDark = settingsService.isDarkMode;
+    
+    if (_isLoading && _profile == null) {
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FC),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -121,19 +220,23 @@ class _ProfilePageState extends State<ProfilePage> {
           icon: const Icon(Icons.arrow_back, color: Colors.black54),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(lang.translate('profile'),
+        title: Text(languageService.translate('profile'),
             style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
           if (_isEditing)
             TextButton(
-              onPressed: () => setState(() { _isEditing = false; _initControllers(); }),
-              child: Text(lang.translate('cancel'), style: const TextStyle(color: Colors.grey)),
+              onPressed: () => setState(() { 
+                _isEditing = false; 
+                _isChangingPassword = false;
+                _loadProfile(); 
+              }),
+              child: Text(languageService.translate('cancel'), style: const TextStyle(color: Colors.grey)),
             )
-          else
+          else if (_userRole != 'admin')
             TextButton.icon(
               onPressed: () => setState(() => _isEditing = true),
               icon: const Icon(Icons.edit_outlined, size: 16, color: Colors.blue),
-              label: Text(lang.translate('edit'), style: const TextStyle(color: Colors.blue)),
+              label: Text(languageService.translate('edit'), style: const TextStyle(color: Colors.blue)),
             ),
           const SizedBox(width: 8),
         ],
@@ -145,7 +248,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
             // ── avatar header ─────────────────────────────────────────────
-            _buildHeader(lang),
+            _buildHeader(languageService),
             const SizedBox(height: 24),
 
             // ── personal info ─────────────────────────────────────────────
@@ -154,37 +257,34 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildCard(children: [
               _field(
                 controller: _nameController,
-                label: 'Full name',
+                label: languageService.translate('fullName'),
                 icon: Icons.person_outline,
                 enabled: _isEditing,
                 validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
               _divider(),
-              _field(
-                controller: TextEditingController(text: _profile?.email),
-                label: 'Email',
-                icon: Icons.email_outlined,
-                enabled: false,
-              ),
-              _divider(),
-              _field(
-                controller: _phoneController,
-                label: lang.translate('phone'),
-                icon: Icons.phone_outlined,
-                enabled: _isEditing,
-                keyboardType: TextInputType.phone,
-              ),
+              _infoTile('Email', _profile?.email ?? '', Icons.email_outlined, enabled: false),
+              if (_userRole == 'patient') ...[
+                _divider(),
+                _field(
+                  controller: _phoneController,
+                  label: languageService.translate('phone'),
+                  icon: Icons.phone_outlined,
+                  enabled: _isEditing,
+                  keyboardType: TextInputType.phone,
+                ),
+              ],
             ]),
             const SizedBox(height: 20),
 
             // ── medical info (patients only) ──────────────────────────────
-            if (_profile?.role == 'patient') ...[
+            if (_userRole == 'patient') ...[
               _sectionLabel('Medical Information', Icons.medical_information_outlined),
               const SizedBox(height: 12),
               _buildCard(children: [
                 _field(
                   controller: _chifaController,
-                  label: lang.translate('chifaNumber'),
+                  label: languageService.translate('chifaNumber'),
                   icon: Icons.card_membership_outlined,
                   enabled: _isEditing,
                   validator: (v) {
@@ -196,7 +296,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _divider(),
                 _field(
                   controller: _dobController,
-                  label: lang.translate('dateOfBirth'),
+                  label: languageService.translate('dateOfBirth'),
                   icon: Icons.calendar_today_outlined,
                   enabled: _isEditing,
                   hint: 'DD-MM-YYYY',
@@ -207,19 +307,20 @@ class _ProfilePageState extends State<ProfilePage> {
                   },
                 ),
                 _divider(),
-                _skillLevelTile(lang),
+                _skillLevelTile(languageService),
               ]),
               const SizedBox(height: 20),
             ],
 
-            // ── account info (read only) ──────────────────────────────────
+            // ── account info ──────────────────────────────────────────────
             _sectionLabel('Account', Icons.shield_outlined),
             const SizedBox(height: 12),
             _buildCard(children: [
-              _infoTile('Role', (_profile?.role ?? '').toUpperCase(), Icons.badge_outlined),
-
+              _infoTile('Role', _getRoleDisplay(), Icons.badge_outlined, enabled: false),
             ]),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
+
+           
 
             // ── save button ───────────────────────────────────────────────
             if (_isEditing)
@@ -227,7 +328,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _isSaving ? null : _saveProfile,
+                  onPressed: _isSaving ? null : _updateProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -237,7 +338,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: _isSaving
                       ? const SizedBox(width: 22, height: 22,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(lang.translate('save'),
+                      : Text(languageService.translate('save'),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -250,11 +351,9 @@ class _ProfilePageState extends State<ProfilePage> {
   // ── AVATAR HEADER ──────────────────────────────────────────────────────────
 
   Widget _buildHeader(LanguageService lang) {
-    final name    = _profile?.name ?? '';
-    final initials = name.trim().isNotEmpty
-        ? name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
-        : '?';
-    final role = _profile?.role ?? '';
+    final name = _profile?.name ?? '';
+    final initials = _getInitials();
+    final role = _getRoleDisplay();
 
     return Container(
       width: double.infinity,
@@ -268,7 +367,7 @@ class _ProfilePageState extends State<ProfilePage> {
         Stack(children: [
           CircleAvatar(
             radius: 52,
-            backgroundColor: Colors.blue.shade50,
+            backgroundColor: Colors.blue[50],
             child: Text(initials,
                 style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
           ),
@@ -293,15 +392,15 @@ class _ProfilePageState extends State<ProfilePage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: Colors.blue[50],
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text(role.toUpperCase(),
+          child: Text(role,
               style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         if (_profile?.email != null) ...[
           const SizedBox(height: 8),
-          Text(_profile!.email!, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          Text(_profile!.email!, style: TextStyle(fontSize: 13, color: Colors.grey[500])),
         ],
       ]),
     );
@@ -311,11 +410,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _sectionLabel(String title, IconData icon) {
     return Row(children: [
-      Icon(icon, size: 16, color: Colors.grey.shade500),
+      Icon(icon, size: 16, color: Colors.grey[500]),
       const SizedBox(width: 6),
       Text(title.toUpperCase(),
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
-              color: Colors.grey.shade500, letterSpacing: 0.8)),
+              color: Colors.grey[500], letterSpacing: 0.8)),
     ]);
   }
 
@@ -332,7 +431,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _divider() => Divider(height: 1, indent: 56, color: Colors.grey.shade100);
+  Widget _divider() => Divider(height: 1, indent: 56, color: Colors.grey[100]);
 
   // ── FORM FIELD ─────────────────────────────────────────────────────────────
 
@@ -346,14 +445,13 @@ class _ProfilePageState extends State<ProfilePage> {
     String? Function(String?)? validator,
   }) {
     if (!enabled) {
-      // read-only display tile
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(children: [
-          Icon(icon, size: 20, color: Colors.grey.shade400),
+          Icon(icon, size: 20, color: Colors.grey[400]),
           const SizedBox(width: 16),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
             const SizedBox(height: 2),
             Text(controller.text.isNotEmpty ? controller.text : '—',
                 style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
@@ -372,27 +470,64 @@ class _ProfilePageState extends State<ProfilePage> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade400),
+          prefixIcon: Icon(icon, size: 20, color: Colors.grey[400]),
           border: InputBorder.none,
-          labelStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
   }
 
+  // ── PASSWORD FIELD ─────────────────────────────────────────────────────────
+
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? Function(String?)? validator,
+  }) {
+    bool _obscure = true;
+    
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: TextFormField(
+            controller: controller,
+            obscureText: _obscure,
+            validator: validator,
+            style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E)),
+            decoration: InputDecoration(
+              labelText: label,
+              prefixIcon: Icon(icon, size: 20, color: Colors.grey[400]),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, size: 20),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+              border: InputBorder.none,
+              labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── INFO TILE (read only) ──────────────────────────────────────────────────
 
-  Widget _infoTile(String label, String value, IconData icon) {
+  Widget _infoTile(String label, String value, IconData icon, {bool enabled = true}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
-        Icon(icon, size: 20, color: Colors.grey.shade400),
+        Icon(icon, size: 20, color: Colors.grey[400]),
         const SizedBox(width: 16),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
+          Text(value.isNotEmpty ? value : '—',
+              style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
         ]),
       ]),
     );
@@ -415,15 +550,15 @@ class _ProfilePageState extends State<ProfilePage> {
         value: _selectedSkillLevel,
         decoration: InputDecoration(
           labelText: lang.translate('skillLevel'),
-          prefixIcon: Icon(Icons.smartphone_outlined, size: 20, color: Colors.grey.shade400),
+          prefixIcon: Icon(Icons.smartphone_outlined, size: 20, color: Colors.grey[400]),
           border: InputBorder.none,
-          labelStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
         items: [
-          DropdownMenuItem(value: 'BASIC',        child: Text(lang.translate('basic'))),
+          DropdownMenuItem(value: 'BASIC', child: Text(lang.translate('basic'))),
           DropdownMenuItem(value: 'INTERMEDIATE', child: Text(lang.translate('intermediate'))),
-          DropdownMenuItem(value: 'ADVANCED',     child: Text(lang.translate('advanced'))),
+          DropdownMenuItem(value: 'ADVANCED', child: Text(lang.translate('advanced'))),
         ],
         onChanged: (v) => setState(() => _selectedSkillLevel = v),
       ),
@@ -432,12 +567,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String _skillLabel(String level, LanguageService lang) {
     switch (level) {
-      case 'BASIC':        return lang.translate('basic');
+      case 'BASIC': return lang.translate('basic');
       case 'INTERMEDIATE': return lang.translate('intermediate');
-      case 'ADVANCED':     return lang.translate('advanced');
+      case 'ADVANCED': return lang.translate('advanced');
       default: return level;
     }
   }
-
-
 }
