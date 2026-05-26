@@ -21,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   
   UserProfile? _profile;
   bool _isLoading = true;
+  bool _isSaving = false;
   bool _isEditing = false;
   bool _isChangingPassword = false;
   String? _userRole;
@@ -34,12 +35,6 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _newPasswordController;
   late TextEditingController _confirmPasswordController;
   String? _selectedSkillLevel;
-
-  // Role-based colors
-  Color _primaryColor = const Color(0xFF3498DB);
-  Color _lightColor = const Color(0xFFEBF5FB);
-  String _roleTitle = 'Patient';
-  IconData _roleIcon = Icons.person_rounded;
 
   @override
   void initState() {
@@ -72,25 +67,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadRoleAndProfile() async {
     _userRole = await UserRoleService.getUserRole();
-    
-    // Set role-based colors
-    if (_userRole == 'admin') {
-      _primaryColor = const Color(0xFF3498DB);
-      _lightColor = const Color(0xFFEBF5FB);
-      _roleTitle = 'Administrator';
-      _roleIcon = Icons.admin_panel_settings_rounded;
-    } else if (_userRole == 'caregiver') {
-      _primaryColor = const Color(0xFF22C55E);
-      _lightColor = const Color(0xFFE8F5E9);
-      _roleTitle = 'Caregiver';
-      _roleIcon = Icons.people_alt_rounded;
-    } else {
-      _primaryColor = const Color(0xFF3498DB);
-      _lightColor = const Color(0xFFEBF5FB);
-      _roleTitle = 'Patient';
-      _roleIcon = Icons.person_rounded;
-    }
-    
     await _loadProfile();
   }
 
@@ -116,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        _showErrorSnackBar(e.toString());
+        _showSnackBar('Error loading profile: $e', Colors.red);
       }
     }
   }
@@ -124,22 +100,22 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isSaving = true);
     try {
       UserProfile? result;
       
       if (_userRole == 'caregiver') {
         final updatedProfile = _profile!.copyWith(
-          name: _nameController.text,
+          name: _nameController.text.trim(),
           phone: null,
         );
         result = await _profileService.updateCaregiverProfile(updatedProfile);
       } else {
         final updatedProfile = _profile!.copyWith(
-          name: _nameController.text,
-          phone: _phoneController.text,
-          chifaCardNumber: _userRole == 'patient' ? _chifaController.text : null,
-          dateOfBirth: _userRole == 'patient' ? _dobController.text : null,
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          chifaCardNumber: _userRole == 'patient' ? _chifaController.text.trim() : null,
+          dateOfBirth: _userRole == 'patient' ? _dobController.text.trim() : null,
           smartphoneSkillLevel: _userRole == 'patient' ? _selectedSkillLevel : null,
         );
         result = await _profileService.updateProfile(updatedProfile);
@@ -148,36 +124,31 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _profile = result;
         _isEditing = false;
-        _isLoading = false;
+        _isSaving = false;
       });
       
       if (mounted) {
         final languageService = Provider.of<LanguageService>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(languageService.translate('save')),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackBar(languageService.translate('save'), Colors.green);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorSnackBar(e.toString());
+      setState(() => _isSaving = false);
+      _showSnackBar('Error saving profile: $e', Colors.red);
     }
   }
 
   Future<void> _changePassword() async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      _showErrorSnackBar('Passwords do not match');
+      _showSnackBar('Passwords do not match', Colors.red);
       return;
     }
     
     if (_newPasswordController.text.length < 6) {
-      _showErrorSnackBar('Password must be at least 6 characters');
+      _showSnackBar('Password must be at least 6 characters', Colors.red);
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _isSaving = true);
     try {
       if (_userRole == 'caregiver') {
         await _profileService.changeCaregiverPassword(
@@ -196,27 +167,35 @@ class _ProfilePageState extends State<ProfilePage> {
         _currentPasswordController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
-        _isLoading = false;
+        _isSaving = false;
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password changed successfully'), backgroundColor: Colors.green),
-      );
+      _showSnackBar('Password changed successfully', Colors.green);
     } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorSnackBar(e.toString());
+      setState(() => _isSaving = false);
+      _showSnackBar(e.toString(), Colors.red);
     }
   }
 
-  void _showErrorSnackBar(String error) {
-    final languageService = Provider.of<LanguageService>(context, listen: false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${languageService.translate('error')}: $error'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    setState(() => _isLoading = false);
+  void _showSnackBar(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  String _getInitials() {
+    final name = _profile?.name ?? '';
+    if (name.trim().isEmpty) return '?';
+    return name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+  }
+
+  String _getRoleDisplay() {
+    if (_userRole == 'admin') return 'ADMINISTRATOR';
+    if (_userRole == 'caregiver') return 'CAREGIVER';
+    return 'PATIENT';
   }
 
   @override
@@ -227,408 +206,371 @@ class _ProfilePageState extends State<ProfilePage> {
     
     if (_isLoading && _profile == null) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : _lightColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: _primaryColor),
-              const SizedBox(height: 16),
-              Text(
-                'Loading profile...',
-                style: TextStyle(color: _primaryColor),
-              ),
-            ],
-          ),
-        ),
+        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FC),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : _lightColor,
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FC),
       appBar: AppBar(
-        backgroundColor: _primaryColor,
+        backgroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: Colors.white,
-        title: Text(languageService.translate('profile')),
-        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(languageService.translate('profile'),
+            style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
-          if (_userRole != 'admin')
+          if (_isEditing)
+            TextButton(
+              onPressed: () => setState(() { 
+                _isEditing = false; 
+                _isChangingPassword = false;
+                _loadProfile(); 
+              }),
+              child: Text(languageService.translate('cancel'), style: const TextStyle(color: Colors.grey)),
+            )
+          else if (_userRole != 'admin')
             TextButton.icon(
-              onPressed: () => setState(() => _isEditing = !_isEditing),
-              icon: Icon(_isEditing ? Icons.close_rounded : Icons.edit_rounded, size: 18),
-              label: Text(_isEditing 
-                  ? languageService.translate('cancel')
-                  : languageService.translate('edit')),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              onPressed: () => setState(() => _isEditing = true),
+              icon: const Icon(Icons.edit_outlined, size: 16, color: Colors.blue),
+              label: Text(languageService.translate('edit'), style: const TextStyle(color: Colors.blue)),
             ),
           const SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(languageService),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildSectionTitle('Personal Information'),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _nameController,
-                      label: languageService.translate('fullName'),
-                      prefixIcon: Icons.person_outline_rounded,
-                      enabled: _isEditing,
-                      validator: (v) => v!.isEmpty ? languageService.translate('required') : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: TextEditingController(text: _profile?.email),
-                      label: languageService.translate('email'),
-                      prefixIcon: Icons.email_outlined,
-                      enabled: false,
-                    ),
-                    
-                    // Phone field only for patients (not for caregivers)
-                    if (_userRole == 'patient') ...[
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _phoneController,
-                        label: languageService.translate('phone'),
-                        prefixIcon: Icons.phone_outlined,
-                        enabled: _isEditing,
-                        validator: (v) => v!.isEmpty ? languageService.translate('required') : null,
-                      ),
-                    ],
-                    
-                    // Password change section for caregivers
-                    if (_userRole == 'caregiver') ...[
-                      const SizedBox(height: 24),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      _buildSectionTitle('Security'),
-                      const SizedBox(height: 16),
-                      if (!_isChangingPassword)
-                        ElevatedButton.icon(
-                          onPressed: () => setState(() => _isChangingPassword = true),
-                          icon: const Icon(Icons.lock_outline),
-                          label: const Text('Change Password'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        )
-                      else ...[
-                        _buildTextField(
-                          controller: _currentPasswordController,
-                          label: 'Current Password',
-                          prefixIcon: Icons.lock_outline,
-                          obscureText: true,
-                          enabled: true,
-                          validator: (v) => v!.isEmpty ? 'Current password required' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _newPasswordController,
-                          label: 'New Password',
-                          prefixIcon: Icons.lock_outline,
-                          obscureText: true,
-                          enabled: true,
-                          validator: (v) => v!.length < 6 ? 'Password must be at least 6 characters' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _confirmPasswordController,
-                          label: 'Confirm New Password',
-                          prefixIcon: Icons.lock_outline,
-                          obscureText: true,
-                          enabled: true,
-                          validator: (v) => v != _newPasswordController.text ? 'Passwords do not match' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _isChangingPassword = false;
-                                    _currentPasswordController.clear();
-                                    _newPasswordController.clear();
-                                    _confirmPasswordController.clear();
-                                  });
-                                },
-                                child: Text(languageService.translate('cancel')),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _changePassword,
-                                style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
-                                child: const Text('Save Password'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                    
-                    if (_userRole == 'patient') ...[
-                      const SizedBox(height: 32),
-                      _buildSectionTitle('Medical Information'),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _chifaController,
-                        label: languageService.translate('chifaNumber'),
-                        prefixIcon: Icons.card_membership_rounded,
-                        enabled: _isEditing,
-                        helperText: '9-digit CHIFA card number',
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return languageService.translate('required');
-                          if (v.length != 9) return 'Must be exactly 9 digits';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _dobController,
-                        label: languageService.translate('dateOfBirth'),
-                        prefixIcon: Icons.calendar_today_rounded,
-                        enabled: _isEditing,
-                        hint: 'DD-MM-YYYY',
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return languageService.translate('required');
-                          final regExp = RegExp(r'^\d{2}-\d{2}-\d{4}$');
-                          if (!regExp.hasMatch(v)) return 'Format: DD-MM-YYYY';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedSkillLevel,
-                        decoration: InputDecoration(
-                          labelText: languageService.translate('skillLevel'),
-                          prefixIcon: const Icon(Icons.smartphone_rounded),
-                          filled: true,
-                          fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        items: [
-                          {'value': 'BASIC', 'label': languageService.translate('basic')},
-                          {'value': 'INTERMEDIATE', 'label': languageService.translate('intermediate')},
-                          {'value': 'ADVANCED', 'label': languageService.translate('advanced')},
-                        ].map((item) => DropdownMenuItem(
-                              value: item['value'],
-                              child: Text(item['label']!),
-                            )).toList(),
-                        onChanged: _isEditing ? (v) => setState(() => _selectedSkillLevel = v) : null,
-                      ),
-                    ],
-                    
-                    const SizedBox(height: 40),
-                    if (_isEditing)
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _updateProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _isLoading 
-                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text(
-                              languageService.translate('save'),
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                      ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+        child: Form(
+          key: _formKey,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-  Widget _buildProfileHeader(LanguageService languageService) {
-    final String name = _profile?.name ?? '';
-    final String initials = name.isNotEmpty
-        ? name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'U';
-    
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 32, top: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _primaryColor.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: _lightColor,
-                  child: CircleAvatar(
-                    radius: 55,
-                    backgroundColor: _primaryColor.withOpacity(0.1),
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryColor,
-                      ),
-                    ),
-                  ),
-                ),
+            // ── avatar header ─────────────────────────────────────────────
+            _buildHeader(languageService),
+            const SizedBox(height: 24),
+
+            // ── personal info ─────────────────────────────────────────────
+            _sectionLabel('Personal Information', Icons.person_outline),
+            const SizedBox(height: 12),
+            _buildCard(children: [
+              _field(
+                controller: _nameController,
+                label: languageService.translate('fullName'),
+                icon: Icons.person_outline,
+                enabled: _isEditing,
+                validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _primaryColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                  ),
-                  child: Icon(
-                    _roleIcon,
-                    size: 20,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _profile?.name ?? '',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: _primaryColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: _primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(_roleIcon, size: 14, color: _primaryColor),
-                const SizedBox(width: 6),
-                Text(
-                  _roleTitle,
-                  style: TextStyle(
-                    color: _primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+              _divider(),
+              _infoTile('Email', _profile?.email ?? '', Icons.email_outlined, enabled: false),
+              if (_userRole == 'patient') ...[
+                _divider(),
+                _field(
+                  controller: _phoneController,
+                  label: languageService.translate('phone'),
+                  icon: Icons.phone_outlined,
+                  enabled: _isEditing,
+                  keyboardType: TextInputType.phone,
                 ),
               ],
-            ),
+            ]),
+            const SizedBox(height: 20),
+
+            // ── medical info (patients only) ──────────────────────────────
+            if (_userRole == 'patient') ...[
+              _sectionLabel('Medical Information', Icons.medical_information_outlined),
+              const SizedBox(height: 12),
+              _buildCard(children: [
+                _field(
+                  controller: _chifaController,
+                  label: languageService.translate('chifaNumber'),
+                  icon: Icons.card_membership_outlined,
+                  enabled: _isEditing,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Chifa number is required';
+                    if (v.trim().length != 9) return 'Chifa number must be 9 digits';
+                    return null;
+                  },
+                ),
+                _divider(),
+                _field(
+                  controller: _dobController,
+                  label: languageService.translate('dateOfBirth'),
+                  icon: Icons.calendar_today_outlined,
+                  enabled: _isEditing,
+                  hint: 'DD-MM-YYYY',
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Date of birth is required';
+                    if (!RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(v.trim())) return 'Format: DD-MM-YYYY';
+                    return null;
+                  },
+                ),
+                _divider(),
+                _skillLevelTile(languageService),
+              ]),
+              const SizedBox(height: 20),
+            ],
+
+            // ── account info ──────────────────────────────────────────────
+            _sectionLabel('Account', Icons.shield_outlined),
+            const SizedBox(height: 12),
+            _buildCard(children: [
+              _infoTile('Role', _getRoleDisplay(), Icons.badge_outlined, enabled: false),
+            ]),
+            const SizedBox(height: 20),
+
+           
+
+            // ── save button ───────────────────────────────────────────────
+            if (_isEditing)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _updateProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(width: 22, height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(languageService.translate('save'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── AVATAR HEADER ──────────────────────────────────────────────────────────
+
+  Widget _buildHeader(LanguageService lang) {
+    final name = _profile?.name ?? '';
+    final initials = _getInitials();
+    final role = _getRoleDisplay();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(children: [
+        Stack(children: [
+          CircleAvatar(
+            radius: 52,
+            backgroundColor: Colors.blue[50],
+            child: Text(initials,
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
           ),
+          if (_isEditing)
+            Positioned(
+              bottom: 0, right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 14),
+        Text(name,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(role,
+              style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        if (_profile?.email != null) ...[
           const SizedBox(height: 8),
-          Text(
-            _profile?.email ?? '',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 13,
-            ),
-          ),
+          Text(_profile!.email!, style: TextStyle(fontSize: 13, color: Colors.grey[500])),
         ],
-      ),
+      ]),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: _primaryColor,
+  // ── SECTION LABEL ──────────────────────────────────────────────────────────
+
+  Widget _sectionLabel(String title, IconData icon) {
+    return Row(children: [
+      Icon(icon, size: 16, color: Colors.grey[500]),
+      const SizedBox(width: 6),
+      Text(title.toUpperCase(),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+              color: Colors.grey[500], letterSpacing: 0.8)),
+    ]);
+  }
+
+  // ── CARD WRAPPER ───────────────────────────────────────────────────────────
+
+  Widget _buildCard({required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
+      child: Column(children: children),
     );
   }
 
-  Widget _buildTextField({
+  Widget _divider() => Divider(height: 1, indent: 56, color: Colors.grey[100]);
+
+  // ── FORM FIELD ─────────────────────────────────────────────────────────────
+
+  Widget _field({
     required TextEditingController controller,
     required String label,
-    required IconData prefixIcon,
+    required IconData icon,
     bool enabled = true,
     String? hint,
-    String? helperText,
-    bool obscureText = false,
+    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      enabled: enabled,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        helperText: helperText,
-        prefixIcon: Icon(prefixIcon, color: _primaryColor),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey[100],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _primaryColor, width: 2),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+    if (!enabled) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(children: [
+          Icon(icon, size: 20, color: Colors.grey[400]),
+          const SizedBox(width: 16),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+            const SizedBox(height: 2),
+            Text(controller.text.isNotEmpty ? controller.text : '—',
+                style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
+          ]),
+        ]),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: validator,
+        style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E)),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon, size: 20, color: Colors.grey[400]),
+          border: InputBorder.none,
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
-      validator: validator,
     );
+  }
+
+  // ── PASSWORD FIELD ─────────────────────────────────────────────────────────
+
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? Function(String?)? validator,
+  }) {
+    bool _obscure = true;
+    
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: TextFormField(
+            controller: controller,
+            obscureText: _obscure,
+            validator: validator,
+            style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E)),
+            decoration: InputDecoration(
+              labelText: label,
+              prefixIcon: Icon(icon, size: 20, color: Colors.grey[400]),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, size: 20),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+              border: InputBorder.none,
+              labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── INFO TILE (read only) ──────────────────────────────────────────────────
+
+  Widget _infoTile(String label, String value, IconData icon, {bool enabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(children: [
+        Icon(icon, size: 20, color: Colors.grey[400]),
+        const SizedBox(width: 16),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          const SizedBox(height: 2),
+          Text(value.isNotEmpty ? value : '—',
+              style: const TextStyle(fontSize: 15, color: Color(0xFF1A237E), fontWeight: FontWeight.w500)),
+        ]),
+      ]),
+    );
+  }
+
+  // ── SKILL LEVEL DROPDOWN ───────────────────────────────────────────────────
+
+  Widget _skillLevelTile(LanguageService lang) {
+    if (!_isEditing) {
+      return _infoTile(
+        lang.translate('skillLevel'),
+        _selectedSkillLevel != null ? _skillLabel(_selectedSkillLevel!, lang) : '—',
+        Icons.smartphone_outlined,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: DropdownButtonFormField<String>(
+        value: _selectedSkillLevel,
+        decoration: InputDecoration(
+          labelText: lang.translate('skillLevel'),
+          prefixIcon: Icon(Icons.smartphone_outlined, size: 20, color: Colors.grey[400]),
+          border: InputBorder.none,
+          labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        items: [
+          DropdownMenuItem(value: 'BASIC', child: Text(lang.translate('basic'))),
+          DropdownMenuItem(value: 'INTERMEDIATE', child: Text(lang.translate('intermediate'))),
+          DropdownMenuItem(value: 'ADVANCED', child: Text(lang.translate('advanced'))),
+        ],
+        onChanged: (v) => setState(() => _selectedSkillLevel = v),
+      ),
+    );
+  }
+
+  String _skillLabel(String level, LanguageService lang) {
+    switch (level) {
+      case 'BASIC': return lang.translate('basic');
+      case 'INTERMEDIATE': return lang.translate('intermediate');
+      case 'ADVANCED': return lang.translate('advanced');
+      default: return level;
+    }
   }
 }
