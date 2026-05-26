@@ -1,55 +1,88 @@
-const User            = require('../models/User');
-const Patient         = require('../models/Patient');
-const bcrypt          = require('bcryptjs');
+const User = require('../models/User');
+const Patient = require('../models/Patient');
+const Admin = require('../models/Admin');
 const RegisterRequest = require('../dto/RegisterRequest');
-const db              = require('../config/database');
+const bcrypt = require('bcryptjs');
+const db = require('../config/database');
 
-// ── GET full profile ──────────────────────────────────────────────────────────
+// ==================== PROFILE FUNCTIONS ====================
+
+// Récupérer le profil complet
 exports.getProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const user   = await User.findById(userId);
-
+        const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+            return res.status(404).json({
+                success: false,
+                message: 'Utilisateur non trouvé'
+            });
         }
 
         let patientData = null;
         if (user.role === 'patient') {
             patientData = await Patient.findByUserId(userId);
-            if (patientData?.date_of_birth) {
-                const d = new Date(patientData.date_of_birth);
-                patientData.date_of_birth_formatted =
-                    `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+            if (patientData && patientData.date_of_birth) {
+                const date = new Date(patientData.date_of_birth);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                patientData.date_of_birth_formatted = `${day}-${month}-${year}`;
             }
-            patientData.conditions = await Patient.getPatientConditions(userId);
+
+            const conditions = await Patient.getPatientConditions(userId);
+            patientData.conditions = conditions;
         }
 
-        res.json({ success: true, profile: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, ...patientData } });
-
+        res.json({
+            success: true,
+            profile: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                ...patientData
+            }
+        });
     } catch (error) {
         console.error('Erreur getProfile:', error);
-        res.status(500).json({ success: false, message: 'Erreur lors de la récupération du profil' });
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération du profil'
+        });
     }
 };
 
-// ── POST /profile/setup ───────────────────────────────────────────────────────
+// Setup profile for patient
 exports.setupPatientProfile = async (req, res) => {
     try {
         const userId = req.user.id;
         const { age, conditions } = req.body;
+
         if (!age || !conditions) {
-            return res.status(400).json({ success: false, message: 'L\'âge et les conditions sont requis' });
+            return res.status(400).json({
+                success: false,
+                message: 'L\'âge et les conditions sont requis'
+            });
         }
+
         await Patient.setupProfile(userId, { age, conditions });
-        res.json({ success: true, message: 'Profil configuré avec succès' });
+
+        res.json({
+            success: true,
+            message: 'Profil configuré avec succès'
+        });
     } catch (error) {
         console.error('Erreur setupPatientProfile:', error);
-        res.status(500).json({ success: false, message: 'Erreur lors de la configuration du profil' });
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la configuration du profil'
+        });
     }
 };
 
-// ── PUT /profile/update ───────────────────────────────────────────────────────
+// Mettre à jour le profil
 exports.updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -61,7 +94,7 @@ exports.updateProfile = async (req, res) => {
         // Update users table
         const updateFields = [];
         const updateValues = [];
-        if (name)  { updateFields.push('name = ?');  updateValues.push(name);  }
+        if (name) { updateFields.push('name = ?'); updateValues.push(name); }
         if (phone) { updateFields.push('phone = ?'); updateValues.push(phone); }
         if (updateFields.length > 0) {
             await db.execute(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, [...updateValues, userId]);
@@ -105,31 +138,46 @@ exports.updateProfile = async (req, res) => {
             if (updatedPatient?.date_of_birth) {
                 const d = new Date(updatedPatient.date_of_birth);
                 updatedPatient.date_of_birth_formatted =
-                    `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+                    `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
             }
         }
 
-        res.json({ success: true, message: 'Profil mis à jour avec succès',
-            profile: { id: updated.id, name: updated.name, email: updated.email, phone: updated.phone, role: updated.role, ...updatedPatient } });
-
+        res.json({
+            success: true,
+            message: 'Profil mis à jour avec succès',
+            profile: {
+                id: updated.id,
+                name: updated.name,
+                email: updated.email,
+                phone: updated.phone,
+                role: updated.role,
+                ...updatedPatient
+            }
+        });
     } catch (error) {
         console.error('Erreur updateProfile:', error);
         res.status(500).json({ success: false, message: 'Erreur lors de la mise à jour du profil', error: error.message });
     }
 };
 
-// ── GET /profile/conditions ───────────────────────────────────────────────────
+// Récupérer toutes les conditions disponibles
 exports.getAllChronicConditions = async (req, res) => {
     try {
         const conditions = await Patient.getAllConditions();
-        res.json({ success: true, conditions });
+        res.json({
+            success: true,
+            conditions
+        });
     } catch (error) {
         console.error('Erreur getAllChronicConditions:', error);
-        res.status(500).json({ success: false, message: 'Erreur lors de la récupération des maladies chroniques' });
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des maladies chroniques'
+        });
     }
 };
 
-// ── PUT /profile/password ─────────────────────────────────────────────────────
+// Changer le mot de passe (patient/admin)
 exports.changePassword = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -138,6 +186,7 @@ exports.changePassword = async (req, res) => {
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ success: false, message: 'Mot de passe actuel et nouveau mot de passe requis' });
         }
+
         const validation = RegisterRequest.isValidPassword(newPassword);
         if (!validation.valid) return res.status(400).json({ success: false, message: validation.message });
 
@@ -147,22 +196,21 @@ exports.changePassword = async (req, res) => {
         const isValid = await bcrypt.compare(currentPassword, users[0].password);
         if (!isValid) return res.status(401).json({ success: false, message: 'Mot de passe actuel incorrect' });
 
-        const salt   = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(10);
         const hashed = await bcrypt.hash(newPassword, salt);
         await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashed, userId]);
 
         res.json({ success: true, message: 'Mot de passe modifié avec succès' });
-
     } catch (error) {
         console.error('Erreur changePassword:', error);
         res.status(500).json({ success: false, message: 'Erreur lors du changement de mot de passe' });
     }
 };
 
-// ── PUT /profile/settings ─────────────────────────────────────────────────────
+// Update patient settings
 exports.updateSettings = async (req, res) => {
     try {
-        const userId  = req.user.id;
+        const userId = req.user.id;
         const settings = req.body;
 
         const allowedFields = [
@@ -174,7 +222,7 @@ exports.updateSettings = async (req, res) => {
         ];
 
         const updates = [];
-        const values  = [];
+        const values = [];
         for (const field of allowedFields) {
             if (settings[field] !== undefined) {
                 updates.push(`${field} = ?`);
@@ -189,14 +237,13 @@ exports.updateSettings = async (req, res) => {
         values.push(userId);
         await db.execute(`UPDATE patients SET ${updates.join(', ')} WHERE id = ?`, values);
         res.json({ success: true, message: 'Settings updated successfully' });
-
     } catch (error) {
         console.error('Error updateSettings:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
-// ── PUT /profile/daily-schedule (legacy — keep for backward compat) ───────────
+// Update patient daily schedule (legacy)
 exports.updateDailySchedule = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -209,7 +256,7 @@ exports.updateDailySchedule = async (req, res) => {
     }
 };
 
-// ── DELETE /profile/account ───────────────────────────────────────────────────
+// Delete patient account
 exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -221,10 +268,9 @@ exports.deleteAccount = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ==================== SCHEDULE FUNCTIONS ====================
+
 // GET /profile/schedule
-// Used by DailySchedulePage to load current saved times
-// ─────────────────────────────────────────────────────────────────────────────
 exports.getSchedule = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -242,10 +288,7 @@ exports.getSchedule = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PATCH /profile/schedule
-// Used by DailySchedulePage Save button
-// ─────────────────────────────────────────────────────────────────────────────
 exports.updateSchedule = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -254,19 +297,19 @@ exports.updateSchedule = async (req, res) => {
         await db.execute(
             `UPDATE patients SET
                 smart_scheduling_enabled = ?,
-                wake_time                = ?,
-                bedtime                  = ?,
-                breakfast_time           = ?,
-                lunch_time               = ?,
-                dinner_time              = ?
+                wake_time = ?,
+                bedtime = ?,
+                breakfast_time = ?,
+                lunch_time = ?,
+                dinner_time = ?
              WHERE id = ?`,
             [
                 smart_scheduling_enabled ?? true,
-                wake_time      || '07:00',
-                bedtime        || '23:00',
+                wake_time || '07:00',
+                bedtime || '23:00',
                 breakfast_time || '08:00',
-                lunch_time     || '12:30',
-                dinner_time    || '18:30',
+                lunch_time || '12:30',
+                dinner_time || '18:30',
                 patientId,
             ]
         );
@@ -278,10 +321,9 @@ exports.updateSchedule = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ==================== QUIET HOURS FUNCTIONS ====================
+
 // GET /profile/quiet-hours
-// Used by QuietHoursPage to load current settings
-// ─────────────────────────────────────────────────────────────────────────────
 exports.getQuietHours = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -302,11 +344,11 @@ exports.getQuietHours = async (req, res) => {
         res.json({
             success: true,
             quietHours: {
-                enabled:                 row.quiet_hours_enabled,
-                start:                   row.quiet_hours_start   || '23:00',
-                end:                     row.quiet_hours_end     || '07:00',
-                days:                    quietDays               || [],
-                critical_alerts_enabled: row.critical_alerts_enabled,
+                enabled: row.quiet_hours_enabled === 1,
+                start: row.quiet_hours_start || '22:00',
+                end: row.quiet_hours_end || '07:00',
+                days: quietDays || [],
+                critical_alerts_enabled: row.critical_alerts_enabled === 1,
             }
         });
     } catch (error) {
@@ -315,10 +357,7 @@ exports.getQuietHours = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PATCH /profile/quiet-hours
-// Used by QuietHoursPage Save button
-// ─────────────────────────────────────────────────────────────────────────────
 exports.updateQuietHours = async (req, res) => {
     try {
         const patientId = req.user.id;
@@ -326,18 +365,18 @@ exports.updateQuietHours = async (req, res) => {
 
         await db.execute(
             `UPDATE patients SET
-                quiet_hours_enabled     = ?,
-                quiet_hours_start       = ?,
-                quiet_hours_end         = ?,
-                quiet_hours_days        = ?,
+                quiet_hours_enabled = ?,
+                quiet_hours_start = ?,
+                quiet_hours_end = ?,
+                quiet_hours_days = ?,
                 critical_alerts_enabled = ?
              WHERE id = ?`,
             [
-                enabled                 ?? true,
-                start                   || '23:00',
-                end                     || '07:00',
-                JSON.stringify(days     || []),
-                critical_alerts_enabled ?? true,
+                enabled ? 1 : 0,
+                start || '22:00',
+                end || '07:00',
+                JSON.stringify(days || []),
+                critical_alerts_enabled ? 1 : 0,
                 patientId,
             ]
         );
@@ -346,5 +385,92 @@ exports.updateQuietHours = async (req, res) => {
     } catch (error) {
         console.error('updateQuietHours error:', error);
         res.status(500).json({ success: false, message: 'Error updating quiet hours' });
+    }
+};
+
+// ==================== CAREGIVER FUNCTIONS ====================
+
+// Get caregiver profile
+exports.getCaregiverProfile = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        console.log('📋 Getting caregiver profile for:', caregiverEmail);
+        
+        const [caregivers] = await db.execute(
+            `SELECT id, name, email, created_at FROM caregiver_users WHERE email = ?`,
+            [caregiverEmail]
+        );
+        
+        if (caregivers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Caregiver not found' });
+        }
+        
+        const caregiver = caregivers[0];
+        res.json({
+            success: true,
+            profile: {
+                id: caregiver.id,
+                name: caregiver.name,
+                email: caregiver.email,
+                role: 'caregiver',
+                created_at: caregiver.created_at
+            }
+        });
+    } catch (error) {
+        console.error('Get caregiver profile error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch caregiver profile' });
+    }
+};
+
+// Update caregiver profile
+exports.updateCaregiverProfile = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { name } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Name is required' });
+        }
+        
+        await db.execute('UPDATE caregiver_users SET name = ? WHERE email = ?', [name, caregiverEmail]);
+        
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Update caregiver profile error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update caregiver profile' });
+    }
+};
+
+// Change caregiver password
+exports.changeCaregiverPassword = async (req, res) => {
+    try {
+        const caregiverEmail = req.user.email;
+        const { current_password, new_password } = req.body;
+        
+        if (!current_password || !new_password) {
+            return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+        }
+        
+        if (new_password.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+        }
+        
+        const [caregivers] = await db.execute('SELECT password FROM caregiver_users WHERE email = ?', [caregiverEmail]);
+        if (caregivers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Caregiver not found' });
+        }
+        
+        const isValid = await bcrypt.compare(current_password, caregivers[0].password);
+        if (!isValid) {
+            return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(new_password, 10);
+        await db.execute('UPDATE caregiver_users SET password = ? WHERE email = ?', [hashedPassword, caregiverEmail]);
+        
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        console.error('Change caregiver password error:', error);
+        res.status(500).json({ success: false, message: 'Failed to change password' });
     }
 };

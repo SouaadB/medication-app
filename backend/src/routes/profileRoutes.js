@@ -10,6 +10,9 @@ const {
     updateSettings,
     updateDailySchedule,
     deleteAccount,
+    getCaregiverProfile,
+    updateCaregiverProfile,
+    changeCaregiverPassword,
     // ── NEW ──
     getSchedule,
     updateSchedule,
@@ -41,4 +44,8 @@ router.patch('/schedule', updateSchedule);
 router.get('/quiet-hours',   getQuietHours);
 router.patch('/quiet-hours', updateQuietHours);
 
+// Caregiver routes
+router.get('/caregiver/me', getCaregiverProfile);
+router.put('/caregiver/update', updateCaregiverProfile);
+router.post('/caregiver/change-password', changeCaregiverPassword);
 module.exports = router;
