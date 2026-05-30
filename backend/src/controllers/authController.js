@@ -9,7 +9,7 @@ const phoneVerificationService = require('../services/phoneVerificationService')
 const codeService = require('../services/codeService');
 const db = require('../config/database');
 const emailSenderService = require('../services/emailSenderService'); // ← NOUVEAU
-
+const crypto = require('crypto');
 // Register new patient
 exports.register = async (req, res) => {
     try {
@@ -158,13 +158,22 @@ exports.register = async (req, res) => {
             smartphoneSkillLevel: smartphoneSkillLevel.toUpperCase()
         });
 
-        // ✅ ENVOYER L'EMAIL DE BIENVENUE (ne bloque pas l'inscription)
+// REPLACE WITH:
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        
+        // Save token to database
+        await db.execute(
+            'UPDATE users SET verification_token = ? WHERE id = ?',
+            [verificationToken, userId]
+        );
+
+        // Send verification email
         try {
-            await emailSenderService.sendWelcomeEmail(email, name);
-            console.log(`📧 Email de bienvenue envoyé à ${email}`);
+            await emailSenderService.sendVerificationEmail(email, name, verificationToken);
+            console.log(`📧 Email de vérification envoyé à ${email}`);
         } catch (emailError) {
             console.error('❌ Erreur envoi email (non bloquante):', emailError);
-            // L'utilisateur est quand même inscrit
         }
 
         // Generate JWT token
@@ -229,6 +238,14 @@ exports.login = async (req, res) => {
         if (user) {
             const isPasswordValid = await bcrypt.compare(password, user.password);
             if (isPasswordValid) {
+                // Block unverified patient accounts
+                if (user.is_verified === 0 && user.role === 'patient') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Veuillez vérifier votre adresse email avant de vous connecter. Vérifiez votre boîte mail.',
+                        error_code: 'EMAIL_NOT_VERIFIED'
+                    });
+                }
                 const authToken = jwt.sign(
                     { id: user.id, email: user.email, role: user.role },
                     process.env.JWT_SECRET,
@@ -876,5 +893,81 @@ exports.resetCaregiverPassword = async (req, res) => {
             success: false,
             message: 'Erreur lors de la réinitialisation du mot de passe'
         });
+    }
+};
+// Email verification endpoint
+exports.verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.query;
+
+        if (!token) {
+            return res.status(400).send(`
+                <html><body style="font-family:Arial;text-align:center;padding:50px;">
+                    <h2 style="color:red;">❌ Token missing</h2>
+                    <p>verification link is invalid.</p>
+                </body></html>
+            `);
+        }
+
+        // Find user with this token
+        const [users] = await db.execute(
+            'SELECT id, name, email, is_verified FROM users WHERE verification_token = ?',
+            [token]
+        );
+
+        if (users.length === 0) {
+            return res.status(400).send(`
+                <html><body style="font-family:Arial;text-align:center;padding:50px;">
+                    <h2 style="color:red;">❌ invalid link or expired </h2>
+                    <p>Ce verification link is not valid.</p>
+                </body></html>
+            `);
+        }
+
+        const user = users[0];
+
+        if (user.is_verified === 1) {
+            return res.send(`
+                <html><body style="font-family:Arial;text-align:center;padding:50px;">
+                    <h2 style="color:#007AFF;">✅ Email already verified</h2>
+                    <p>your account is already verifed ,you can login now .</p>
+                </body></html>
+            `);
+        }
+
+        // Activate account
+        await db.execute(
+            'UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?',
+            [user.id]
+        );
+
+        // Send welcome email now that account is verified
+        try {
+            await emailSenderService.sendWelcomeEmail(user.email, user.name);
+        } catch (_) {}
+
+        console.log(`✅ Email verified for : ${user.email}`);
+
+        return res.send(`
+            <html><body style="font-family:Arial;text-align:center;padding:50px;background:#f5f5f5;">
+                <div style="background:white;max-width:500px;margin:0 auto;padding:40px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="font-size:60px;">✅</div>
+                    <h2 style="color:#007AFF;">Email was verified successfully !</h2>
+                    <p style="color:#666;">Bonjour ${user.name}, your medicare account is now activated.</p>
+                    <p style="color:#666;">You can now login to your medicare application.</p>
+                    <div style="font-size:40px;margin:20px 0;">💊</div>
+                    <p style="color:#999;font-size:12px;">MediCare — Votre santé, notre priorité</p>
+                </div>
+            </body></html>
+        `);
+
+    } catch (error) {
+        console.error('Verify email error:', error);
+        return res.status(500).send(`
+            <html><body style="font-family:Arial;text-align:center;padding:50px;">
+                <h2 style="color:red;">❌ Erreur serveur</h2>
+                <p>Une erreur est survenue. Veuillez réessayer.</p>
+            </body></html>
+        `);
     }
 };

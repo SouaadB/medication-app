@@ -99,17 +99,53 @@ class _SignUpPageState extends State<SignUpPage>
           'dateOfBirth':                _dateOfBirthController.text,
           'smartphoneSkillLevel':       _selectedSkillLevel,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 20));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 201 && data['success'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('✅ ${data['message']}'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ));
-          Future.delayed(const Duration(seconds: 2), () => Navigator.pop(context));
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(children: [
+                Text('📧', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 10),
+                Text('Check your email'),
+              ]),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text(
+                  'We sent a verification link to your email address.',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _emailController.text.trim(),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: primary),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please click the link in the email to activate your account before logging in.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ]),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context); // close dialog
+                    Navigator.pop(context); // go back to login
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Go to Login'),
+                ),
+              ],
+            ),
+          );
         }
       } else {
         throw Exception(data['message'] ?? 'Registration failed');

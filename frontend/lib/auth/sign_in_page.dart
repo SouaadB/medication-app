@@ -113,7 +113,12 @@ class _SignInPageState extends State<SignInPage>
           }
         }
       } else {
-        setState(() => _errorMessage = data['message'] ?? 'Invalid email or password');
+        if (response.statusCode == 403 && data['error_code'] == 'EMAIL_NOT_VERIFIED') {
+          setState(() => _errorMessage = 
+            'Please verify your email before logging in. Check your inbox for the verification link.');
+        } else {
+          setState(() => _errorMessage = data['message'] ?? 'Invalid email or password');
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _errorMessage = 'Connection error. Check your network.');
