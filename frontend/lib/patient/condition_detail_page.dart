@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'add_medication_page.dart';
 import '../config/api_config.dart';
 import '../services/language_service.dart';
+import '../widgets/barcode_scan_sheet.dart';
 
 class ConditionDetailPage extends StatefulWidget {
   final Map<String, dynamic> condition;
@@ -481,6 +482,9 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
 
   bool _isEditing = false;
   bool _isSaving  = false;
+    String? _editedBarcodeData;
+  bool _barcodeUpdated = false;
+
 
   // controllers
   late TextEditingController _nameCtrl;
@@ -518,6 +522,7 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
     _isActive   = med['is_active'] == true || med['is_active'] == 1;
     _frequency  = med['frequency'] ?? 'Once daily';
     _parseFrequency(_frequency);
+    _editedBarcodeData = med['barcode_data']?.toString();
   }
 
   @override
@@ -603,6 +608,9 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
         'is_active':       _isActive,
         'start_date':      _displayToIso(_startCtrl.text),
       };
+            if (_barcodeUpdated) {
+        body['barcode_data'] = _editedBarcodeData;
+      }
       if (_endCtrl.text.isNotEmpty) {
         body['end_date'] = _displayToIso(_endCtrl.text);
       }
@@ -917,38 +925,121 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
             ]),
             const SizedBox(height: 18),
 
-            // ── barcode ────────────────────────────────────────────────────
-            if (med['barcode_data'] != null) ...[
-              _sectionLabel(Icons.qr_code, 'Barcode'),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.qr_code, color: Colors.green, size: 22),
+ // ── barcode ────────────────────────────────────────────────────
+            _sectionLabel(Icons.qr_code, 'Barcode'),
+            const SizedBox(height: 8),
+            if (!_isEditing) ...[
+              if (med['barcode_data'] != null)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade200),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Barcode on file', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                    const SizedBox(height: 2),
-                    Text(
-                      med['barcode_data'] is Map
-                          ? (med['barcode_data']['barcode'] ?? '').toString()
-                          : med['barcode_data'].toString(),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontFamily: 'monospace'),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.qr_code, color: Colors.green, size: 22),
                     ),
-                  ])),
-                ]),
-              ),
-              const SizedBox(height: 18),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Barcode on file', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                      const SizedBox(height: 2),
+                      Text(
+                        med['barcode_data'] is Map
+                            ? (med['barcode_data']['barcode'] ?? '').toString()
+                            : med['barcode_data'].toString(),
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontFamily: 'monospace'),
+                      ),
+                    ])),
+                  ]),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.qr_code_outlined, color: Colors.grey.shade400, size: 20),
+                    const SizedBox(width: 10),
+                    Text('No barcode saved', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                  ]),
+                ),
+            ] else ...[
+              // edit mode — show scan button + current barcode
+              if (_editedBarcodeData != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.check_circle, color: Colors.green.shade600, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      _editedBarcodeData!.length > 40
+                          ? '${_editedBarcodeData!.substring(0, 40)}...'
+                          : _editedBarcodeData!,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontFamily: 'monospace'),
+                    )),
+                    GestureDetector(
+                      onTap: () => setState(() { _editedBarcodeData = null; _barcodeUpdated = true; }),
+                      child: Icon(Icons.close, size: 16, color: Colors.red.shade400),
+                    ),
+                  ]),
+                ),
+              Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () async {
+                    final result = await BarcodeScanSheet.show(
+                      context,
+                      medicationName: _nameCtrl.text,
+                    );
+                    if (result != null && mounted) {
+                      setState(() {
+                       _editedBarcodeData = '{"barcode":"${result.rawValue}","format":"${result.format?.toString() ?? 'unknown'}","raw":"${result.rawValue}","displayValue":"${result.rawValue}"}';
+                        _barcodeUpdated = true;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: const Row(children: [
+                          Icon(Icons.check_circle, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text('Barcode scanned successfully'),
+                        ]),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ));
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.qr_code_scanner, color: Colors.blue.shade600, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        _editedBarcodeData != null ? 'Rescan Barcode' : 'Scan Barcode',
+                        style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ]),
+                  ),
+                )),
+              ]),
             ],
+            const SizedBox(height: 18),
 
             // ── created at ─────────────────────────────────────────────────
             _sectionLabel(Icons.history, 'Added on'),
