@@ -23,6 +23,11 @@ class _SignUpPageState extends State<SignUpPage>
   String? _selectedSkillLevel;
   bool _isLoading       = false;
   bool _obscurePassword = true;
+    bool _hasMinLength   = false;
+  bool _hasUppercase   = false;
+  bool _hasLowercase   = false;
+  bool _hasNumber      = false;
+  bool _hasSpecialChar = false;
 
   late AnimationController _animCtrl;
   late Animation<double>   _fadeAnim;
@@ -39,7 +44,19 @@ class _SignUpPageState extends State<SignUpPage>
     _fadeAnim  = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+     _passwordController.addListener(_checkStrength);
     _animCtrl.forward();
+  }
+
+  void _checkStrength() {
+    final p = _passwordController.text;
+    setState(() {
+      _hasMinLength   = p.length >= 8;
+      _hasUppercase   = RegExp(r'[A-Z]').hasMatch(p);
+      _hasLowercase   = RegExp(r'[a-z]').hasMatch(p);
+      _hasNumber      = RegExp(r'[0-9]').hasMatch(p);
+      _hasSpecialChar = RegExp(r'[!@#\$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]').hasMatch(p);
+    });
   }
 
   @override
@@ -276,6 +293,27 @@ class _SignUpPageState extends State<SignUpPage>
   return null;
 },
                       ),
+                                            const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('Password requirements',
+                              style: TextStyle(fontWeight: FontWeight.bold,
+                                  color: primary, fontSize: 12)),
+                          const SizedBox(height: 10),
+                          _criterion('At least 8 characters',          _hasMinLength),
+                          _criterion('At least one uppercase letter',  _hasUppercase),
+                          _criterion('At least one lowercase letter',  _hasLowercase),
+                          _criterion('At least one number',            _hasNumber),
+                          _criterion('At least one special character', _hasSpecialChar),
+                        ]),
+                      ),
+
                       const SizedBox(height: 14),
 
                       _label(lang.translate('phone')),
@@ -487,6 +525,21 @@ class _SignUpPageState extends State<SignUpPage>
           borderSide: const BorderSide(color: Colors.red, width: 1.5),
         ),
       ),
+    );
+  }
+  Widget _criterion(String text, bool met) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Icon(met ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 15,
+            color: met ? Colors.green.shade500 : Colors.grey.shade400),
+        const SizedBox(width: 8),
+        Text(text, style: TextStyle(
+            fontSize: 12,
+            color: met ? Colors.green.shade700 : Colors.grey.shade600,
+            decoration: met ? TextDecoration.lineThrough : null)),
+      ]),
     );
   }
 }
