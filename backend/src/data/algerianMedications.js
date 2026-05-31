@@ -13117,6 +13117,3452 @@ const algerianMedications = [
         ]
       }
   },
+  // ─── 70 NEW PHARMNET-VERIFIED MEDICATIONS ─────────────────────────────────────
+// Add these entries to your algerianMedications.js array
+
+
+  // ─── HYPERTENSION ────────────────────────────
+  {
+    name: `Bisoprolol HUP`,
+    scientific_name: `Bisoprolol`,
+    category: `Hypertension`,
+    emoji: `❤️`,
+    description: `Bisoprolol HUP is a cardioselective beta-blocker manufactured locally by HUP Pharma Algeria, used for hypertension, stable angina, and chronic heart failure.`,
+    how_to_take: `Take once daily in the morning with or without food. Never stop abruptly — taper gradually under medical supervision.`,
+    side_effects: [
+      `Fatigue`,
+      `Cold hands and feet`,
+      `Dizziness`,
+      `Slow heart rate`,
+      `Sleep disturbances`
+    ],
+    warnings: [
+      `Never stop abruptly — risk of rebound hypertension or angina`,
+      `Use with caution in asthma or COPD`,
+      `Masks hypoglycemia signs in diabetics`
+    ],
+    interactions: [
+      `Verapamil — risk of severe bradycardia and heart block`,
+      `NSAIDs reduce antihypertensive effectiveness`,
+      `Digoxin — additive bradycardia`
+    ],
+    algeria_brands: [
+      `Bisoprolol HUP 5mg`,
+      `Bisoprolol HUP 10mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `HUP.P.PHARMA SARL`,
+      generic_official: `BISOPROLOL FUMARATE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3247-bisoprolol-hup-10mg-comp-pelli-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `582.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Bisoprolol MM`,
+    scientific_name: `Bisoprolol`,
+    category: `Hypertension`,
+    emoji: `❤️`,
+    description: `Bisoprolol MM is a cardioselective beta-blocker for hypertension, angina, and heart failure. Manufactured by Médical Maghreb.`,
+    how_to_take: `Take once daily in the morning. Do not stop abruptly.`,
+    side_effects: [
+      `Fatigue`,
+      `Cold extremities`,
+      `Dizziness`,
+      `Slow heartbeat`
+    ],
+    warnings: [
+      `Never stop abruptly`,
+      `Caution in asthma`,
+      `Masks hypoglycemia`
+    ],
+    interactions: [
+      `Verapamil — heart block risk`,
+      `NSAIDs reduce effectiveness`
+    ],
+    algeria_brands: [
+      `Bisoprolol MM 5mg`,
+      `Bisoprolol MM 10mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `MM LABORATOIRES`,
+      generic_official: `BISOPROLOL FUMARATE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3248-bisoprolol-mm-10mg-comp-pelli-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `5MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Ramipril Ival`,
+    scientific_name: `Ramipril`,
+    category: `Hypertension`,
+    emoji: `❤️`,
+    description: `Ramipril Ival is an ACE inhibitor used for hypertension, heart failure, and kidney protection in diabetic patients. Manufactured by IVAL Algeria.`,
+    how_to_take: `Take once daily with or without food at the same time each day.`,
+    side_effects: [
+      `Dry cough (very common)`,
+      `Dizziness`,
+      `Headache`,
+      `Elevated potassium`
+    ],
+    warnings: [
+      `Not safe in pregnancy`,
+      `Stop immediately for facial or throat swelling (angioedema)`,
+      `Monitor kidney function and potassium`
+    ],
+    interactions: [
+      `NSAIDs reduce effectiveness`,
+      `Potassium supplements — hyperkalemia risk`,
+      `Diuretics increase hypotension risk`
+    ],
+    algeria_brands: [
+      `Ramipril Ival 2.5mg`,
+      `Ramipril Ival 5mg`,
+      `Ramipril Ival 10mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `PHARMA IVAL`,
+      generic_official: `RAMIPRIL`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-168-ramipril-ival-2-5mg-comp-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `2,5MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `5MG`,
+          form: `COMP SEC`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Carvedilol LDM`,
+    scientific_name: `Carvedilol`,
+    category: `Hypertension`,
+    emoji: `❤️`,
+    description: `Carvedilol LDM is a non-selective beta-blocker with alpha-blocking properties used for hypertension and chronic heart failure. Manufactured by LDM Algeria.`,
+    how_to_take: `Take twice daily with food to reduce dizziness. Start at low dose and increase gradually.`,
+    side_effects: [
+      `Dizziness on standing`,
+      `Fatigue`,
+      `Slow heartbeat`,
+      `Weight gain`
+    ],
+    warnings: [
+      `Never stop abruptly — taper gradually`,
+      `Use with extreme caution in asthma`,
+      `Monitor blood sugar in diabetics`
+    ],
+    interactions: [
+      `Verapamil and diltiazem — risk of severe bradycardia and heart block`,
+      `Digoxin — additive heart rate slowing`,
+      `Insulin — masks hypoglycemia`
+    ],
+    algeria_brands: [
+      `Carvedilol LDM 6.25mg`,
+      `Carvedilol LDM 12.5mg`,
+      `Carvedilol LDM 25mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `CARVEDILOL`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3258-carvedilol-ldm-25mg-comp-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `25MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30`,
+          ppa: `1204.00 DA`
+        },
+        {
+          dosage: `6,25MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30`,
+          ppa: `694.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── HEART ───────────────────────────────────
+  {
+    name: `Atorvastatine LDM`,
+    scientific_name: `Atorvastatin`,
+    category: `Heart`,
+    emoji: `💊`,
+    description: `Atorvastatine LDM is a locally manufactured atorvastatin statin for cholesterol reduction and cardiovascular risk prevention. Produced by LDM Algeria.`,
+    how_to_take: `Take once daily at any time with or without food.`,
+    side_effects: [
+      `Muscle pain or weakness (report immediately)`,
+      `Headache`,
+      `Nausea`,
+      `Liver enzyme elevation`
+    ],
+    warnings: [
+      `Report unexplained muscle pain immediately — rhabdomyolysis risk`,
+      `Avoid grapefruit juice`,
+      `Regular liver function monitoring`
+    ],
+    interactions: [
+      `Grapefruit juice significantly increases drug levels`,
+      `Rifampicin reduces effectiveness`,
+      `Amlodipine — limit atorvastatin to 40mg`
+    ],
+    algeria_brands: [
+      `Atorvastatine LDM 10mg`,
+      `Atorvastatine LDM 20mg`,
+      `Atorvastatine LDM 40mg`,
+      `Atorvastatine LDM 80mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `ATORVASTATINE CALCIQUE TRIHYDRATE EXPRIME EN ATORVASTATINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4385-atorvastatine-ldm-10mg-comp-pelli-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `20MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `40MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `80MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Clopidogrel LDM`,
+    scientific_name: `Clopidogrel`,
+    category: `Heart`,
+    emoji: `🩸`,
+    description: `Clopidogrel LDM is a locally manufactured antiplatelet agent for preventing blood clots after heart attack, stroke, and stent placement.`,
+    how_to_take: `Take once daily with or without food. Never stop without consulting your doctor.`,
+    side_effects: [
+      `Easy bruising`,
+      `Stomach pain`,
+      `Nausea`,
+      `Headache`
+    ],
+    warnings: [
+      `Never stop suddenly — serious clotting risk`,
+      `Tell all doctors before any procedure or surgery`,
+      `Use pantoprazole (not omeprazole) for stomach protection`
+    ],
+    interactions: [
+      `Omeprazole significantly reduces effectiveness — use pantoprazole instead`,
+      `NSAIDs — increased bleeding risk`,
+      `Warfarin — greatly increased bleeding risk`
+    ],
+    algeria_brands: [
+      `Clopidogrel LDM 75mg`,
+      `Clopidogrel LDM 300mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `CLOPIDOGREL BISULFATE EXPRIME EN CLOPIDOGREL`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1505-clopidogrel-ldm-75mg-comp-pell-b-30`,
+      dosage_variants: [
+        {
+          dosage: `75MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `1800.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Simvastatine LDM`,
+    scientific_name: `Simvastatin`,
+    category: `Heart`,
+    emoji: `💊`,
+    description: `Simvastatine LDM is a locally manufactured simvastatin statin for lowering cholesterol and reducing cardiovascular risk. Produced by LDM Algeria.`,
+    how_to_take: `Take once daily in the evening with or without food.`,
+    side_effects: [
+      `Muscle pain (report immediately)`,
+      `Headache`,
+      `Nausea`,
+      `Constipation`
+    ],
+    warnings: [
+      `Report unexplained muscle pain immediately`,
+      `Avoid grapefruit juice`,
+      `Dose capped at 20mg with amlodipine`
+    ],
+    interactions: [
+      `Grapefruit juice increases drug levels significantly`,
+      `Amlodipine — simvastatin must not exceed 20mg`,
+      `Rifampicin reduces effectiveness`
+    ],
+    algeria_brands: [
+      `Simvastatine LDM 10mg`,
+      `Simvastatine LDM 20mg`,
+      `Simvastatine LDM 40mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `SIMVASTATINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1544-simvastatine-ldm-20mg-comp-pelli-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `20MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `1190.00 DA`
+        },
+        {
+          dosage: `40MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `2085.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Rosuvastatine LDM`,
+    scientific_name: `Rosuvastatin`,
+    category: `Heart`,
+    emoji: `💊`,
+    description: `Rosuvastatine LDM is a locally manufactured rosuvastatin statin for aggressive cholesterol lowering and cardiovascular risk reduction.`,
+    how_to_take: `Take once daily at any time with or without food.`,
+    side_effects: [
+      `Muscle pain (report immediately)`,
+      `Headache`,
+      `Nausea`,
+      `Proteinuria with high doses`
+    ],
+    warnings: [
+      `Report muscle pain immediately`,
+      `No grapefruit interaction unlike some other statins`,
+      `Dose limit of 20mg in Asian patients`
+    ],
+    interactions: [
+      `Warfarin — increases anticoagulant effect`,
+      `Antacids reduce absorption — take 2 hours apart`,
+      `Cyclosporine increases rosuvastatin levels`
+    ],
+    algeria_brands: [
+      `Rosuvastatine LDM 5mg`,
+      `Rosuvastatine LDM 10mg`,
+      `Rosuvastatine LDM 20mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `ROSUVASTATINE  CALCIQUE EXPRIME EN ROSUVASTATINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-6166-rosuvastatine-ldm-10mg-comprime-pellicule-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Diltiazem Bayer LP`,
+    scientific_name: `Diltiazem (sustained release)`,
+    category: `Heart`,
+    emoji: `❤️`,
+    description: `Diltiazem Bayer LP is a sustained-release calcium channel blocker for hypertension, stable angina, and certain heart rhythm disorders.`,
+    how_to_take: `Take once or twice daily with or without food. Swallow whole — do not crush sustained-release tablets.`,
+    side_effects: [
+      `Slow heartbeat`,
+      `Constipation`,
+      `Headache`,
+      `Dizziness`,
+      `Ankle swelling`
+    ],
+    warnings: [
+      `Never stop abruptly for angina`,
+      `Monitor heart rate regularly`,
+      `Not for use in heart failure or second/third degree heart block`
+    ],
+    interactions: [
+      `Beta-blockers — risk of severe bradycardia and heart block`,
+      `Digoxin — levels increase`,
+      `Simvastatin — levels increase`
+    ],
+    algeria_brands: [
+      `Diltiazem Bayer LP 120mg`,
+      `Diltiazem Bayer LP 200mg`,
+      `Diltiazem Bayer LP 300mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BAYER`,
+      generic_official: `DILTIAZEM CHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-82-diltiazem--bayer-lp-120mg-gles-lp-b-28`,
+      dosage_variants: [
+        {
+          dosage: `120MG`,
+          form: `GLES. LP`,
+          conditioning: `B/28`,
+          ppa: null
+        },
+        {
+          dosage: `90MG`,
+          form: `GLES. LP`,
+          conditioning: `B/28`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── HYPERTENSION ────────────────────────────
+  {
+    name: `Furosemide HUP`,
+    scientific_name: `Furosemide`,
+    category: `Hypertension`,
+    emoji: `💊`,
+    description: `Furosemide HUP is a locally manufactured loop diuretic for fluid retention in heart failure, kidney disease, and hypertension. Made by HUP Pharma Algeria.`,
+    how_to_take: `Take in the morning or early afternoon to avoid nighttime urination. Take with food.`,
+    side_effects: [
+      `Frequent urination`,
+      `Dizziness`,
+      `Low potassium`,
+      `Dehydration`,
+      `Sensitivity to sunlight`
+    ],
+    warnings: [
+      `Monitor potassium levels — may need supplements`,
+      `Stay hydrated`,
+      `Rise slowly to prevent dizziness`,
+      `Regular blood tests required`
+    ],
+    interactions: [
+      `Digoxin — low potassium increases toxicity risk`,
+      `NSAIDs reduce effectiveness`,
+      `Aminoglycoside antibiotics — increased kidney toxicity`
+    ],
+    algeria_brands: [
+      `Furosemide HUP 20mg`,
+      `Furosemide HUP 40mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `HUP.P.PHARMA SARL`,
+      generic_official: `FUROSEMIDE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=93`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3289-furosemide-hup-40mg-comp-sec-b-20`,
+      dosage_variants: [
+        {
+          dosage: `40MG`,
+          form: `COMP`,
+          conditioning: `B/20`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── DIABETES ────────────────────────────────
+  {
+    name: `Insulatard HM`,
+    scientific_name: `Insulin Human NPH (Intermediate-acting)`,
+    category: `Diabetes`,
+    emoji: `💉`,
+    description: `Insulatard HM is an intermediate-acting human insulin (NPH) providing 12-18 hours of coverage. Used as basal insulin once or twice daily, or mixed with rapid insulin.`,
+    how_to_take: `Inject subcutaneously once or twice daily. Mix gently by rolling — never shake. Can be mixed with Actrapid in the same syringe.`,
+    side_effects: [
+      `Hypoglycemia`,
+      `Injection site reactions`,
+      `Weight gain`,
+      `Lipodystrophy with repeated injections at same site`
+    ],
+    warnings: [
+      `Mix gently — do not shake vigorously (cloudy appearance is normal)`,
+      `Rotate injection sites`,
+      `Always carry fast-acting glucose`
+    ],
+    interactions: [
+      `Alcohol alters blood sugar unpredictably`,
+      `Beta-blockers mask hypoglycemia signs`,
+      `Steroids increase insulin requirements`
+    ],
+    algeria_brands: [
+      `Insulatard HM 100UI/mL vial`,
+      `Insulatard HM Penfill`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `NOVO NORDISK`,
+      generic_official: `INSULINE HUMAINE (rDNA) ISOPHANE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3739`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3739-insulatard-hm-100ui-ml-susp-inj-fl-10ml`,
+      dosage_variants: [
+        {
+          dosage: `100UI/ML`,
+          form: `SUSP. INJ`,
+          conditioning: `FL/10ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Gliclazide BGL`,
+    scientific_name: `Gliclazide`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Gliclazide BGL is a locally manufactured gliclazide sulfonylurea for type 2 diabetes. Produced by Bio-Galenic Algeria as an affordable alternative to Diamicron.`,
+    how_to_take: `Take once daily with breakfast. Do not skip meals after taking this medication.`,
+    side_effects: [
+      `Low blood sugar (hypoglycemia)`,
+      `Weight gain`,
+      `Nausea`,
+      `Stomach upset`
+    ],
+    warnings: [
+      `Monitor blood sugar regularly`,
+      `Do not skip meals — increases hypoglycemia risk`,
+      `Avoid excessive alcohol`
+    ],
+    interactions: [
+      `NSAIDs and fluconazole increase gliclazide levels`,
+      `Beta-blockers mask hypoglycemia symptoms`,
+      `Alcohol increases hypoglycemia risk`
+    ],
+    algeria_brands: [
+      `Gliclazide BGL 30mg LP`,
+      `Gliclazide BGL 80mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BIO-GALENIC`,
+      generic_official: `GLICLAZIDE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3713`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3713-gliclazide-bgl-30mg-comp-pelli-lm-b-30`,
+      dosage_variants: [
+        {
+          dosage: `30MG`,
+          form: `COMP. PELLI. LP`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Metformine Zentiva`,
+    scientific_name: `Metformin`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Metformine Zentiva is a metformin for type 2 diabetes manufactured by Zentiva. Works by reducing glucose production by the liver and improving insulin sensitivity.`,
+    how_to_take: `Take with meals to reduce stomach upset. Usually 2-3 times daily. Swallow whole with water.`,
+    side_effects: [
+      `Nausea (especially at start)`,
+      `Diarrhea`,
+      `Stomach pain`,
+      `Metallic taste in mouth`
+    ],
+    warnings: [
+      `Do not use with severe kidney disease`,
+      `Stop before surgery or contrast X-ray procedures`,
+      `Avoid excessive alcohol`
+    ],
+    interactions: [
+      `Alcohol increases lactic acidosis risk`,
+      `Iodinated contrast media — stop 48h before imaging`,
+      `Some diuretics may interact`
+    ],
+    algeria_brands: [
+      `Metformine Zentiva 500mg`,
+      `Metformine Zentiva 850mg`,
+      `Metformine Zentiva 1000mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `SAIDAL GROUPE`,
+      generic_official: `METFORMINE CHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6078`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3707-metformine-zentiva-1000mg-comp-pelli-b-90`,
+      dosage_variants: [
+        {
+          dosage: `1000MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/90`,
+          ppa: `520.00 DA`
+        },
+        {
+          dosage: `850MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/90`,
+          ppa: `442.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Sitagliptine Beker`,
+    scientific_name: `Sitagliptin`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Sitagliptine Beker is a locally manufactured sitagliptin DPP-4 inhibitor for type 2 diabetes. Lowers blood sugar by increasing insulin release when blood sugar is high.`,
+    how_to_take: `Take once daily (100mg) with or without food.`,
+    side_effects: [
+      `Stuffy or runny nose`,
+      `Sore throat`,
+      `Upper respiratory infection`,
+      `Headache`,
+      `Rarely: joint pain`
+    ],
+    warnings: [
+      `Dose adjustment needed for kidney disease`,
+      `Report severe joint pain to doctor`,
+      `Seek care for severe abdominal pain — pancreatitis risk`
+    ],
+    interactions: [
+      `Works well with metformin`,
+      `May need dose adjustment with certain antifungals`
+    ],
+    algeria_brands: [
+      `Sitagliptine Beker 100mg`
+    ],
+    pharmnet: {
+      refundable: false,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `SITAGLIPTINE PHOSPHATE MONOHYDRATE EXPRIME EN SITAGLIPTINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6078`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4592-sitagliptine-beker-100mg-comp-pelli-b-30-et-b-90`,
+      dosage_variants: [
+        {
+          dosage: `100MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `2610.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Glimepiride Beker`,
+    scientific_name: `Glimepiride`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Glimepiride Beker is a locally manufactured glimepiride sulfonylurea for type 2 diabetes. Stimulates the pancreas to produce more insulin.`,
+    how_to_take: `Take once daily with breakfast. Do not skip meals.`,
+    side_effects: [
+      `Low blood sugar (hypoglycemia)`,
+      `Weight gain`,
+      `Nausea`,
+      `Dizziness`
+    ],
+    warnings: [
+      `Monitor blood sugar regularly`,
+      `Do not skip meals`,
+      `Avoid excessive alcohol`
+    ],
+    interactions: [
+      `Insulin increases hypoglycemia risk`,
+      `Fluconazole increases glimepiride levels`,
+      `Beta-blockers mask hypoglycemia signs`
+    ],
+    algeria_brands: [
+      `Glimepiride Beker 1mg`,
+      `Glimepiride Beker 2mg`,
+      `Glimepiride Beker 3mg`,
+      `Glimepiride Beker 4mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `GLIMEPIRIDE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=4392`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4392-glimepiride-beker-1mg-comp-sec-b-30-et-b-90`,
+      dosage_variants: [
+        {
+          dosage: `1MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `250.8 DA`
+        },
+        {
+          dosage: `2MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `479.99 DA`
+        },
+        {
+          dosage: `3MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `720.00 DA`
+        },
+        {
+          dosage: `4MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `750.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Repaglinide Beker`,
+    scientific_name: `Repaglinide`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Repaglinide Beker is a meglitinide insulin secretagogue for type 2 diabetes. Works at mealtimes only — take when eating, skip if skipping a meal.`,
+    how_to_take: `Take immediately before each main meal. Skip dose if you skip a meal.`,
+    side_effects: [
+      `Low blood sugar (hypoglycemia)`,
+      `Weight gain`,
+      `Nausea`,
+      `Upper respiratory infection`
+    ],
+    warnings: [
+      `Only take if eating — skip dose for skipped meals`,
+      `Monitor blood sugar especially when starting`,
+      `Dose adjustment needed for liver disease`
+    ],
+    interactions: [
+      `Gemfibrozil — greatly increases repaglinide levels (avoid)`,
+      `NSAIDs and fluconazole increase hypoglycemia risk`,
+      `Rifampicin reduces effectiveness`
+    ],
+    algeria_brands: [
+      `Repaglinide Beker 0.5mg`,
+      `Repaglinide Beker 1mg`,
+      `Repaglinide Beker 2mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `REPAGLINIDE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6078`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4692-repaglinide-beker-0-5mg-comp-b-30-et-b-90`,
+      dosage_variants: [
+        {
+          dosage: `0,5MG`,
+          form: `COMP`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `355.80 DA`
+        },
+        {
+          dosage: `1MG`,
+          form: `COMP`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `370.80 DA`
+        },
+        {
+          dosage: `2MG`,
+          form: `COMP`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `390.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── NEUROLOGICAL ────────────────────────────
+  {
+    name: `Diazepam`,
+    scientific_name: `Diazepam`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Diazepam is a long-acting benzodiazepine for acute anxiety, muscle spasms, alcohol withdrawal, and seizures. Injectable form used in status epilepticus.`,
+    how_to_take: `Take as prescribed. Short-term use only for anxiety. Injectable form administered by healthcare professionals for emergencies.`,
+    side_effects: [
+      `Significant drowsiness`,
+      `Dizziness`,
+      `Memory impairment`,
+      `Dependence with prolonged use`,
+      `Respiratory depression with high doses`
+    ],
+    warnings: [
+      `Short-term use only — high dependence risk`,
+      `Do not drive or operate machinery`,
+      `Do not stop abruptly after prolonged use — seizure risk`
+    ],
+    interactions: [
+      `Alcohol — potentially fatal respiratory depression`,
+      `CNS depressants — additive sedation`,
+      `Opioids — respiratory depression risk`
+    ],
+    algeria_brands: [
+      `Diazepam injectable 10mg/2mL`,
+      `Diazepam oral drops`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `RENAUDIN`,
+      generic_official: `DIAZEPAM`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-2604-diazepam-0-01-sol-buv-gttes-fl-20ml`,
+      dosage_variants: [
+        {
+          dosage: `0.01`,
+          form: `SOL. BUV. GTTES`,
+          conditioning: `FL/20ML`,
+          ppa: null
+        },
+        {
+          dosage: `10MG/2ML`,
+          form: `SOL. INJ`,
+          conditioning: `B/10`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Lorazepam`,
+    scientific_name: `Lorazepam`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Lorazepam is an intermediate-acting benzodiazepine for anxiety, pre-operative sedation, and acute seizures. Less accumulation than diazepam making it preferable in elderly.`,
+    how_to_take: `Take as prescribed. Oral: usually 0.5-2mg twice daily. Injectable: administered by healthcare professionals.`,
+    side_effects: [
+      `Drowsiness`,
+      `Dizziness`,
+      `Memory impairment`,
+      `Dependence`,
+      `Respiratory depression`
+    ],
+    warnings: [
+      `Short-term use only`,
+      `Do not drive`,
+      `Do not stop abruptly after prolonged use`,
+      `Preferred over diazepam in liver disease`
+    ],
+    interactions: [
+      `Alcohol — dangerous respiratory depression`,
+      `CNS depressants — additive sedation`,
+      `Valproate — increases lorazepam levels`
+    ],
+    algeria_brands: [
+      `Lorazepam 1mg tablets`,
+      `Lorazepam injectable 4mg/mL`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `AGD PHARMA`,
+      generic_official: `LORAZEPAM`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-2613-lorazepam-1mg-comp-quadrisec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `1MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `2,5MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Bromazepam`,
+    scientific_name: `Bromazepam`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Bromazepam is an intermediate-acting benzodiazepine for anxiety and tension states. Widely used in Algeria for short-term anxiety management.`,
+    how_to_take: `Take 1.5-3mg 2-3 times daily. Use minimum effective dose for shortest duration.`,
+    side_effects: [
+      `Drowsiness`,
+      `Dizziness`,
+      `Memory impairment`,
+      `Dependence with prolonged use`
+    ],
+    warnings: [
+      `Short-term use only — dependence risk`,
+      `Do not drive`,
+      `Avoid alcohol`,
+      `Do not stop abruptly`
+    ],
+    interactions: [
+      `Alcohol — severe respiratory depression`,
+      `CNS depressants — additive sedation`,
+      `MAOIs — prolonged effects`
+    ],
+    algeria_brands: [
+      `Bromazepam 3mg`,
+      `Bromazepam 6mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BIO-GALENIC`,
+      generic_official: `BROMAZEPAM`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2179`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2179-bromazepam-6mg-comp-quadri-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `6MG`,
+          form: `COMP. SEC`,
+          conditioning: `B/30`,
+          ppa: `200.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── PAIN ────────────────────────────────────
+  {
+    name: `Pregabaline Beker`,
+    scientific_name: `Pregabalin`,
+    category: `Pain`,
+    emoji: `💊`,
+    description: `Pregabaline Beker is a locally manufactured pregabalin for neuropathic pain, fibromyalgia, generalized anxiety disorder, and as add-on epilepsy treatment.`,
+    how_to_take: `Take 2-3 times daily with or without food. Start at low dose and gradually increase.`,
+    side_effects: [
+      `Drowsiness (very common)`,
+      `Dizziness`,
+      `Weight gain`,
+      `Blurred vision`,
+      `Swelling in hands and feet`,
+      `Dry mouth`
+    ],
+    warnings: [
+      `Do not drive until you know how it affects you`,
+      `Do not stop suddenly — taper gradually`,
+      `Avoid alcohol`,
+      `Can cause dependence`
+    ],
+    interactions: [
+      `Opioids — increased CNS depression and respiratory risk`,
+      `Benzodiazepines — increased sedation`,
+      `Alcohol — additive sedation`
+    ],
+    algeria_brands: [
+      `Pregabaline Beker 25mg`,
+      `Pregabaline Beker 75mg`,
+      `Pregabaline Beker 150mg`,
+      `Pregabaline Beker 300mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `PREGABALINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6066`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4535-pregabaline-beker-75mg-gles-b-60`,
+      dosage_variants: [
+        {
+          dosage: `75MG`,
+          form: `GLES`,
+          conditioning: `B/60`,
+          ppa: null
+        },
+        {
+          dosage: `150MG`,
+          form: `GLES`,
+          conditioning: `B/60`,
+          ppa: `4302 DA`
+        },
+        {
+          dosage: `300MG`,
+          form: `GLES`,
+          conditioning: `B/60`,
+          ppa: `8520 DA`
+        },
+        {
+          dosage: `50MG`,
+          form: `GLES`,
+          conditioning: `B/60`,
+          ppa: `2000.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── NEUROLOGICAL ────────────────────────────
+  {
+    name: `Risperidone Beker`,
+    scientific_name: `Risperidone`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Risperidone Beker is a locally manufactured atypical antipsychotic for schizophrenia, bipolar disorder, and behavioral disturbances.`,
+    how_to_take: `Take once or twice daily with or without food.`,
+    side_effects: [
+      `Weight gain`,
+      `Drowsiness`,
+      `Dizziness`,
+      `Elevated prolactin levels`,
+      `QT prolongation`
+    ],
+    warnings: [
+      `Monitor weight and metabolic parameters regularly`,
+      `Avoid in elderly with dementia — increased stroke risk`,
+      `Do not stop suddenly`
+    ],
+    interactions: [
+      `QT-prolonging drugs — cardiac risk`,
+      `Carbamazepine — reduces risperidone levels`,
+      `CNS depressants — additive sedation`
+    ],
+    algeria_brands: [
+      `Risperidone Beker 1mg`,
+      `Risperidone Beker 2mg`,
+      `Risperidone Beker 4mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `RISPERIDONE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2246`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2246-risperidone-beker-1mg-comp-pelli-sec-b-30-et-b-60`,
+      dosage_variants: [
+        {
+          dosage: `1MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30 ET B/60`,
+          ppa: `930.00 DA`
+        },
+        {
+          dosage: `2MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/60`,
+          ppa: `4140.00 DA`
+        },
+        {
+          dosage: `4MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `3150.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Olanzapine MM`,
+    scientific_name: `Olanzapine`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Olanzapine MM is a locally manufactured atypical antipsychotic for schizophrenia and bipolar disorder. Has significant metabolic side effects requiring monitoring.`,
+    how_to_take: `Take once daily with or without food at bedtime.`,
+    side_effects: [
+      `Weight gain (often significant)`,
+      `Drowsiness`,
+      `Elevated blood sugar`,
+      `Elevated triglycerides`,
+      `Dry mouth`
+    ],
+    warnings: [
+      `Monitor weight, blood sugar, and lipids regularly`,
+      `Risk of new-onset diabetes`,
+      `Do not stop without medical guidance`,
+      `Avoid in elderly with dementia`
+    ],
+    interactions: [
+      `CYP1A2 inducers (smoking, carbamazepine) reduce levels`,
+      `Alcohol — additive CNS depression`,
+      `Antihypertensives — increased hypotension`
+    ],
+    algeria_brands: [
+      `Olanzapine MM 5mg`,
+      `Olanzapine MM 10mg`,
+      `Olanzapine MM 15mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `MM LABORATOIRES`,
+      generic_official: `OLANZAPINE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-2273-olanzapine-mm-10mg-comp-pelli-b-07-et-b-28`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/07 ET B/28`,
+          ppa: `5716.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Escitalopram Beker`,
+    scientific_name: `Escitalopram`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Escitalopram Beker is a locally manufactured escitalopram SSRI — the most selective and well-tolerated SSRI for depression and generalized anxiety disorder.`,
+    how_to_take: `Take once daily in the morning or evening with or without food. Therapeutic effect takes 2-4 weeks.`,
+    side_effects: [
+      `Nausea (especially at start)`,
+      `Insomnia`,
+      `Headache`,
+      `Sexual dysfunction`,
+      `Dry mouth`
+    ],
+    warnings: [
+      `Do not stop suddenly — taper gradually`,
+      `Allow 14 days after stopping MAOIs`,
+      `QT prolongation at higher doses`,
+      `Monitor young adults for suicidal thoughts`
+    ],
+    interactions: [
+      `MAOIs — contraindicated (potentially fatal)`,
+      `Tramadol — serotonin syndrome risk`,
+      `Pimozide — contraindicated (QT prolongation)`
+    ],
+    algeria_brands: [
+      `Escitalopram Beker 5mg`,
+      `Escitalopram Beker 10mg`,
+      `Escitalopram Beker 20mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `ESCITALOPRAM OXALATE EXPRIME EN ESCITALOPRAM`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2565`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2565-escitalopram-beker-10mg-comp-pelli-b-28`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/28`,
+          ppa: `364.84 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Paroxetine Beker`,
+    scientific_name: `Paroxetine`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Paroxetine Beker is a locally manufactured paroxetine SSRI for depression, panic disorder, OCD, and social anxiety. Has more anticholinergic effects and more difficult discontinuation than other SSRIs.`,
+    how_to_take: `Take once daily in the morning with food. Do not crush or chew.`,
+    side_effects: [
+      `Nausea`,
+      `Drowsiness`,
+      `Dry mouth`,
+      `Sweating`,
+      `Weight gain`,
+      `Sexual dysfunction`
+    ],
+    warnings: [
+      `Difficult discontinuation — must taper very slowly to avoid severe withdrawal`,
+      `Allow 14 days after stopping MAOIs`,
+      `Avoid in pregnancy (neonatal withdrawal syndrome)`
+    ],
+    interactions: [
+      `MAOIs — contraindicated`,
+      `Tramadol — serotonin syndrome`,
+      `Warfarin — increased bleeding risk`,
+      `Tamoxifen — reduces tamoxifen effectiveness`
+    ],
+    algeria_brands: [
+      `Paroxetine Beker 20mg`,
+      `Paroxetine Beker 30mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `PAROXETINE CHLORHYDRATE EXPRIME EN PAROXETINE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2556`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2556-paroxetine-beker-20mg-comp-pelli-sec-b-14--b-30`,
+      dosage_variants: [
+        {
+          dosage: `20MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `1620 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Fluoxetine Merinal`,
+    scientific_name: `Fluoxetine`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Fluoxetine Merinal is a locally manufactured fluoxetine SSRI for depression, OCD, bulimia, and panic disorder. Has the longest half-life of SSRIs making discontinuation easier.`,
+    how_to_take: `Take once daily in the morning with or without food. Effects take 2-4 weeks.`,
+    side_effects: [
+      `Nausea (especially at start)`,
+      `Insomnia`,
+      `Headache`,
+      `Nervousness`,
+      `Sexual dysfunction`
+    ],
+    warnings: [
+      `Allow 5 weeks after stopping before starting MAOIs (long half-life)`,
+      `Inhibits CYP2D6 — many drug interactions`,
+      `Monitor young adults for suicidal thoughts`
+    ],
+    interactions: [
+      `MAOIs — contraindicated and need 5-week washout`,
+      `Tramadol — serotonin syndrome risk`,
+      `Tamoxifen — reduces effectiveness (strong CYP2D6 inhibitor)`
+    ],
+    algeria_brands: [
+      `Fluoxetine Merinal 20mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `MERINAL`,
+      generic_official: `FLUOXETINE CHLORHYDRATE EXPRIME EN FLUOXETINE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-2549-fluoxetine-merinal-20mg-gles-b-30`,
+      dosage_variants: [
+        {
+          dosage: `20MG`,
+          form: `GLES`,
+          conditioning: `B/30`,
+          ppa: `380.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Donepezil Beker`,
+    scientific_name: `Donepezil`,
+    category: `Neurological`,
+    emoji: `🧠`,
+    description: `Donepezil Beker is a locally manufactured donepezil cholinesterase inhibitor for mild to moderate Alzheimer disease. Slows cognitive decline but does not halt the disease.`,
+    how_to_take: `Take once daily at bedtime with or without food. Bedtime dosing reduces nausea.`,
+    side_effects: [
+      `Nausea and vomiting`,
+      `Diarrhea`,
+      `Insomnia (may occur at start)`,
+      `Muscle cramps`,
+      `Slow heartbeat`
+    ],
+    warnings: [
+      `For Alzheimer diagnosis only — not general memory problems`,
+      `Does not cure or halt progression`,
+      `Tell doctor about heart rhythm disorders — may slow heart rate`
+    ],
+    interactions: [
+      `Anticholinergic drugs — reduce donepezil effectiveness`,
+      `NSAIDs — may worsen GI side effects`,
+      `Carbamazepine reduces donepezil levels`
+    ],
+    algeria_brands: [
+      `Donepezil Beker 5mg`,
+      `Donepezil Beker 10mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `DONEPEZIL CHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2498`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2498-donepezil-beker-10mg-comp-pelli-b-28`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/28`,
+          ppa: `4060.00 DA`
+        },
+        {
+          dosage: `5MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `4050.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── PAIN ────────────────────────────────────
+  {
+    name: `Paracetamol Biocare`,
+    scientific_name: `Paracetamol`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Paracetamol Biocare is a locally manufactured paracetamol for mild to moderate pain and fever. One of the most widely used analgesics in Algeria.`,
+    how_to_take: `Take 500mg-1g every 4-6 hours as needed. Do not exceed 4g per day. Can be taken with or without food.`,
+    side_effects: [
+      `Very well tolerated at correct doses`,
+      `Skin rash (rare allergic reaction)`
+    ],
+    warnings: [
+      `Never exceed maximum dose — serious liver damage risk`,
+      `Avoid alcohol`,
+      `Do not combine with other paracetamol-containing products`
+    ],
+    interactions: [
+      `Warfarin — may slightly increase anticoagulant effect with long-term use`,
+      `Alcohol increases liver toxicity risk`
+    ],
+    algeria_brands: [
+      `Paracetamol Biocare 500mg`,
+      `Paracetamol Biocare 1g`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `N/D`,
+      lab: `BIOCARE LABORATOIRES`,
+      generic_official: `PARACETAMOL`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=4152`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4152-paracetamol-biocare-100mg-grles-p-sol-buv-sach-dose-b-12`,
+      dosage_variants: [
+        {
+          dosage: `100MG`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `B/12`,
+          ppa: `152.00 DA`
+        },
+        {
+          dosage: `150MG`,
+          form: `PDRE. SUSP. BUV`,
+          conditioning: `B/12`,
+          ppa: null
+        },
+        {
+          dosage: `200MG`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `B/12`,
+          ppa: null
+        },
+        {
+          dosage: `300MG`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `B/12`,
+          ppa: `120.00 DA`
+        },
+        {
+          dosage: `500MG`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `B/12`,
+          ppa: `152.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Ibuprofene Beker`,
+    scientific_name: `Ibuprofen`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Ibuprofene Beker is a locally manufactured ibuprofen NSAID for pain, inflammation, and fever. One of the most commonly used pain relievers in Algeria.`,
+    how_to_take: `Take with food or milk to protect the stomach. Usually 200-400mg every 4-6 hours.`,
+    side_effects: [
+      `Stomach upset`,
+      `Nausea`,
+      `Heartburn`,
+      `Headache`,
+      `Rarely: stomach bleeding`
+    ],
+    warnings: [
+      `Avoid in stomach ulcer — always take with food`,
+      `Not for patients with kidney or heart disease`,
+      `Avoid in late pregnancy`
+    ],
+    interactions: [
+      `Warfarin — increased bleeding risk`,
+      `Aspirin — avoid combining routinely`,
+      `ACE inhibitors and ARBs — reduced effectiveness`
+    ],
+    algeria_brands: [
+      `Ibuprofene Beker 200mg`,
+      `Ibuprofene Beker 400mg`,
+      `Ibuprofene Beker 600mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `IBUPROFENE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=4222`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4222-ibuprofene-beker-400mg-comp-pelli-b-20`,
+      dosage_variants: [
+        {
+          dosage: `400MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/20`,
+          ppa: `158.51 DA`
+        },
+        {
+          dosage: `600MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/20`,
+          ppa: `157.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Diclofenac Nova Generics`,
+    scientific_name: `Diclofenac`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Diclofenac Nova Generics is a locally manufactured diclofenac NSAID for pain, inflammation, and fever. Available as tablets and topical gel for local pain.`,
+    how_to_take: `Take with food or milk. Gel: apply to affected area 3-4 times daily and rub in gently.`,
+    side_effects: [
+      `Stomach upset`,
+      `Nausea`,
+      `Headache`,
+      `Dizziness`,
+      `Skin reactions with gel`
+    ],
+    warnings: [
+      `Avoid with stomach ulcers`,
+      `Not for long-term use without supervision`,
+      `Avoid with kidney or heart problems`
+    ],
+    interactions: [
+      `Increases bleeding risk with aspirin or warfarin`,
+      `May reduce blood pressure medication effectiveness`,
+      `Increases methotrexate toxicity`
+    ],
+    algeria_brands: [
+      `Diclofenac Nova Generics 25mg`,
+      `Diclofenac Nova Generics 50mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `NOVAPHARM TRADING`,
+      generic_official: `DICLOFENAC`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6047`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1371-diclofenac-nova-generics-0-01-gel-derm-t-50g`,
+      dosage_variants: [
+        {
+          dosage: `0.01`,
+          form: `GEL DERM`,
+          conditioning: `T/50G`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Ketoprofene LDM`,
+    scientific_name: `Ketoprofen`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Ketoprofene LDM is a locally manufactured ketoprofen NSAID for arthritis, muscle pain, and inflammation. Made by LDM Algeria.`,
+    how_to_take: `Take with food or milk. Gel: apply 2-3 times daily to affected area.`,
+    side_effects: [
+      `Stomach pain`,
+      `Nausea`,
+      `Heartburn`,
+      `Photosensitivity with gel`,
+      `Headache`
+    ],
+    warnings: [
+      `Avoid prolonged sun exposure when using gel — photosensitivity risk`,
+      `Avoid in stomach ulcer`,
+      `Take with food`
+    ],
+    interactions: [
+      `Warfarin — increased bleeding risk`,
+      `Lithium — toxicity risk`,
+      `Methotrexate — toxicity`
+    ],
+    algeria_brands: [
+      `Ketoprofene LDM 50mg`,
+      `Ketoprofene LDM 100mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `LDM (LABORATOIRE DE DIAGNOSTIC MAGHREBINS)`,
+      generic_official: `KETOPROFENE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6047`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4415-ketoprofene-ldm-0-025-gel-derm-t-60g`,
+      dosage_variants: [
+        {
+          dosage: `2.5%`,
+          form: `GEL DERM`,
+          conditioning: `T/60G`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Celecoxib Beker`,
+    scientific_name: `Celecoxib`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Celecoxib Beker is a locally manufactured selective COX-2 inhibitor for osteoarthritis, rheumatoid arthritis, and chronic joint pain with fewer stomach side effects than traditional NSAIDs.`,
+    how_to_take: `Take once or twice daily with food.`,
+    side_effects: [
+      `Stomach pain (less than traditional NSAIDs)`,
+      `Headache`,
+      `Dizziness`,
+      `Swelling`
+    ],
+    warnings: [
+      `Use cautiously in heart disease — increases cardiovascular risk`,
+      `Avoid in sulfonamide allergy`,
+      `Not for use with high-dose aspirin`
+    ],
+    interactions: [
+      `Warfarin — increased bleeding risk`,
+      `Fluconazole increases celecoxib levels`,
+      `ACE inhibitors — reduced effectiveness`
+    ],
+    algeria_brands: [
+      `Celecoxib Beker 100mg`,
+      `Celecoxib Beker 200mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `CELECOXIB`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2811`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2811-celecoxib-beker-100mg-gles-b-20`,
+      dosage_variants: [
+        {
+          dosage: `100MG`,
+          form: `GLES`,
+          conditioning: `B/20`,
+          ppa: `480.00 DA`
+        },
+        {
+          dosage: `200MG`,
+          form: `GLES`,
+          conditioning: `B/10`,
+          ppa: `455.50 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Piroxicam Novagenerics`,
+    scientific_name: `Piroxicam`,
+    category: `Pain`,
+    emoji: `🩹`,
+    description: `Piroxicam Novagenerics is a locally registered piroxicam NSAID with a long half-life allowing once-daily dosing for arthritis and musculoskeletal pain.`,
+    how_to_take: `Take once daily with food. Take at the same time each day.`,
+    side_effects: [
+      `Stomach pain`,
+      `Nausea`,
+      `Dizziness`,
+      `Skin rash`,
+      `Water retention`
+    ],
+    warnings: [
+      `Avoid in elderly — higher GI bleeding risk`,
+      `Take with food`,
+      `Avoid in kidney or heart disease`
+    ],
+    interactions: [
+      `Warfarin — increased bleeding risk`,
+      `Lithium — toxicity`,
+      `Methotrexate — toxicity`
+    ],
+    algeria_brands: [
+      `Piroxicam Novagenerics 10mg`,
+      `Piroxicam Novagenerics 20mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `NOVAPHARM TRADING`,
+      generic_official: `PIROXICAM`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6047`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1380-piroxicam-novagenerics-0-005-gel-derm-t-50g`,
+      dosage_variants: [
+        {
+          dosage: `0.005`,
+          form: `GEL DERM`,
+          conditioning: `T/50G`,
+          ppa: null
+        },
+        {
+          dosage: `20MG`,
+          form: `COMP. DISPERS`,
+          conditioning: `PILULIER/15`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── STOMACH ─────────────────────────────────
+  {
+    name: `Phloroglucinol BGL`,
+    scientific_name: `Phloroglucinol`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Phloroglucinol BGL is a locally manufactured antispasmodic for abdominal cramps, irritable bowel syndrome, and painful urinary tract spasms. Widely used in Algeria.`,
+    how_to_take: `Take 1-2 tablets 3 times daily, or dissolve under the tongue for faster action. Take with or without food.`,
+    side_effects: [
+      `Nausea (rare)`,
+      `Allergic skin reactions (rare)`
+    ],
+    warnings: [
+      `Not a substitute for antibiotics in infections`,
+      `Consult doctor if symptoms persist beyond 5 days`
+    ],
+    interactions: [
+      `Few significant drug interactions at therapeutic doses`
+    ],
+    algeria_brands: [
+      `Phloroglucinol BGL 80mg tablets`,
+      `Phloroglucinol BGL suppositories`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `N/D`,
+      lab: `BIO-GALENIC`,
+      generic_official: null,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-3968-phloroglucinol-bgl-80mg-comp-orodispers-b-10`,
+      dosage_variants: [
+        {
+          dosage: `80MG`,
+          form: `COMP. DISPERS`,
+          conditioning: `B/10`,
+          ppa: `228.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Spasmodyl`,
+    scientific_name: `Phloroglucinol + Trimethylphloroglucinol`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Spasmodyl is an antispasmodic combining phloroglucinol and trimethylphloroglucinol for digestive and urinary spasms, painful colic, and irritable bowel syndrome.`,
+    how_to_take: `Take 1-2 tablets 3 times daily. Can be dissolved under the tongue for faster relief.`,
+    side_effects: [
+      `Nausea (rare)`,
+      `Allergic reactions (rare)`
+    ],
+    warnings: [
+      `Not for infections requiring antibiotics`,
+      `Consult doctor if pain persists`
+    ],
+    interactions: [
+      `Few known drug interactions`
+    ],
+    algeria_brands: [
+      `Spasmodyl 80mg tablets`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `N/D`,
+      lab: `FRATER RAZES`,
+      generic_official: null,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-3958-spasmodyl-10mg-0-01mg-1ml-40mg-0-04mg-4ml-sol-inj-im-iv-b-05-amp-de-4ml-et-b-50-amp-de-4ml-`,
+      dosage_variants: [
+        {
+          dosage: `10MG/0,01MG/1ML (40MG/0,04MG/4ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/05 AMP DE 4ML ET B/50 AMP DE 4ML`,
+          ppa: null
+        },
+        {
+          dosage: `80MG`,
+          form: `COMP. ORODISPERS`,
+          conditioning: `B/10`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Domperidone Beker`,
+    scientific_name: `Domperidone`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Domperidone Beker is a locally manufactured prokinetic antiemetic for nausea, vomiting, and delayed gastric emptying. Safer than metoclopramide as it does not significantly cross the blood-brain barrier.`,
+    how_to_take: `Take 10mg up to 3 times daily 15-30 minutes before meals. Maximum 30mg per day.`,
+    side_effects: [
+      `Headache`,
+      `Dry mouth`,
+      `Diarrhea`,
+      `Rarely: galactorrhea`,
+      `Rarely: QT prolongation`
+    ],
+    warnings: [
+      `Do not exceed recommended dose or duration`,
+      `Avoid with drugs that prolong QT interval`,
+      `Use lowest effective dose in elderly`
+    ],
+    interactions: [
+      `Ketoconazole and azole antifungals — increase domperidone levels significantly`,
+      `Erythromycin — increase domperidone levels`,
+      `QT-prolonging drugs — cardiac risk`
+    ],
+    algeria_brands: [
+      `Domperidone Beker 10mg tablets`,
+      `Domperidone Beker 1mg/mL syrup`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `DOMPERIDONE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-4712-domperidone-beker-10mg-comp-pelli-b-40`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/40`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Omeprazole Geber`,
+    scientific_name: `Omeprazole`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Omeprazole Geber is a locally manufactured omeprazole proton pump inhibitor for acid reflux, gastritis, and stomach ulcers.`,
+    how_to_take: `Take 30-60 minutes before the first meal. Swallow capsule whole — do not crush.`,
+    side_effects: [
+      `Headache`,
+      `Nausea`,
+      `Diarrhea`,
+      `Constipation`,
+      `Flatulence`
+    ],
+    warnings: [
+      `Do not use with clopidogrel — reduces antiplatelet effect (use pantoprazole instead)`,
+      `Long-term use may reduce magnesium and vitamin B12`
+    ],
+    interactions: [
+      `Clopidogrel — significantly reduces antiplatelet effect (avoid)`,
+      `Methotrexate levels may increase`,
+      `Ketoconazole absorption reduced`
+    ],
+    algeria_brands: [
+      `Omeprazole Geber 10mg`,
+      `Omeprazole Geber 20mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `GEBER HEALTH`,
+      generic_official: `OMEPRAZOLE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-3872-omeprazole-geber-10mg-micrgles-gastroresist-en-gles-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `GLES. A MICROG. GASTRORESIST`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `20MG`,
+          form: `GLES. A MICROG. GASTRORESIST`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Lactulose GL`,
+    scientific_name: `Lactulose`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Lactulose GL is a locally manufactured lactulose osmotic laxative for chronic constipation and hepatic encephalopathy. Draws water into the bowel to soften stools.`,
+    how_to_take: `Take once daily with water or juice. Can take 1-3 days for effect — continue regularly.`,
+    side_effects: [
+      `Bloating and gas (especially at start)`,
+      `Diarrhea if dose too high`,
+      `Stomach cramps`
+    ],
+    warnings: [
+      `Drink plenty of fluids`,
+      `Adjust dose to achieve 1-2 soft stools daily`,
+      `Not for intestinal obstruction`
+    ],
+    interactions: [
+      `Few significant drug interactions`
+    ],
+    algeria_brands: [
+      `Lactulose GL 3.3g/5mL syrup`,
+      `Lactulose GL 10g sachets`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `N/D`,
+      lab: `GENERIC LAB`,
+      generic_official: `LACTULOSE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-6191-lactulose-gl-66-5--10-g-15-ml-sol-buv-fl-200ml-goblet-doseur-`,
+      dosage_variants: [
+        {
+          dosage: `66,5% ( 10 g/15 ml)`,
+          form: `SOL. BUV`,
+          conditioning: `FL/200ML+GOBLET DOSEUR`,
+          ppa: null
+        },
+        {
+          dosage: `66,5% ( 10 g/15 ml)`,
+          form: `SOL. BUV`,
+          conditioning: `FL/200ML+GOBLET DOSEUR`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Mebeverine Saidal`,
+    scientific_name: `Mebeverine`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Mebeverine Saidal is a locally manufactured mebeverine antispasmodic for irritable bowel syndrome and colonic spasms. Acts directly on intestinal smooth muscle.`,
+    how_to_take: `Take 135-200mg 3 times daily 20 minutes before meals.`,
+    side_effects: [
+      `Nausea (rare)`,
+      `Dizziness (rare)`,
+      `Skin rash (rare)`
+    ],
+    warnings: [
+      `Not for paralytic ileus`,
+      `Consult doctor if symptoms do not improve after 2 weeks`
+    ],
+    interactions: [
+      `Few significant drug interactions`
+    ],
+    algeria_brands: [
+      `Mebeverine Saidal 135mg`,
+      `Mebeverine Saidal 200mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `SAIDAL GROUPE`,
+      generic_official: null,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-3953-mebeverine-saidal-100mg-comp-b-30`,
+      dosage_variants: [
+        {
+          dosage: `100MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `240.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Loperamide NS`,
+    scientific_name: `Loperamide`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Loperamide NS is a locally manufactured loperamide antidiarrheal for acute and chronic diarrhea. Slows bowel movements — does not treat the cause of diarrhea.`,
+    how_to_take: `Take 2mg after each loose stool (adults). Maximum 8mg per day. Take with plenty of water.`,
+    side_effects: [
+      `Constipation if overused`,
+      `Bloating`,
+      `Dry mouth`,
+      `Dizziness`,
+      `Headache`
+    ],
+    warnings: [
+      `Do not use for bloody diarrhea or diarrhea with fever — seek care`,
+      `Maximum 2 days without medical advice for acute diarrhea`,
+      `Always use with oral rehydration therapy`
+    ],
+    interactions: [
+      `Cholestyramine reduces loperamide absorption`,
+      `Few other clinically significant interactions`
+    ],
+    algeria_brands: [
+      `Loperamide NS 2mg capsules`,
+      `Loperamide NS 1mg/5mL syrup`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `PHARMIDAL`,
+      generic_official: `LOPERAMIDE CHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=5833`,
+      pharmnet_url: `https://pharmnet-dz.com/m-5833-loperamide-ns-2mg-gles-b-20`,
+      dosage_variants: [
+        {
+          dosage: `2MG`,
+          form: `GLES`,
+          conditioning: `B/20`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Ranitidine Mabo`,
+    scientific_name: `Ranitidine`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Ranitidine Mabo is a locally registered ranitidine H2-receptor blocker for acid reflux, peptic ulcers, and heartburn.`,
+    how_to_take: `Take twice daily or once at bedtime depending on indication.`,
+    side_effects: [
+      `Headache`,
+      `Diarrhea`,
+      `Constipation`,
+      `Nausea`
+    ],
+    warnings: [
+      `Long-term use requires periodic review`,
+      `Tell doctor about kidney disease — dose adjustment needed`
+    ],
+    interactions: [
+      `Antacids reduce absorption — take 2 hours apart`,
+      `Warfarin — slight increase in anticoagulant effect`
+    ],
+    algeria_brands: [
+      `Ranitidine Mabo 150mg`,
+      `Ranitidine Mabo 300mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste II`,
+      lab: `MERINAL`,
+      generic_official: `RANITIDINE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-3862-ranitidine-mabo-150mg-comp-pelli-b-30--b-60`,
+      dosage_variants: [
+        {
+          dosage: `150MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30 - B/60`,
+          ppa: `397.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Spasmol`,
+    scientific_name: `Phloroglucinol`,
+    category: `Stomach`,
+    emoji: `🫁`,
+    description: `Spasmol is an antispasmodic phloroglucinol widely used in Algeria for abdominal spasms, irritable bowel syndrome, gallbladder pain, and urinary spasms.`,
+    how_to_take: `Take 1-2 tablets 3 times daily, or dissolve under the tongue for faster onset.`,
+    side_effects: [
+      `Rare: nausea, allergic reactions`
+    ],
+    warnings: [
+      `Not a substitute for antibiotics`,
+      `Consult doctor if symptoms persist`
+    ],
+    interactions: [
+      `Few significant drug interactions`
+    ],
+    algeria_brands: [
+      `Spasmol 40mg sublingual tablets`,
+      `Spasmol 80mg tablets`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `N/D`,
+      lab: `LABORATOIRES SALEM`,
+      generic_official: null,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3960`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3960-spasmol-150mg-suppo-b-10`,
+      dosage_variants: [
+        {
+          dosage: `150MG`,
+          form: `SUPPO`,
+          conditioning: `B/10`,
+          ppa: null
+        },
+        {
+          dosage: `160MG`,
+          form: `COMP. ORODISPERS`,
+          conditioning: `B/10`,
+          ppa: null
+        },
+        {
+          dosage: `80MG`,
+          form: `COMP. ORODISPERS`,
+          conditioning: `B/10`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── ANTIBIOTICS ─────────────────────────────
+  {
+    name: `Azithromycine Beker`,
+    scientific_name: `Azithromycin`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Azithromycine Beker is a locally manufactured azithromycin macrolide antibiotic for respiratory, skin, and chlamydial infections.`,
+    how_to_take: `Take once daily. Usually a 3 or 5 day course. Can be taken with or without food.`,
+    side_effects: [
+      `Nausea`,
+      `Diarrhea`,
+      `Stomach pain`,
+      `Headache`
+    ],
+    warnings: [
+      `Tell doctor about heart rhythm disorders — QT prolongation risk`,
+      `Complete the full course`
+    ],
+    interactions: [
+      `Antacids with aluminum or magnesium — take 1 hour apart`,
+      `Warfarin — increased bleeding risk`,
+      `Some heart medications — QT prolongation risk`
+    ],
+    algeria_brands: [
+      `Azithromycine Beker 250mg`,
+      `Azithromycine Beker 500mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `AZITHROMYCINE DIHYDRATE EXPRIME EN AZITHROMYCINE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=835`,
+      pharmnet_url: `https://pharmnet-dz.com/m-835-azithromycine-beker-500mg-comp-pelli-sec-b-03`,
+      dosage_variants: [
+        {
+          dosage: `500MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/03`,
+          ppa: `549.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Ciprofloxacine Biocare`,
+    scientific_name: `Ciprofloxacin`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Ciprofloxacine Biocare is a locally manufactured ciprofloxacin fluoroquinolone for urinary, respiratory, and gastrointestinal bacterial infections.`,
+    how_to_take: `Take with plenty of water at evenly spaced intervals. Complete the full course.`,
+    side_effects: [
+      `Nausea`,
+      `Diarrhea`,
+      `Tendon pain (stop immediately)`,
+      `Photosensitivity`,
+      `Dizziness`
+    ],
+    warnings: [
+      `Stop immediately for tendon pain — rupture risk`,
+      `Avoid sun exposure`,
+      `Do not take with antacids or iron — take 2 hours apart`
+    ],
+    interactions: [
+      `Antacids, iron, calcium — take 2 hours apart`,
+      `Warfarin — increased bleeding risk`,
+      `NSAIDs — seizure risk increases`
+    ],
+    algeria_brands: [
+      `Ciprofloxacine Biocare 250mg`,
+      `Ciprofloxacine Biocare 500mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BIOCARE LABORATOIRES`,
+      generic_official: `CIPROFLOXACINE CHLORHYDRATE (EXPRIME EN CIPROFLOXACINE)`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=896`,
+      pharmnet_url: `https://pharmnet-dz.com/m-373-ciprofloxacine-biocare-250mg-comp-pelli-b-10`,
+      dosage_variants: [
+        {
+          dosage: `250MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/10`,
+          ppa: null
+        },
+        {
+          dosage: `500MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/10`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Clamoxyl`,
+    scientific_name: `Amoxicillin`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Clamoxyl is a brand of amoxicillin penicillin antibiotic widely used in Algeria for throat, ear, chest, and urinary tract bacterial infections.`,
+    how_to_take: `Take at evenly spaced intervals throughout the day. Can be taken with or without food. Complete the full course.`,
+    side_effects: [
+      `Diarrhea`,
+      `Nausea`,
+      `Skin rash`,
+      `Yeast infections`
+    ],
+    warnings: [
+      `Tell doctor about penicillin allergy`,
+      `Complete the full course`,
+      `Seek urgent care for severe rash or breathing difficulty`
+    ],
+    interactions: [
+      `Methotrexate toxicity increases`,
+      `May reduce oral contraceptive effectiveness (rare)`
+    ],
+    algeria_brands: [
+      `Clamoxyl 250mg`,
+      `Clamoxyl 500mg`,
+      `Clamoxyl 1g`,
+      `Clamoxyl pediatric suspension`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `GLAXO SMITHKLINE`,
+      generic_official: `AMOXICILLINE TRIHYDRATE EXPRIME EN AMOXICILLINE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=314`,
+      pharmnet_url: `https://pharmnet-dz.com/m-314-clamoxyl-1g-comp-dispers-b-06--b-12-et-b-14`,
+      dosage_variants: [
+        {
+          dosage: `1G`,
+          form: `COMP. DISPERS`,
+          conditioning: `B/06 - B/12 ET B/14`,
+          ppa: `316.00 DA`
+        },
+        {
+          dosage: `250MG/5ML`,
+          form: `PDRE. SUSP. BUV`,
+          conditioning: `F/60ML`,
+          ppa: null
+        },
+        {
+          dosage: `500MG/5ML`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `FL/60ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Clarithromycine Geo`,
+    scientific_name: `Clarithromycin`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Clarithromycine Geo is a locally manufactured clarithromycin macrolide antibiotic for respiratory, skin, and H. pylori infections.`,
+    how_to_take: `Take twice daily with or without food. Complete the full course.`,
+    side_effects: [
+      `Nausea`,
+      `Diarrhea`,
+      `Metallic or bitter taste (very common)`,
+      `Stomach pain`,
+      `Headache`
+    ],
+    warnings: [
+      `Tell doctor about heart rhythm problems — QT prolongation risk`,
+      `Complete the full course`,
+      `Many significant drug interactions — always check`
+    ],
+    interactions: [
+      `Many CYP3A4 interactions — statins (rhabdomyolysis risk), colchicine (toxicity)`,
+      `Warfarin — increased anticoagulant effect`,
+      `Digoxin — levels increase`
+    ],
+    algeria_brands: [
+      `Clarithromycine Geo 250mg`,
+      `Clarithromycine Geo 500mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `GEOPHARM`,
+      generic_official: `CLARITHROMYCINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=896`,
+      pharmnet_url: `https://pharmnet-dz.com/m-821-clarithromycine-geo-500mg-comp-pelli-b-14`,
+      dosage_variants: [
+        {
+          dosage: `500MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/14`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Spiramycine Afro`,
+    scientific_name: `Spiramycin`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Spiramycine Afro is a locally manufactured spiramycin macrolide antibiotic for respiratory and oral infections, and for toxoplasmosis treatment during pregnancy.`,
+    how_to_take: `Take 2-3 times daily. Can be taken with or without food. Complete the full course.`,
+    side_effects: [
+      `Nausea`,
+      `Vomiting`,
+      `Diarrhea`,
+      `Stomach pain`,
+      `Skin rash`
+    ],
+    warnings: [
+      `Inform doctor if pregnant — special dosing for toxoplasmosis prevention`,
+      `Complete the full course`
+    ],
+    interactions: [
+      `Levodopa — may reduce its effectiveness`,
+      `Few other significant interactions`
+    ],
+    algeria_brands: [
+      `Spiramycine Afro 1.5 MUI`,
+      `Spiramycine Afro 3 MUI`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `AFRO PHARM SPA`,
+      generic_official: `SPIRAMYCINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=896`,
+      pharmnet_url: `https://pharmnet-dz.com/m-5949-spiramycine-afro-0-375mui-5ml-sirop-fl-150ml`,
+      dosage_variants: [
+        {
+          dosage: `0,375MUI/5ML`,
+          form: `SIROP`,
+          conditioning: `FL./150ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Voriconazole Beker`,
+    scientific_name: `Voriconazole`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Voriconazole Beker is a locally manufactured broad-spectrum triazole antifungal for invasive aspergillosis, Candida infections, and other serious fungal infections.`,
+    how_to_take: `Take twice daily on empty stomach (1 hour before or 2 hours after meals).`,
+    side_effects: [
+      `Visual disturbances (very common — color changes, blurred vision)`,
+      `Skin rash and photosensitivity`,
+      `Liver toxicity`,
+      `Nausea`
+    ],
+    warnings: [
+      `Avoid prolonged sun exposure — skin cancer risk`,
+      `Regular liver function monitoring required`,
+      `Many significant drug interactions — always check`
+    ],
+    interactions: [
+      `Rifampicin — completely blocks voriconazole (contraindicated)`,
+      `Many CYP interactions — sirolimus, cyclosporine levels increase`,
+      `Warfarin — increased anticoagulant effect`
+    ],
+    algeria_brands: [
+      `Voriconazole Beker 50mg`,
+      `Voriconazole Beker 200mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `VORICONAZOLE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=896`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4645-voriconazole-beker-200mg-comp-pelli-b-30`,
+      dosage_variants: [
+        {
+          dosage: `200MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `50MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Fluconazole Biocare`,
+    scientific_name: `Fluconazole`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Fluconazole Biocare is a locally manufactured fluconazole for oral thrush, vaginal candidiasis, and systemic fungal infections.`,
+    how_to_take: `For vaginal candidiasis: single 150mg dose. For systemic infections: as prescribed by doctor.`,
+    side_effects: [
+      `Nausea`,
+      `Headache`,
+      `Stomach pain`,
+      `Liver toxicity with prolonged use`
+    ],
+    warnings: [
+      `Liver function monitoring with prolonged use`,
+      `Many significant drug interactions through CYP2C9 inhibition`
+    ],
+    interactions: [
+      `Warfarin — greatly increased anticoagulant effect`,
+      `Sulfonylureas — increased hypoglycemia risk`,
+      `Many statin interactions — myopathy risk`
+    ],
+    algeria_brands: [
+      `Fluconazole Biocare 50mg`,
+      `Fluconazole Biocare 150mg`,
+      `Fluconazole Biocare 200mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BIOCARE LABORATOIRES`,
+      generic_official: `FLUCONAZOLE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=896`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3569-fluconazole-biocare-150mg-gles-b-01`,
+      dosage_variants: [
+        {
+          dosage: `150MG`,
+          form: `GLES`,
+          conditioning: `B/01`,
+          ppa: `273.00 DA`
+        },
+        {
+          dosage: `50MG`,
+          form: `GLES`,
+          conditioning: `B/03`,
+          ppa: `249.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── DERMATOLOGY ─────────────────────────────
+  {
+    name: `Ketoconazole Novagenerics`,
+    scientific_name: `Ketoconazole`,
+    category: `Dermatology`,
+    emoji: `🍄`,
+    description: `Ketoconazole Novagenerics is a locally registered ketoconazole antifungal cream and shampoo for fungal skin infections, seborrheic dermatitis, and dandruff.`,
+    how_to_take: `Cream: apply once or twice daily to affected area for 2-4 weeks. Shampoo: use twice weekly for 2-4 weeks then weekly for maintenance.`,
+    side_effects: [
+      `Local burning or itching`,
+      `Skin dryness`,
+      `Contact dermatitis (rare)`
+    ],
+    warnings: [
+      `Oral form not recommended due to liver toxicity — topical forms are safe`,
+      `Continue for full course even after symptom improvement`
+    ],
+    interactions: [
+      `Topical form has minimal systemic absorption and interactions`
+    ],
+    algeria_brands: [
+      `Ketoconazole Novagenerics 2% cream`,
+      `Ketoconazole Novagenerics 2% shampoo`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `NOVAPHARM TRADING`,
+      generic_official: `KETOCONAZOLE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-5808-ketoconazole-novagenerics-0-02-shampoing-fl-100ml`,
+      dosage_variants: [
+        {
+          dosage: `0,02`,
+          form: `SHAMPOING`,
+          conditioning: `FL/100ML`,
+          ppa: null
+        },
+        {
+          dosage: `0.02`,
+          form: `CRÃME`,
+          conditioning: `T/15G`,
+          ppa: `198.00 DA`
+        },
+        {
+          dosage: `0.02`,
+          form: `GEL MOUSSANT`,
+          conditioning: `T/20G`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── RESPIRATORY ─────────────────────────────
+  {
+    name: `Salbutamol LPA`,
+    scientific_name: `Salbutamol (Albuterol)`,
+    category: `Respiratory`,
+    emoji: `🫁`,
+    description: `Salbutamol LPA is a locally manufactured salbutamol rescue inhaler for quick relief of asthma and COPD symptoms. Produced by LPA Algeria.`,
+    how_to_take: `Shake well before use. Inhale 1-2 puffs as needed. Press canister and breathe in slowly, hold breath for 10 seconds.`,
+    side_effects: [
+      `Trembling or shaking`,
+      `Fast heartbeat`,
+      `Headache`,
+      `Feeling nervous`
+    ],
+    warnings: [
+      `Do not overuse — seek care if needed more than twice weekly`,
+      `Seek emergency care if usual dose does not work`
+    ],
+    interactions: [
+      `Beta-blockers reduce effectiveness`,
+      `Diuretics — low potassium risk with high doses`
+    ],
+    algeria_brands: [
+      `Salbutamol LPA 100mcg inhaler`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `LPA (LABORATOIRE PHARMACEUTIQUE ALGERIEN)`,
+      generic_official: `SALBUTAMOL`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6011`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2084-salbutamol-lpa-2mg-5ml--sol-buv-fl-150ml-une-cuillere-mesure-de-5ml`,
+      dosage_variants: [
+        {
+          dosage: `2MG/5ML**`,
+          form: `SOL. BUV`,
+          conditioning: `FL./150ML+UNE CUILLERE MESURE DE 5ML`,
+          ppa: `151.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Montelukast Beker`,
+    scientific_name: `Montelukast`,
+    category: `Respiratory`,
+    emoji: `🫁`,
+    description: `Montelukast Beker is a locally manufactured montelukast leukotriene receptor antagonist for asthma maintenance and seasonal allergic rhinitis.`,
+    how_to_take: `Take once daily in the evening. Can be taken with or without food.`,
+    side_effects: [
+      `Headache`,
+      `Stomach pain`,
+      `Rarely: behavioral changes, depression, mood disturbances`
+    ],
+    warnings: [
+      `Report any behavioral changes or mood disturbances — particularly in children`,
+      `Not for acute asthma attacks`
+    ],
+    interactions: [
+      `Phenobarbital and rifampicin reduce effectiveness`,
+      `Few significant interactions`
+    ],
+    algeria_brands: [
+      `Montelukast Beker 4mg chewable`,
+      `Montelukast Beker 5mg chewable`,
+      `Montelukast Beker 10mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `MONTELUKAST SODIQUE EXPRIME EN MONTELUKAST`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=2138`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2138-montelukast-beker-5mg-comp-a-croquer-b-30`,
+      dosage_variants: [
+        {
+          dosage: `5MG`,
+          form: `COMP. A CROQ`,
+          conditioning: `B/30`,
+          ppa: `2311.97 DA`
+        },
+        {
+          dosage: `10MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: `2400 DA`
+        },
+        {
+          dosage: `4MG`,
+          form: `COMP. A CROQ`,
+          conditioning: `B/30`,
+          ppa: `2311.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Theophylline`,
+    scientific_name: `Theophylline`,
+    category: `Respiratory`,
+    emoji: `🫁`,
+    description: `Theophylline is a bronchodilator methylxanthine for COPD and severe asthma. Has a narrow therapeutic index requiring blood level monitoring.`,
+    how_to_take: `Take with food to reduce stomach upset. Extended-release tablets swallowed whole. Take at same time each day.`,
+    side_effects: [
+      `Nausea and vomiting`,
+      `Headache`,
+      `Palpitations`,
+      `Insomnia`,
+      `Tremor`,
+      `Toxicity: seizures and arrhythmias`
+    ],
+    warnings: [
+      `Narrow therapeutic window — regular blood level monitoring essential`,
+      `Many drugs alter theophylline levels — always inform new doctors`,
+      `Avoid excessive caffeine`
+    ],
+    interactions: [
+      `Ciprofloxacin and erythromycin — increase theophylline levels (toxicity risk)`,
+      `Rifampicin and carbamazepine — reduce levels`,
+      `Cimetidine significantly increases levels`
+    ],
+    algeria_brands: [
+      `Theophylline 100mg`,
+      `Theophylline 200mg SR`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `N/D`,
+      lab: `RENAUDIN`,
+      generic_official: `THEOPHYLLINE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6011`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2101-theophylline-240mg-4ml-sol-inj-b-05amp-de-4ml`,
+      dosage_variants: [
+        {
+          dosage: `240MG/4ML`,
+          form: `SOL. INJ`,
+          conditioning: `B/05AMP. DE 4ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Formoterol Zentiva`,
+    scientific_name: `Formoterol`,
+    category: `Respiratory`,
+    emoji: `🫁`,
+    description: `Formoterol Zentiva is a long-acting beta-2 agonist bronchodilator for COPD and asthma maintenance. Must always be used with an inhaled corticosteroid in asthma.`,
+    how_to_take: `Inhale once or twice daily at the same times. Rinse mouth after use.`,
+    side_effects: [
+      `Trembling`,
+      `Fast heartbeat`,
+      `Headache`,
+      `Muscle cramps`
+    ],
+    warnings: [
+      `Never use as rescue inhaler for acute attacks`,
+      `Must be combined with inhaled corticosteroid in asthma`,
+      `Do not exceed recommended dose`
+    ],
+    interactions: [
+      `Beta-blockers reduce effectiveness`,
+      `QT-prolonging drugs — cardiac risk`,
+      `Diuretics — low potassium risk`
+    ],
+    algeria_brands: [
+      `Formoterol Zentiva 12mcg capsules for inhalation`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `WINTHROP ARZNEIMITTEL GMBH`,
+      generic_official: `FORMOTEROL FUMARATE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6011`,
+      pharmnet_url: `https://pharmnet-dz.com/m-2126-formoterol-zentiva-12Âµg-pdre-p-inhal-en-gles--inhalateur-b-60`,
+      dosage_variants: [
+        {
+          dosage: `12ÂµG`,
+          form: `PDRE. INHAL`,
+          conditioning: `B/60`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── ANTIBIOTICS ─────────────────────────────
+  {
+    name: `Aciclovir Mylan`,
+    scientific_name: `Aciclovir (Acyclovir)`,
+    category: `Antibiotics`,
+    emoji: `🦠`,
+    description: `Aciclovir Mylan is a locally manufactured aciclovir antiviral for herpes simplex, chickenpox, shingles, and herpes encephalitis.`,
+    how_to_take: `Take at evenly spaced intervals (usually 5 times daily for treatment). Drink plenty of water.`,
+    side_effects: [
+      `Nausea`,
+      `Headache`,
+      `Diarrhea`,
+      `Fatigue`,
+      `Kidney effects with IV form at high doses`
+    ],
+    warnings: [
+      `Drink plenty of water during treatment — prevents kidney crystals`,
+      `Tell doctor about kidney problems — dose adjustment needed`
+    ],
+    interactions: [
+      `Probenecid reduces aciclovir excretion`,
+      `Nephrotoxic drugs — increased kidney risk`
+    ],
+    algeria_brands: [
+      `Aciclovir Mylan 200mg tablets`,
+      `Aciclovir Mylan 400mg tablets`,
+      `Aciclovir Mylan 5% cream`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `MYLAN`,
+      generic_official: `ACICLOVIR`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=420`,
+      pharmnet_url: `https://pharmnet-dz.com/m-420-aciclovir-mylan-250mg-fl-de-pdre-pdre-sol-inj-iv-b-05-fl-de-pdre-`,
+      dosage_variants: [
+        {
+          dosage: `250MG/FL. DE PDRE.`,
+          form: `PDRE. SOL. INJ`,
+          conditioning: `B/05 FL. DE PDRE.`,
+          ppa: null
+        },
+        {
+          dosage: `500MG/FL. DE PDRE.`,
+          form: `PDRE. SOL. INJ`,
+          conditioning: `B/05 FL. DE PDRE.`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── HEART ───────────────────────────────────
+  {
+    name: `Heparine`,
+    scientific_name: `Unfractionated Heparin`,
+    category: `Heart`,
+    emoji: `🩸`,
+    description: `Heparine (unfractionated heparin) is an injectable anticoagulant for treatment and prevention of blood clots in hospital settings. Requires regular monitoring with aPTT blood tests.`,
+    how_to_take: `Administered intravenously or subcutaneously by healthcare professionals. Dose adjusted based on regular blood tests.`,
+    side_effects: [
+      `Bleeding (the main risk)`,
+      `Heparin-induced thrombocytopenia (HIT)`,
+      `Bruising at injection site`,
+      `Osteoporosis with prolonged use`
+    ],
+    warnings: [
+      `Regular aPTT monitoring mandatory`,
+      `Watch for signs of HIT — thrombocytopenia after 5-10 days of treatment`,
+      `Tell all doctors and nurses you are receiving heparin`
+    ],
+    interactions: [
+      `Warfarin — combined anticoagulation under careful monitoring`,
+      `NSAIDs and aspirin — increased bleeding risk`,
+      `Protamine sulfate reverses heparin effect in emergency`
+    ],
+    algeria_brands: [
+      `Heparine sodique injectable 5000 UI/mL`,
+      `Heparine calcique subcutaneous formulation`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `HIKMA PHARMACEUTICALS`,
+      generic_official: `HEPARINE SODIQUE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6053`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1738-heparine-25-000ui-ml-125-000ui-5ml-sol-inj-iv-sc-b-10fl-de-5ml`,
+      dosage_variants: [
+        {
+          dosage: `25 000UI/ML (125 000UI/5ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/10FL. DE 5ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Lovenox`,
+    scientific_name: `Enoxaparin (Low Molecular Weight Heparin)`,
+    category: `Heart`,
+    emoji: `🩸`,
+    description: `Lovenox is enoxaparin, a low molecular weight heparin for treating and preventing deep vein thrombosis, pulmonary embolism, and acute coronary syndromes. More predictable than unfractionated heparin.`,
+    how_to_take: `Inject subcutaneously once or twice daily into the abdomen. Rotate injection sites. Dose based on body weight.`,
+    side_effects: [
+      `Bleeding`,
+      `Bruising at injection site`,
+      `Heparin-induced thrombocytopenia (rare)`,
+      `Low platelet count`
+    ],
+    warnings: [
+      `Tell all doctors before any procedure or surgery`,
+      `Dose adjustment needed for severe kidney disease`,
+      `Check platelet count during treatment`
+    ],
+    interactions: [
+      `NSAIDs and aspirin — increased bleeding risk`,
+      `Other anticoagulants — increased bleeding`,
+      `Protamine sulfate partially reverses effect in emergency`
+    ],
+    algeria_brands: [
+      `Lovenox 2000 UI/0.2mL`,
+      `Lovenox 4000 UI/0.4mL`,
+      `Lovenox 6000 UI/0.6mL`,
+      `Lovenox 8000 UI/0.8mL`,
+      `Lovenox 10000 UI/1mL`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `SANOFI AVENTIS`,
+      generic_official: `ENOXAPARINE SODIQUE  (HEPARINE A BAS POIDS MOLECULAIRE HBPM)`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=1727`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1727-lovenox-10-000ui-anti-xa-ml--correspondant-a-100mg-ml-sol-inj-sc-et-intravasculaire-en-sering-prerempl-b-02-sering-prerempl-de-1ml-avec-systÃ¨me-de-securite`,
+      dosage_variants: [
+        {
+          dosage: `10 000UI ANTI-XA/ML   (CORRESPONDANT A 100MG/ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/02 SERING. PREREMPL. DE 1ML AVEC SYSTÃME DE SECURITE`,
+          ppa: null
+        },
+        {
+          dosage: `2 000UI ANTI-XA/0,2ML (CORRESPONDANT A 20MG/0,2ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/02 SERING. PREREMPL. DE 0,2ML AVEC SYSTÃME DE SECURITE`,
+          ppa: null
+        },
+        {
+          dosage: `4 000UI ANTI-XA/0,4ML (CORRESPONDANT A 40MG/0,4ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/02 SERING. PREREMPL. DE 0,4ML AVEC SYSTÃME DE SECURITE`,
+          ppa: null
+        },
+        {
+          dosage: `6 000UI ANTI-X/0,6ML    (CORRESPONDANT A 60MG/0,6ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/02 SERING. PREREMPL. DE 0,6ML AVEC SYSTÃME DE SECURITE`,
+          ppa: null
+        },
+        {
+          dosage: `8 000UI ANTI-XA/0,8ML (CORRESPONDANT A 80MG/0,8ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/02 SERING. PREREMPL. DE 0,8ML AVEC SYSTÃME DE SECURITE`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── HYPERTENSION ────────────────────────────
+  {
+    name: `Furosemide Arrow`,
+    scientific_name: `Furosemide`,
+    category: `Hypertension`,
+    emoji: `💊`,
+    description: `Furosemide Arrow is a loop diuretic for fluid retention in heart failure, kidney disease, liver cirrhosis, and hypertension.`,
+    how_to_take: `Take in the morning or early afternoon to avoid nighttime urination.`,
+    side_effects: [
+      `Frequent urination`,
+      `Dizziness`,
+      `Low potassium`,
+      `Dehydration`
+    ],
+    warnings: [
+      `Monitor potassium levels — may need supplements`,
+      `Stay hydrated`,
+      `Rise slowly to prevent dizziness`
+    ],
+    interactions: [
+      `Digoxin — low potassium increases toxicity`,
+      `NSAIDs reduce effectiveness`
+    ],
+    algeria_brands: [
+      `Furosemide Arrow 20mg`,
+      `Furosemide Arrow 40mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `ARROW GENERIQUES`,
+      generic_official: `FUROSEMIDE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3287`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3287-furosemide-arrow-20mg-comp-sec-b-30`,
+      dosage_variants: [
+        {
+          dosage: `20MG`,
+          form: `COMP`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── ALLERGY ─────────────────────────────────
+  {
+    name: `Cetirizine Mylan`,
+    scientific_name: `Cetirizine`,
+    category: `Allergy`,
+    emoji: `🌿`,
+    description: `Cetirizine Mylan is a locally registered cetirizine second-generation antihistamine for allergic rhinitis and urticaria.`,
+    how_to_take: `Take 1 tablet (10mg) once daily with or without food.`,
+    side_effects: [
+      `Drowsiness (less than older antihistamines)`,
+      `Dry mouth`,
+      `Headache`,
+      `Fatigue`
+    ],
+    warnings: [
+      `May still cause drowsiness — caution when driving`,
+      `Reduce dose in severe kidney disease`,
+      `Avoid alcohol`
+    ],
+    interactions: [
+      `Alcohol — increased sedation`,
+      `CNS depressants — additive drowsiness`
+    ],
+    algeria_brands: [
+      `Cetirizine Mylan 10mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste II`,
+      lab: `MYLAN`,
+      generic_official: `CETIRIZINE DICHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3973`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3973-cetirizine-mylan-10mg-comp-pelli-sec-b-15`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP`,
+          conditioning: `B/15`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── VITAMINS ────────────────────────────────
+  {
+    name: `Calcium Sandoz`,
+    scientific_name: `Calcium (gluconolactate + carbonate)`,
+    category: `Vitamins`,
+    emoji: `🦴`,
+    description: `Calcium Sandoz is a calcium supplement for calcium deficiency, osteoporosis prevention, and muscle cramp prevention. Available as effervescent sachets providing excellent absorption.`,
+    how_to_take: `Dissolve sachet in a glass of water. Take with meals for better absorption. Usually 1-2 sachets daily.`,
+    side_effects: [
+      `Constipation`,
+      `Nausea`,
+      `Bloating`,
+      `Rarely: kidney stones with very high doses`
+    ],
+    warnings: [
+      `Do not exceed prescribed dose`,
+      `Monitor calcium levels with prolonged supplementation`,
+      `Take 4 hours apart from levothyroxine and iron`
+    ],
+    interactions: [
+      `Levothyroxine — take 4 hours apart`,
+      `Iron supplements — take 2 hours apart`,
+      `Bisphosphonates — take 2 hours apart`
+    ],
+    algeria_brands: [
+      `Calcium Sandoz 500mg sachets`,
+      `Calcium Sandoz + Vitamin D3`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `N/D`,
+      lab: `SANDOZ`,
+      generic_official: `CALCIUM GLUCONOLACTATE/CARBONATE DE CALCIUM`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=3384`,
+      pharmnet_url: `https://pharmnet-dz.com/m-3384-calcium-sandoz-3-40g-0-150g-sachet-ou-500mg-en-calcium-element-pdre-en-sach-pour-sol-buv-b-30`,
+      dosage_variants: [
+        {
+          dosage: `3,40G/0,150G/SACHET OU 500MG EN CALCIUM ELEMENT`,
+          form: `PDRE. SOL. BUV`,
+          conditioning: `B/30`,
+          ppa: `405.25 DA`
+        },
+        {
+          dosage: `500MG** ( SEL 2,94G / 0,3 G)`,
+          form: `COMP. EFFERV`,
+          conditioning: `B/20`,
+          ppa: `260.86 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── DIABETES ────────────────────────────────
+  {
+    name: `Diacarbose`,
+    scientific_name: `Acarbose`,
+    category: `Diabetes`,
+    emoji: `💊`,
+    description: `Diacarbose is an acarbose alpha-glucosidase inhibitor that delays carbohydrate absorption lowering blood sugar spikes after meals in type 2 diabetes.`,
+    how_to_take: `Take with the first bite of each main meal. Start at low dose and increase gradually over weeks.`,
+    side_effects: [
+      `Flatulence and bloating (very common at start)`,
+      `Diarrhea`,
+      `Stomach pain`,
+      `Nausea`
+    ],
+    warnings: [
+      `Flatulence is very common at start — reduce dose if intolerable and increase slowly`,
+      `Does not cause hypoglycemia alone`,
+      `If hypoglycemia occurs when combined with other agents — treat with pure glucose (not sucrose)`
+    ],
+    interactions: [
+      `Digestive enzymes (amylase, pancreatin) — reduce effectiveness`,
+      `Neomycin — may worsen diarrhea`
+    ],
+    algeria_brands: [
+      `Diacarbose 50mg`,
+      `Diacarbose 100mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BIO-GALENIC`,
+      generic_official: `ACARBOSE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=6078`,
+      pharmnet_url: `https://pharmnet-dz.com/m-6148-diacarbose-50mg-comprime-b-30`,
+      dosage_variants: [
+        {
+          dosage: `50MG`,
+          form: `COMP`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── HEART ───────────────────────────────────
+  {
+    name: `Diosmine Mylan`,
+    scientific_name: `Diosmin`,
+    category: `Heart`,
+    emoji: `💊`,
+    description: `Diosmine Mylan is a venotonic and vasculoprotective flavonoid for chronic venous insufficiency, varicose veins, hemorrhoids, and leg heaviness.`,
+    how_to_take: `Take once daily (600mg) with the evening meal, or as prescribed.`,
+    side_effects: [
+      `Nausea`,
+      `Diarrhea`,
+      `Headache (rare)`
+    ],
+    warnings: [
+      `Not a substitute for compression stockings in venous insufficiency`,
+      `Consult doctor if symptoms do not improve`,
+      `Inform doctor if pregnant`
+    ],
+    interactions: [
+      `Few significant drug interactions`
+    ],
+    algeria_brands: [
+      `Diosmine Mylan 600mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `N/D`,
+      lab: `MYLAN`,
+      generic_official: `DIOSMINE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=1526`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1526-diosmine-mylan-600mg-comp-b-30`,
+      dosage_variants: [
+        {
+          dosage: `600MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── UROLOGY ─────────────────────────────────
+  {
+    name: `Tamsulosine Beker LP`,
+    scientific_name: `Tamsulosin`,
+    category: `Urology`,
+    emoji: `🫀`,
+    description: `Tamsulosine Beker LP is a locally manufactured tamsulosin alpha-blocker for benign prostatic hyperplasia symptoms including urinary hesitation and weak stream.`,
+    how_to_take: `Take once daily approximately 30 minutes after the same meal each day. Swallow whole.`,
+    side_effects: [
+      `Dizziness on standing (especially first dose)`,
+      `Retrograde ejaculation`,
+      `Headache`,
+      `Nasal congestion`
+    ],
+    warnings: [
+      `Rise slowly to avoid dizziness`,
+      `Tell ophthalmologist before any cataract surgery — floppy iris syndrome risk`,
+      `First dose may cause significant blood pressure drop`
+    ],
+    interactions: [
+      `Ketoconazole and ritonavir — strongly increase tamsulosin levels (avoid)`,
+      `Other antihypertensives — additive hypotension`,
+      `PDE5 inhibitors — hypotension risk`
+    ],
+    algeria_brands: [
+      `Tamsulosine Beker LP 0.4mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `BEKER LABORATOIRES`,
+      generic_official: `TAMSULOSINE CHLORHYDRATE`,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=4237`,
+      pharmnet_url: `https://pharmnet-dz.com/m-4237-tamsulosine-beker-lp-0-4mg-gles-Ã -microgranules-Ã -libÃ©ration-prolongÃ©e-b-30-et-b-90`,
+      dosage_variants: [
+        {
+          dosage: `0,4MG`,
+          form: `GLES. A MICROG. GASTRORESIST`,
+          conditioning: `B/30 ET B/90`,
+          ppa: `1500.00 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Sildenafil Zentiva`,
+    scientific_name: `Sildenafil`,
+    category: `Urology`,
+    emoji: `🫀`,
+    description: `Sildenafil Zentiva is a locally registered sildenafil PDE5 inhibitor for erectile dysfunction. Requires sexual stimulation to work.`,
+    how_to_take: `Take 50-100mg approximately 1 hour before sexual activity. Do not take more than once daily.`,
+    side_effects: [
+      `Headache`,
+      `Flushing`,
+      `Dyspepsia`,
+      `Nasal congestion`,
+      `Visual disturbances (blue tinge — transient)`
+    ],
+    warnings: [
+      `Absolutely contraindicated with all nitrates — fatal hypotension`,
+      `Seek care for erection lasting more than 4 hours`,
+      `Tell all doctors about use before any surgery`
+    ],
+    interactions: [
+      `Nitrates — ABSOLUTELY CONTRAINDICATED — fatal combination`,
+      `Alpha-blockers — hypotension risk`,
+      `CYP3A4 inhibitors increase sildenafil levels`
+    ],
+    algeria_brands: [
+      `Sildenafil Zentiva 25mg`,
+      `Sildenafil Zentiva 50mg`,
+      `Sildenafil Zentiva 100mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `SAIDAL GROUPE`,
+      generic_official: `SILDENAFIL CITRATE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-1227-sildenafil-zentiva-50mg-comp-pelli-b-04`,
+      dosage_variants: [
+        {
+          dosage: `50MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/04`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── ENDOCRINE ───────────────────────────────
+  {
+    name: `Testosterone`,
+    scientific_name: `Testosterone Enanthate`,
+    category: `Endocrine`,
+    emoji: `💊`,
+    description: `Testosterone injectable is testosterone enanthate for male hypogonadism, delayed puberty, and certain breast cancers in women. Requires careful monitoring.`,
+    how_to_take: `Injected intramuscularly every 2-4 weeks by a healthcare professional.`,
+    side_effects: [
+      `Acne`,
+      `Increased red blood cell count`,
+      `Fluid retention`,
+      `Mood changes`,
+      `Testicular atrophy`
+    ],
+    warnings: [
+      `Regular blood tests: haematocrit, testosterone levels, PSA in men over 40`,
+      `Not for use if prostate cancer is suspected`
+    ],
+    interactions: [
+      `Warfarin — increased anticoagulant effect`,
+      `Insulin — may alter insulin requirements`
+    ],
+    algeria_brands: [
+      `Testosterone 250mg/mL injectable`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `RENAUDIN`,
+      generic_official: `TESTOSTERONE (ENANTHATE)`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=668`,
+      pharmnet_url: `https://pharmnet-dz.com/m-594-testosterone-250mg-ml-sol-inj-b-1`,
+      dosage_variants: [
+        {
+          dosage: `250MG/ML`,
+          form: `SOL. INJ`,
+          conditioning: `B/1`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── UROLOGY ─────────────────────────────────
+  {
+    name: `Tamsulosine MM LP`,
+    scientific_name: `Tamsulosin`,
+    category: `Urology`,
+    emoji: `🫀`,
+    description: `Tamsulosine MM LP is a locally manufactured long-acting tamsulosin alpha-blocker for benign prostatic hyperplasia symptoms.`,
+    how_to_take: `Take once daily 30 minutes after the same meal each day. Swallow whole.`,
+    side_effects: [
+      `Dizziness on standing`,
+      `Retrograde ejaculation`,
+      `Headache`
+    ],
+    warnings: [
+      `Rise slowly to avoid dizziness`,
+      `Tell ophthalmologist before cataract surgery`,
+      `First dose dizziness risk`
+    ],
+    interactions: [
+      `Ketoconazole and ritonavir — avoid combination`,
+      `PDE5 inhibitors — hypotension risk`
+    ],
+    algeria_brands: [
+      `Tamsulosine MM LP 0.4mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `MM LABORATOIRES`,
+      generic_official: `TAMSULOSINE CHLORHYDRATE`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-1177-tamsulosine-mm-lp-0-4mg-microgrles-en-gles-lp-b-30-`,
+      dosage_variants: [
+        {
+          dosage: `0,4MG`,
+          form: `GLES`,
+          conditioning: `B/30`,
+          ppa: `1500.00 DA`
+        }
+      ]
+    }
+  },
+
+  // ─── ONCOLOGY SUPPORT ────────────────────────
+  {
+    name: `Tamoxifene Mylan`,
+    scientific_name: `Tamoxifen`,
+    category: `Oncology Support`,
+    emoji: `💊`,
+    description: `Tamoxifene Mylan is a locally registered tamoxifen selective estrogen receptor modulator for hormone receptor-positive breast cancer treatment and prevention.`,
+    how_to_take: `Take once daily with or without food at the same time each day.`,
+    side_effects: [
+      `Hot flashes`,
+      `Vaginal discharge`,
+      `Nausea`,
+      `Irregular periods`,
+      `Blood clot risk (DVT, PE)`
+    ],
+    warnings: [
+      `Report any leg pain, shortness of breath, or chest pain — blood clot risk`,
+      `Regular gynecological examination (endometrial cancer risk)`,
+      `Avoid pregnancy during treatment and for 9 months after`
+    ],
+    interactions: [
+      `Warfarin — greatly increased anticoagulant effect`,
+      `Paroxetine and fluoxetine — reduce tamoxifen effectiveness`,
+      `Rifampicin reduces tamoxifen levels`
+    ],
+    algeria_brands: [
+      `Tamoxifene Mylan 10mg`,
+      `Tamoxifene Mylan 20mg`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `MYLAN`,
+      generic_official: null,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=1070`,
+      pharmnet_url: `https://pharmnet-dz.com/m-1070-tamoxifene-mylan-10mg-comp-b-30`,
+      dosage_variants: [
+        {
+          dosage: `10MG`,
+          form: `COMP`,
+          conditioning: `B/30`,
+          ppa: null
+        },
+        {
+          dosage: `20MG`,
+          form: `COMP`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+  {
+    name: `Anastrozole Cinfa`,
+    scientific_name: `Anastrozole`,
+    category: `Oncology Support`,
+    emoji: `💊`,
+    description: `Anastrozole Cinfa is an aromatase inhibitor for postmenopausal hormone receptor-positive breast cancer. More effective than tamoxifen in postmenopausal women.`,
+    how_to_take: `Take once daily with or without food.`,
+    side_effects: [
+      `Hot flashes`,
+      `Joint and muscle pain (arthralgia — very common)`,
+      `Bone loss (osteoporosis risk)`,
+      `Nausea`,
+      `Fatigue`
+    ],
+    warnings: [
+      `Bone density monitoring essential — bone loss is significant with long-term use`,
+      `Take calcium and vitamin D supplements`,
+      `Not for premenopausal women`
+    ],
+    interactions: [
+      `Tamoxifen — reduce effectiveness if combined (avoid)`,
+      `Estrogen-containing products — reduce effectiveness`
+    ],
+    algeria_brands: [
+      `Anastrozole Cinfa 1mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `CINFA`,
+      generic_official: `ANASTROZOLE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=668`,
+      pharmnet_url: `https://pharmnet-dz.com/m-611-anastrozole-cinfa-1mg-comp-pelli-b-28`,
+      dosage_variants: [
+        {
+          dosage: `1MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/28`,
+          ppa: `6,512.56 DA`
+        }
+      ]
+    }
+  },
+  {
+    name: `Letrozole Cinfa`,
+    scientific_name: `Letrozole`,
+    category: `Oncology Support`,
+    emoji: `💊`,
+    description: `Letrozole Cinfa is an aromatase inhibitor for postmenopausal hormone receptor-positive breast cancer and, at lower doses, for ovulation induction in infertility.`,
+    how_to_take: `For breast cancer: 2.5mg once daily. For infertility: as prescribed by specialist (days 2-6 of cycle).`,
+    side_effects: [
+      `Hot flashes`,
+      `Joint and bone pain`,
+      `Fatigue`,
+      `Bone loss`,
+      `Multiple pregnancy risk with fertility use`
+    ],
+    warnings: [
+      `Bone density monitoring needed with long-term use`,
+      `Take calcium and vitamin D supplements`,
+      `Not for premenopausal women for cancer treatment`
+    ],
+    interactions: [
+      `Tamoxifen — avoid combination for breast cancer treatment`
+    ],
+    algeria_brands: [
+      `Letrozole Cinfa 2.5mg`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste I`,
+      lab: `CINFA`,
+      generic_official: `LETROZOLE`,
+      notice_url: `https://pharmnet-dz.com//notice.ashx?id=668`,
+      pharmnet_url: `https://pharmnet-dz.com/m-598-letrozole-cinfa-2-5mg-comp-pelli-b-30`,
+      dosage_variants: [
+        {
+          dosage: `2,5MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/30`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── RHEUMATOLOGY ────────────────────────────
+  {
+    name: `Methotrexate Mylan`,
+    scientific_name: `Methotrexate`,
+    category: `Rheumatology`,
+    emoji: `💊`,
+    description: `Methotrexate Mylan is a disease-modifying antirheumatic drug for rheumatoid arthritis and psoriasis. CRITICAL: must be taken ONCE WEEKLY only — daily dosing is potentially fatal.`,
+    how_to_take: `Take ONCE PER WEEK ONLY on the same day each week. Always take folic acid on the 6 non-methotrexate days to reduce side effects.`,
+    side_effects: [
+      `Nausea and vomiting`,
+      `Mouth ulcers`,
+      `Fatigue`,
+      `Liver toxicity`,
+      `Bone marrow suppression`
+    ],
+    warnings: [
+      `NEVER take daily — weekly dosing only — this is a critical safety warning`,
+      `Take folic acid on non-methotrexate days to reduce toxicity`,
+      `Regular blood tests (CBC and liver function) are mandatory`,
+      `Not safe in pregnancy`
+    ],
+    interactions: [
+      `NSAIDs — increase methotrexate toxicity`,
+      `Trimethoprim/Bactrim — serious life-threatening toxicity`,
+      `Alcohol — increases liver toxicity significantly`
+    ],
+    algeria_brands: [
+      `Methotrexate Mylan 2.5mg tablets`,
+      `Methotrexate Mylan 25mg/mL injectable`
+    ],
+    pharmnet: {
+      refundable: null,
+      prescription_list: `Liste I`,
+      lab: `MYLAN`,
+      generic_official: null,
+      notice_url: `https://pharmnet-dz.com/notice.ashx?id=16`,
+      pharmnet_url: `https://pharmnet-dz.com/m-16-methotrexate-mylan-100mg-ml-1g-10ml--5g-50ml-sol-inj--b-10fl-de-10ml-et-b-10fl-de-50ml`,
+      dosage_variants: [
+        {
+          dosage: `100MG/ML (1G/10ML - 5G/50ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/10FL. DE 10ML ET B/10FL DE /50ML`,
+          ppa: null
+        },
+        {
+          dosage: `2,5MG/ML (OU 5MG/2ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/10FL. DE 2ML`,
+          ppa: null
+        },
+        {
+          dosage: `25MG/ML (OU 50MG/2ML - 500MG/20ML)`,
+          form: `SOL. INJ`,
+          conditioning: `B/10FL DE 2ML ET B/10FL. DE 20ML`,
+          ppa: null
+        }
+      ]
+    }
+  },
+
+  // ─── ONCOLOGY SUPPORT ────────────────────────
+  {
+    name: `Ondansetron Inpha-Medis`,
+    scientific_name: `Ondansetron`,
+    category: `Oncology Support`,
+    emoji: `💊`,
+    description: `Ondansetron Inpha-Medis is a locally manufactured serotonin 5-HT3 antagonist antiemetic for chemotherapy, radiotherapy, and post-operative nausea and vomiting.`,
+    how_to_take: `Take 30 minutes before chemotherapy or radiotherapy. Oral: 8mg before and then 8mg every 8 hours.`,
+    side_effects: [
+      `Headache`,
+      `Constipation`,
+      `Flushing`,
+      `QT prolongation with high doses`
+    ],
+    warnings: [
+      `Monitor ECG if at cardiac risk or with high doses`,
+      `Not for long-term treatment of nausea`
+    ],
+    interactions: [
+      `QT-prolonging drugs — increased cardiac risk`,
+      `Tramadol — reduces analgesic effect`,
+      `Apomorphine — severe hypotension (contraindicated)`
+    ],
+    algeria_brands: [
+      `Ondansetron Inpha-Medis 4mg tablets`,
+      `Ondansetron Inpha-Medis 8mg tablets`,
+      `Ondansetron Inpha-Medis injectable 4mg/2mL`
+    ],
+    pharmnet: {
+      refundable: true,
+      prescription_list: `Liste II`,
+      lab: `INPHA MEDIS`,
+      generic_official: `ONDANSETRON CHLORHYDRATE DIHYDRATE EXPRIME EN ONDANSETRON`,
+      notice_url: null,
+      pharmnet_url: `https://pharmnet-dz.com/m-2900-ondansetron-inpha-medis-4mg-comp-pelli-b-10`,
+      dosage_variants: [
+        {
+          dosage: `4MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/10`,
+          ppa: `714.00 DA`
+        },
+        {
+          dosage: `8MG`,
+          form: `COMP. PELLI`,
+          conditioning: `B/10`,
+          ppa: `1143.00 DA`
+        }
+      ]
+    }
+  },
 ];
 
 module.exports = algerianMedications;

@@ -44,13 +44,14 @@ class _NotificationsPageState extends State<NotificationsPage>
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      if (token == null) { Navigator.pushReplacementNamed(context, '/signin'); return; }
-
+      if (token == null) {
+        Navigator.pushReplacementNamed(context, '/signin');
+        return;
+      }
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/notifications'),
         headers: ApiConfig.getAuthHeaders(token),
       );
-
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         setState(() {
@@ -67,9 +68,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     }
   }
 
-  // ── parse data field safely (DB returns JSON string or Map) ───────────────
   Map<String, dynamic> _parseData(dynamic raw) {
-    debugPrint('PARSE_DATA raw type: ${raw.runtimeType} value: $raw');
     if (raw == null) return {};
     if (raw is Map<String, dynamic>) return raw;
     if (raw is String && raw.isNotEmpty) {
@@ -110,25 +109,19 @@ class _NotificationsPageState extends State<NotificationsPage>
     } catch (e) { debugPrint('markAllAsRead error: $e'); }
   }
 
-  // ── TAKEN — with optional barcode confirm ──────────────────────────────────
+  // ── TAKEN ──────────────────────────────────────────────────────────────────
 
   Future<void> _handleTaken(Map<String, dynamic> notification) async {
     final data        = _parseData(notification['data']);
     final scheduleId  = _parseId(data['schedule_id']);
     final treatmentId = _parseId(data['treatment_id']);
     final notifId     = notification['id'] as int;
-      // ADD HERE:
-    debugPrint('TAKEN data: $data');
-    debugPrint('TAKEN scheduleId: $scheduleId');
-    debugPrint('TAKEN treatmentId: $treatmentId');
     if (scheduleId == null) return;
 
     setState(() => _processingIds.add(notifId));
 
     String? savedBarcode;
-    if (treatmentId != null) {
-      savedBarcode = await _fetchSavedBarcode(treatmentId);
-    }
+    if (treatmentId != null) savedBarcode = await _fetchSavedBarcode(treatmentId);
 
     if (savedBarcode != null && mounted) {
       await _showBarcodeConfirmDialog(
@@ -152,17 +145,14 @@ class _NotificationsPageState extends State<NotificationsPage>
         Uri.parse('${ApiConfig.baseUrl}/treatments/$treatmentId'),
         headers: ApiConfig.getAuthHeaders(token!),
       );
-          // ADD THESE:
-    debugPrint('BARCODE fetch status: ${response.statusCode}');
-    debugPrint('BARCODE fetch body: ${response.body}');
       if (response.statusCode == 200) {
-        final body      = jsonDecode(response.body);
-        final treatment = body['treatment'] ?? body;
+        final body       = jsonDecode(response.body);
+        final treatment  = body['treatment'] ?? body;
         final barcodeRaw = treatment['barcode_data'];
         if (barcodeRaw == null) return null;
         final parsed = barcodeRaw is String ? jsonDecode(barcodeRaw) : barcodeRaw;
-        // Try all possible field names
-        return (parsed['barcode'] ?? parsed['raw'] ?? parsed['rawValue'] ?? parsed['displayValue'])?.toString();
+        return (parsed['barcode'] ?? parsed['raw'] ?? parsed['rawValue'] ?? parsed['displayValue'])
+            ?.toString();
       }
     } catch (_) {}
     return null;
@@ -278,7 +268,6 @@ class _NotificationsPageState extends State<NotificationsPage>
         headers: ApiConfig.getAuthHeaders(token!),
       );
       if (response.statusCode == 200) {
-        // mark read without extra reload, then do one single reload
         await _markAsRead(notifId, reload: false);
         _loadNotifications();
         if (mounted) {
@@ -457,34 +446,47 @@ class _NotificationsPageState extends State<NotificationsPage>
     } catch (_) { return ''; }
   }
 
-  // corrected date for grouping
   DateTime _correctedDate(String dateStr) {
-    try {
-      return DateTime.parse(dateStr).add(const Duration(hours: 1));
-    } catch (_) {
-      return DateTime.now();
-    }
+    try { return DateTime.parse(dateStr).add(const Duration(hours: 1)); }
+    catch (_) { return DateTime.now(); }
   }
 
-  // ── STAGE DETECTION ────────────────────────────────────────────────────────
+  // ── STYLE ──────────────────────────────────────────────────────────────────
+  // Every stage produced by notificationService._getNotificationStages() is
+  // handled explicitly here. No stage should fall through to the default.
+  //
+  // Stage → button rules:
+  //   showTaken   : PUT /schedule/take/:id  — marks dose as taken in DB
+  //   showSnooze  : POST /notifications/snooze/:id  — adds snooze notification
+  //   showSkip    : PUT /schedule/skip/:id  — marks dose as skipped in DB
+  //   showDismiss : PUT /notifications/read/:id  — just marks as read
+  //
+  // Informational stages (SAFE_TO_EAT, INFORM_LATE) → dismiss only.
+  // Escalation stages → taken only, no escape.
+  // ──────────────────────────────────────────────────────────────────────────
 
   _NotifStyle _getStyle(Map<String, dynamic> notification) {
-    final type     = (notification['type'] ?? '').toString();
-    final data     = _parseData(notification['data']);
-    final stage    = (data['stage'] ?? '').toString();
-    final title    = (notification['title'] ?? '').toString();
-   // ── Caregiver reminder ────────────────────────────
-if ((data['type'] ?? '') == 'caregiver_reminder') {
-  return _NotifStyle(
-    color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
-    icon: Icons.favorite_outline_rounded, stage: 'reminder',
-    showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
-  );
-}
+    final type  = (notification['type'] ?? '').toString();
+    final data  = _parseData(notification['data']);
+    final stage = (data['stage'] ?? '').toString();
+    final title = (notification['title'] ?? '').toString();
+
+    // ── Caregiver reminder ────────────────────────────────────────────────
+    if ((data['type'] ?? '') == 'caregiver_reminder') {
+      return _NotifStyle(
+        color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
+        icon: Icons.favorite_outline_rounded, stage: 'caregiver',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
     // ── Daily summary ─────────────────────────────────────────────────────
     if (type == 'summary') {
-      final pct = _parseId(data['pct']) ?? 0;
-      final color = pct >= 90 ? Colors.green : pct >= 70 ? Colors.blue : pct >= 50 ? Colors.orange : Colors.red;
+      final pct   = _parseId(data['pct']) ?? 0;
+      final color = pct >= 90 ? Colors.green
+                  : pct >= 70 ? Colors.blue
+                  : pct >= 50 ? Colors.orange
+                  : Colors.red;
       return _NotifStyle(
         color: color, bgColor: color.withOpacity(0.08),
         icon: Icons.bar_chart_rounded, stage: 'summary',
@@ -505,8 +507,9 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       );
     }
 
-    // ── Escalation ────────────────────────────────────────────────────────
-    if (stage == 'ESCALATION' || title.contains('🚨') || title.contains('CRITIQUE')) {
+    // ── ESCALATION ────────────────────────────────────────────────────────
+    // Maximum urgency. Taken only — no escape routes.
+    if (stage == 'ESCALATION') {
       return _NotifStyle(
         color: Colors.red.shade700, bgColor: const Color(0xFFFCEBEB),
         icon: Icons.crisis_alert, stage: 'escalation',
@@ -515,8 +518,10 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       );
     }
 
-    // ── Missed ────────────────────────────────────────────────────────────
-    if (type == 'missed' || stage == 'MISSED' || title.contains('❌') || title.contains('❗') || title.contains('manquée')) {
+    // ── MISSED (from Job 2) ───────────────────────────────────────────────
+    // Standard/interval doses the patient didn't take.
+    // Taken + Skip allowed. No snooze (they're already late).
+    if (type == 'missed' || stage == 'MISSED') {
       return _NotifStyle(
         color: Colors.deepOrange, bgColor: const Color(0xFFFFF3E0),
         icon: Icons.error_outline, stage: 'missed',
@@ -524,17 +529,9 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       );
     }
 
-    // ── Early / Prep ──────────────────────────────────────────────────────
-    if (stage == 'EARLY' || stage == 'PREP' || title.contains('🕒') || title.contains('⏰') || title.contains('minutes')) {
-      return _NotifStyle(
-        color: Colors.amber.shade700, bgColor: const Color(0xFFFFFDE7),
-        icon: Icons.access_time, stage: 'early',
-        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
-      );
-    }
-
-    // ── Follow-up ─────────────────────────────────────────────────────────
-    if (stage == 'FOLLOW_UP' || title.contains('⚠️') || title.contains('attente')) {
+    // ── FOLLOW_UP ─────────────────────────────────────────────────────────
+    // HIGH priority dose overdue 15 min. Taken only — no snooze, no skip.
+    if (stage == 'FOLLOW_UP') {
       return _NotifStyle(
         color: Colors.orange, bgColor: const Color(0xFFFFF8E1),
         icon: Icons.warning_amber_rounded, stage: 'followup',
@@ -542,8 +539,39 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       );
     }
 
-    // ── Snoozed ───────────────────────────────────────────────────────────
-    if (stage == 'SNOOZE' || title.contains('différé') || title.contains('Rappel:')) {
+    // ── PREP / EARLY (standard doses) ────────────────────────────────────
+    // Heads-up before the dose time. Dismiss only — it's too early to confirm.
+    if (stage == 'PREP') {
+      return _NotifStyle(
+        color: Colors.amber.shade700, bgColor: const Color(0xFFFFFDE7),
+        icon: Icons.access_time, stage: 'prep',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
+    // ── MAIN / MAIN_HIGH (standard + interval + during/after meal) ────────
+    // It is time. Taken + Snooze.
+    if (stage == 'MAIN') {
+      return _NotifStyle(
+        color: Colors.blue, bgColor: const Color(0xFFE6F1FB),
+        icon: Icons.medication, stage: 'main',
+        showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
+      );
+    }
+
+    // ── MAIN_HIGH ─────────────────────────────────────────────────────────
+    // Critical dose — Taken only, no snooze.
+    if (stage == 'MAIN_HIGH') {
+      return _NotifStyle(
+        color: Colors.red.shade600, bgColor: const Color(0xFFFCEBEB),
+        icon: Icons.medication, stage: 'main_high',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
+        isCritical: true,
+      );
+    }
+
+    // ── SNOOZE (from snooze controller) ───────────────────────────────────
+    if (stage == 'SNOOZE') {
       return _NotifStyle(
         color: Colors.blueGrey, bgColor: const Color(0xFFECEFF1),
         icon: Icons.snooze, stage: 'snooze',
@@ -551,7 +579,97 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       );
     }
 
-    // ── Main (default) ────────────────────────────────────────────────────
+    // ── BEFORE MEAL stages ────────────────────────────────────────────────
+
+    // BEFORE_MEAL_EARLY: window is opening, prepare now. Dismiss only.
+    if (stage == 'BEFORE_MEAL_EARLY') {
+      return _NotifStyle(
+        color: Colors.amber.shade700, bgColor: const Color(0xFFFFFDE7),
+        icon: Icons.restaurant_menu, stage: 'before_meal_early',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
+    // BEFORE_MEAL_MAIN: take it NOW before eating. Taken + Snooze (small window).
+    if (stage == 'BEFORE_MEAL_MAIN') {
+      return _NotifStyle(
+        color: Colors.orange, bgColor: const Color(0xFFFFF3E0),
+        icon: Icons.restaurant_menu, stage: 'before_meal_main',
+        showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
+      );
+    }
+
+    // BEFORE_MEAL_FOLLOWUP (HIGH only): last chance before meal starts. Taken only.
+    if (stage == 'BEFORE_MEAL_FOLLOWUP') {
+      return _NotifStyle(
+        color: Colors.deepOrange, bgColor: const Color(0xFFFBE9E7),
+        icon: Icons.warning_amber_rounded, stage: 'before_meal_followup',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
+      );
+    }
+
+    // INFORM_LATE: window is gone — DO NOT take now. Informational + dismiss only.
+    if (stage == 'INFORM_LATE') {
+      return _NotifStyle(
+        color: Colors.grey.shade600, bgColor: const Color(0xFFF5F5F5),
+        icon: Icons.info_outline, stage: 'inform_late',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+        isInformational: true,
+      );
+    }
+
+    // ── BEDTIME stages ────────────────────────────────────────────────────
+
+    // BEDTIME_PREP: 30 min before bedtime. Dismiss only — too early to confirm.
+    if (stage == 'BEDTIME_PREP') {
+      return _NotifStyle(
+        color: Colors.indigo.shade300, bgColor: const Color(0xFFE8EAF6),
+        icon: Icons.bedtime_outlined, stage: 'bedtime_prep',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
+    // BEDTIME_MAIN: it is bedtime. Taken only — no snooze for sleeping medication.
+    if (stage == 'BEDTIME_MAIN') {
+      return _NotifStyle(
+        color: Colors.indigo, bgColor: const Color(0xFFE8EAF6),
+        icon: Icons.bedtime, stage: 'bedtime_main',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
+      );
+    }
+
+    // BEDTIME_LATE: patient still awake 20min past bedtime. Taken only.
+    if (stage == 'BEDTIME_LATE') {
+      return _NotifStyle(
+        color: Colors.indigo.shade700, bgColor: const Color(0xFFE8EAF6),
+        icon: Icons.nightlight_round, stage: 'bedtime_late',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
+      );
+    }
+
+    // ── EMPTY STOMACH stages ──────────────────────────────────────────────
+
+    // EMPTY_STOMACH_PREP: prepare medication. Dismiss only.
+    if (stage == 'EMPTY_STOMACH_PREP') {
+      return _NotifStyle(
+        color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
+        icon: Icons.no_meals_outlined, stage: 'empty_stomach_prep',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
+    // SAFE_TO_EAT: purely informational — you can eat now. Dismiss only.
+    if (stage == 'SAFE_TO_EAT') {
+      return _NotifStyle(
+        color: Colors.green, bgColor: const Color(0xFFE8F5E9),
+        icon: Icons.restaurant, stage: 'safe_to_eat',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+        isInformational: true,
+      );
+    }
+
+    // ── DEFAULT ───────────────────────────────────────────────────────────
+    // Fallback for any unrecognised stage. Treated as a standard main reminder.
     return _NotifStyle(
       color: Colors.blue, bgColor: const Color(0xFFE6F1FB),
       icon: Icons.medication, stage: 'main',
@@ -563,14 +681,19 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
 
   List<dynamic> _filteredNotifications(int tabIndex) {
     switch (tabIndex) {
-      case 1: // Pending — unread reminders that are not missed
+      case 1: // Pending — unread, actionable reminders
         return _notifications.where((n) {
-          final type  = (n['type'] ?? '').toString();
-          final data  = _parseData(n['data']);
-          final stage = (data['stage'] ?? '').toString();
+          final type   = (n['type'] ?? '').toString();
+          final data   = _parseData(n['data']);
+          final stage  = (data['stage'] ?? '').toString();
           final isRead = n['is_read'] == 1 || n['is_read'] == true;
-          return !isRead && type != 'achievement' && type != 'missed'
-              && type != 'summary' && stage != 'MISSED';
+          return !isRead &&
+              type != 'achievement' &&
+              type != 'missed'  &&
+              type != 'summary' &&
+              stage != 'MISSED' &&
+              stage != 'INFORM_LATE' &&
+              stage != 'SAFE_TO_EAT';
         }).toList();
       case 2: // Missed
         return _notifications.where((n) {
@@ -579,7 +702,7 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
           final stage = (data['stage'] ?? '').toString();
           return type == 'missed' || stage == 'MISSED';
         }).toList();
-      case 3: // Achievements — includes daily summaries
+      case 3: // Achievements + summaries
         return _notifications.where((n) {
           final type = (n['type'] ?? '').toString();
           return type == 'achievement' || type == 'summary';
@@ -691,12 +814,13 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
   }
 
   Widget _buildEmpty(bool isFr, int tabIdx) {
-    final icons    = [Icons.notifications_off_outlined, Icons.check_circle_outline, Icons.celebration, Icons.emoji_events_outlined];
+    final icons    = [Icons.notifications_off_outlined, Icons.check_circle_outline,
+                      Icons.celebration, Icons.emoji_events_outlined];
     final messages = [
-      isFr ? 'Aucune notification' : 'No notifications',
-      isFr ? 'Pas de doses en attente 🎉' : 'No pending doses 🎉',
-      isFr ? 'Aucune dose manquée ✅' : 'No missed doses ✅',
-      isFr ? 'Pas encore de succès' : 'No achievements yet',
+      isFr ? 'Aucune notification'         : 'No notifications',
+      isFr ? 'Pas de doses en attente 🎉'  : 'No pending doses 🎉',
+      isFr ? 'Aucune dose manquée ✅'       : 'No missed doses ✅',
+      isFr ? 'Pas encore de succès'        : 'No achievements yet',
     ];
     final colors = [Colors.grey, Colors.green, Colors.green, Colors.purple];
     return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -715,12 +839,12 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
     final isProc    = _processingIds.contains(notifId);
     final data      = _parseData(notification['data']);
     final priority  = (data['priority'] ?? 'MEDIUM').toString();
-    final condition = (data['condition'] ?? data['condition_name'] ?? '').toString();
+    final condition = (data['condition'] ?? '').toString();
     final timeAgo   = _getTimeAgo(notification['created_at']?.toString() ?? '', isFr);
     final title     = (notification['title'] ?? '').toString();
     final message   = (notification['message'] ?? '').toString();
 
-    // Scheduled time for missed cards
+    // Scheduled time — shown on missed cards
     String? scheduledAt;
     if (style.stage == 'missed') {
       final schedDt = data['scheduled_date_time']?.toString();
@@ -732,10 +856,7 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       }
     }
 
-    // Special card for daily summary
     if (style.isSummary) return _buildSummaryCard(notification, data, style, timeAgo, isFr);
-
-    // Special card for achievements/streaks
     if (style.stage == 'achievement') return _buildAchievementCard(notification, data, style, timeAgo, isRead, isFr);
 
     return GestureDetector(
@@ -748,11 +869,12 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
           border: style.isCritical
               ? Border.all(color: Colors.red.shade400, width: 2)
               : (!isRead ? Border.all(color: style.color.withOpacity(0.4), width: 1.5) : null),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04),
+              blurRadius: 8, offset: const Offset(0, 4))],
         ),
         child: Column(children: [
 
-          // color stripe
+          // colour stripe at top
           Container(height: 4, decoration: BoxDecoration(
             color: style.color,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
@@ -762,7 +884,7 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-              // header
+              // header row
               Row(children: [
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -788,8 +910,10 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
                 if (priority == 'HIGH')
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(20)),
-                    child: Text('HIGH', style: TextStyle(fontSize: 10, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(
+                        color: Colors.red.shade50, borderRadius: BorderRadius.circular(20)),
+                    child: Text('HIGH', style: TextStyle(
+                        fontSize: 10, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
                   ),
               ]),
               const SizedBox(height: 10),
@@ -797,7 +921,29 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
               // message
               Text(message, style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.4)),
 
-              // scheduled time for missed
+              // informational banner (INFORM_LATE / SAFE_TO_EAT)
+              if (style.isInformational) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: style.color.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.info_outline, size: 13, color: style.color),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                      style.stage == 'safe_to_eat'
+                          ? 'No action needed — this is an informational reminder.'
+                          : 'Do not take this medication now. The timing window has passed.',
+                      style: TextStyle(fontSize: 11, color: style.color),
+                    )),
+                  ]),
+                ),
+              ],
+
+              // scheduled time for missed cards
               if (scheduledAt != null) ...[
                 const SizedBox(height: 6),
                 Row(children: [
@@ -809,9 +955,8 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
                   ),
                 ]),
               ],
-              const SizedBox(height: 12),
 
-              // time ago
+              const SizedBox(height: 12),
               Text(timeAgo, style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
               const SizedBox(height: 14),
 
@@ -841,7 +986,8 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04),
+            blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(children: [
         Container(height: 4, decoration: BoxDecoration(
@@ -859,19 +1005,23 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(notification['title'] ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-                Text(isFr ? 'Bilan quotidien' : 'Daily summary', style: TextStyle(fontSize: 11, color: style.color)),
+                Text(notification['title'] ?? '',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+                Text(isFr ? 'Bilan quotidien' : 'Daily summary',
+                    style: TextStyle(fontSize: 11, color: style.color)),
               ])),
               Text('$pct%', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: style.color)),
             ]),
             const SizedBox(height: 12),
-            Text(notification['message'] ?? '', style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+            Text(notification['message'] ?? '',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
             const SizedBox(height: 12),
-            // adherence progress bar
             Row(children: [
-              Text(isFr ? 'Observance' : 'Adherence', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              Text(isFr ? 'Observance' : 'Adherence',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               const Spacer(),
-              Text('$taken/$total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: style.color)),
+              Text('$taken/$total',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: style.color)),
             ]),
             const SizedBox(height: 6),
             ClipRRect(
@@ -903,7 +1053,8 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: !isRead ? Border.all(color: Colors.purple.withOpacity(0.3), width: 1.5) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04),
+            blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(children: [
         Container(height: 4, decoration: const BoxDecoration(
@@ -913,21 +1064,23 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(children: [
-            // large achievement icon
             Container(
               width: 56, height: 56,
               decoration: BoxDecoration(color: const Color(0xFFEEEDFE), borderRadius: BorderRadius.circular(16)),
               child: Center(child: streak != null
                   ? Column(mainAxisSize: MainAxisSize.min, children: [
                       const Icon(Icons.local_fire_department, color: Colors.orange, size: 22),
-                      Text('$streak', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                      Text('$streak', style: const TextStyle(fontSize: 12,
+                          fontWeight: FontWeight.bold, color: Colors.purple)),
                     ])
                   : const Icon(Icons.emoji_events, color: Colors.purple, size: 28)),
             ),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(notification['title'] ?? '',
-                  style: TextStyle(fontSize: 15, fontWeight: isRead ? FontWeight.w500 : FontWeight.bold, color: const Color(0xFF1A237E))),
+                  style: TextStyle(fontSize: 15,
+                      fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                      color: const Color(0xFF1A237E))),
               const SizedBox(height: 4),
               Text(notification['message'] ?? '',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4)),
@@ -948,19 +1101,13 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
   Widget _buildActions(Map<String, dynamic> notification, _NotifStyle style, int notifId, bool isFr) {
     return Row(children: [
 
-      // TAKEN
       if (style.showTaken)
         Expanded(child: SizedBox(
           height: 44,
           child: ElevatedButton.icon(
             onPressed: () => _handleTaken(notification),
             icon: const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(
-              style.stage == 'missed' || style.stage == 'snooze'
-                  ? (isFr ? 'Pris ✓' : 'Taken ✓')
-                  : (isFr ? 'Pris ✓' : 'Taken ✓'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
+            label: const Text('Taken ✓', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green, foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -969,7 +1116,6 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
           ),
         )),
 
-      // SNOOZE
       if (style.showSnooze) ...[
         if (style.showTaken) const SizedBox(width: 8),
         Expanded(child: SizedBox(
@@ -988,7 +1134,6 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
         )),
       ],
 
-      // DISMISS (for EARLY stage — "Got it")
       if (style.showDismiss) ...[
         Expanded(child: SizedBox(
           height: 44,
@@ -1005,7 +1150,6 @@ if ((data['type'] ?? '') == 'caregiver_reminder') {
         )),
       ],
 
-      // SKIP
       if (style.showSkip) ...[
         if (style.showTaken) const SizedBox(width: 8),
         SizedBox(
@@ -1122,18 +1266,19 @@ class _BarcodeConfirmSheet extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NotifStyle {
-  final Color color;
-  final Color bgColor;
+  final Color    color;
+  final Color    bgColor;
   final IconData icon;
-  final String stage;
-  final bool showTaken;
-  final bool showSnooze;
-  final bool showSkip;
-  final bool showDismiss;
-  final bool isCritical;
-  final bool isSummary;
-  final int? adherencePct;
-  final int? streakDays;
+  final String   stage;
+  final bool     showTaken;
+  final bool     showSnooze;
+  final bool     showSkip;
+  final bool     showDismiss;
+  final bool     isCritical;
+  final bool     isSummary;
+  final bool     isInformational; // SAFE_TO_EAT / INFORM_LATE
+  final int?     adherencePct;
+  final int?     streakDays;
 
   const _NotifStyle({
     required this.color,
@@ -1144,8 +1289,9 @@ class _NotifStyle {
     required this.showSnooze,
     required this.showSkip,
     required this.showDismiss,
-    this.isCritical   = false,
-    this.isSummary    = false,
+    this.isCritical      = false,
+    this.isSummary       = false,
+    this.isInformational = false,
     this.adherencePct,
     this.streakDays,
   });

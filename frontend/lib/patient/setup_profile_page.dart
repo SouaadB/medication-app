@@ -305,7 +305,30 @@ class _SetupProfilePageState extends State<SetupProfilePage>
       if (mounted) setState(() => _isLoading = false);
     }
   }
+ Widget _guideStep(IconData icon, String label) {
+  return Column(children: [
+    Container(
+      width: 34, height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: primaryLt,
+        border: Border.all(color: primary, width: 1.5),
+      ),
+      child: Icon(icon, color: primary, size: 16),
+    ),
+    const SizedBox(height: 5),
+    Text(label, textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 9.5, color: primary,
+            fontWeight: FontWeight.w600, height: 1.3)),
+  ]);
+}
 
+Widget _guideArrow() {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Icon(Icons.arrow_forward_rounded, color: primary, size: 14),
+  );
+}
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageService>(context);
@@ -383,55 +406,95 @@ class _SetupProfilePageState extends State<SetupProfilePage>
                               style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                           const SizedBox(height: 24),
 
-                          // age section
-                          _sectionLabel(lang.translate('age'), Icons.cake_outlined),
-                          const SizedBox(height: 10),
-                          Container(
-                            height: 58,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: Row(children: [
-                              Expanded(child: TextField(
-                                controller: _ageController,
-                                focusNode: _ageFocusNode,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(fontSize: 16,
-                                    fontWeight: FontWeight.w600, color: darkText),
-                                decoration: InputDecoration(
-                                  hintText: lang.translate('enterAge'),
-                                  hintStyle: TextStyle(color: Colors.grey.shade400,
-                                      fontSize: 14, fontWeight: FontWeight.normal),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 18),
-                                ),
-                                onChanged: (v) {
-                                  final age = int.tryParse(v);
-                                  setState(() => _error = (v.isNotEmpty && (age == null || age < 0 || age > 120))
-                                      ? 'Age must be between 0 and 120' : null);
-                                },
-                              )),
-                              Container(width: 1, height: 36, color: Colors.grey.shade200),
-                              Column(children: [
-                                Expanded(child: InkWell(
-                                  onTap: _incrementAge,
-                                  child: SizedBox(width: 48,
-                                      child: Icon(Icons.keyboard_arrow_up_rounded,
-                                          color: primary, size: 22)),
-                                )),
-                                Container(width: 48, height: 1, color: Colors.grey.shade200),
-                                Expanded(child: InkWell(
-                                  onTap: _decrementAge,
-                                  child: SizedBox(width: 48,
-                                      child: Icon(Icons.keyboard_arrow_down_rounded,
-                                          color: primary, size: 22)),
-                                )),
-                              ]),
-                            ]),
-                          ),
-                          const SizedBox(height: 28),
+                          // ── Schedule Guide (replaces age input) ──────────────────────
+Container(
+  decoration: BoxDecoration(
+    color: primaryLt,
+    borderRadius: BorderRadius.circular(18),
+    border: Border.all(color: primary, width: 1.5),
+  ),
+  child: Column(children: [
+    // "Next step" badge + header
+    Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 42, height: 42,
+          decoration: BoxDecoration(
+              color: primary, borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.calendar_month_outlined,
+              color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: primary,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text('Next step',
+                  style: TextStyle(color: Colors.white,
+                      fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+            const Text('Set your daily schedule',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                    color: darkText)),
+            const SizedBox(height: 3),
+            Text('Wake-up, meal and bedtime so we can remind you at the right moment.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600,
+                    height: 1.4)),
+          ],
+        )),
+      ]),
+    ),
+
+    // Arrow steps row
+    Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _guideStep(Icons.check_rounded, 'Finish\nsetup'),
+          _guideArrow(),
+          _guideStep(Icons.settings_outlined, 'Open\nsettings'),
+          _guideArrow(),
+          _guideStep(Icons.medication_outlined, 'Medication\nsection'),
+          _guideArrow(),
+          _guideStep(Icons.access_time_outlined, 'Daily\nschedule'),
+        ],
+      ),
+    ),
+
+    // Tip box
+    Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.lightbulb_outline_rounded, color: primary, size: 16),
+        const SizedBox(width: 8),
+        Expanded(child: RichText(text: TextSpan(
+          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600, height: 1.5),
+          children: const [
+            TextSpan(text: 'Your reminders need your schedule to fire at the '),
+            TextSpan(text: 'right time',
+                style: TextStyle(fontWeight: FontWeight.w600,
+                    color: darkText)),
+            TextSpan(text: ' — before meals, after waking, before bed.'),
+          ],
+        ))),
+      ]),
+    ),
+  ]),
+),
+                          
 
                           // conditions section
                           _sectionLabel(lang.translate('chronicConditions'),
