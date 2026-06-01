@@ -598,6 +598,17 @@ class _NotificationsPageState extends State<NotificationsPage>
         showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
       );
     }
+    
+     // BEFORE_MEAL_MAIN_HIGH: HIGH priority — take NOW, no snooze allowed.
+        if (stage == 'BEFORE_MEAL_MAIN_HIGH') {
+      return _NotifStyle(
+        color: Colors.deepOrange, bgColor: const Color(0xFFFBE9E7),
+        icon: Icons.restaurant_menu, stage: 'before_meal_main_high',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
+        isCritical: true,
+      );
+    }
+
 
     // BEFORE_MEAL_FOLLOWUP (HIGH only): last chance before meal starts. Taken only.
     if (stage == 'BEFORE_MEAL_FOLLOWUP') {

@@ -174,16 +174,22 @@ class SchedulerService {
         };
 
         switch (anchor) {
-            case 'Before breakfast':  return format(prefs.breakfast_time || '08:00', -30);
-            case 'During breakfast':  return format(prefs.breakfast_time || '08:00',   0);
-            case 'After breakfast':   return format(prefs.breakfast_time || '08:00',  15);
-            case 'Before lunch':      return format(prefs.lunch_time     || '12:00', -30);
-            case 'During lunch':      return format(prefs.lunch_time     || '12:00',   0);
-            case 'After lunch':       return format(prefs.lunch_time     || '12:00',  15);
-            case 'Before dinner':     return format(prefs.dinner_time    || '19:30', -30);
-            case 'During dinner':     return format(prefs.dinner_time    || '19:30',   0);
-            case 'After dinner':      return format(prefs.dinner_time    || '19:30',  15);
-            case 'Empty stomach':     return format(prefs.breakfast_time || '08:00', -60);
+            case 'Before breakfast':  return format(prefs.breakfast_time || '08:00', -15);
+            case 'During breakfast':  return format(prefs.breakfast_time || '08:00',   5);
+            case 'After breakfast':   return format(prefs.breakfast_time || '08:00',  20);
+            case 'Before lunch':      return format(prefs.lunch_time     || '12:00', -15);
+            case 'During lunch':      return format(prefs.lunch_time     || '12:00',   5);
+            case 'After lunch':       return format(prefs.lunch_time     || '12:00',  20);
+            case 'Before dinner':     return format(prefs.dinner_time    || '19:30', -15);
+            case 'During dinner':     return format(prefs.dinner_time    || '19:30',   5);
+            case 'After dinner':      return format(prefs.dinner_time    || '19:30',  20);
+            // Empty stomach: schedule at wake_time + 20min so that:
+            //   EMPTY_STOMACH_PREP fires at wake + 5min  (dose - 15min)
+            //   MAIN               fires at wake + 20min (dose time)
+            //   SAFE_TO_EAT        fires at wake + 60min (dose + 40min = breakfast_time)
+            // This requires breakfast_time = wake_time + 60min minimum (enforced by DailySchedulePage).
+            // Example: wake=07:00 → dose at 07:20, PREP at 07:05, SAFE_TO_EAT at 08:00
+            case 'Empty stomach':     return format(prefs.wake_time || '07:00', 20);
 
             // FIX: store actual bedtime — notification engine owns all offsets
             case 'Before sleeping':   return format(prefs.bedtime        || '22:00',   0);

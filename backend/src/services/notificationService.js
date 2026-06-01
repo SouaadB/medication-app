@@ -332,10 +332,18 @@ class NotificationService {
         //  dose means the patient already ate — the window is gone, escalating
         //  would be confusing. HIGH just upgrades the MAIN wording.
         if (freq.includes('Empty stomach')) {
+            // scheduled_date_time = wake_time + 20min (set by SchedulerService).
+            // EMPTY_STOMACH_PREP fires 15min before dose = wake + 5min.
+            // MAIN fires at dose time = wake + 20min.
+            // SAFE_TO_EAT fires 40min after dose = exactly breakfast_time.
+            // Example: wake=07:00, breakfast=08:00
+            //   EMPTY_STOMACH_PREP: 07:05
+            //   MAIN:               07:20
+            //   SAFE_TO_EAT:        08:00
             return [
-                { type: 'EMPTY_STOMACH_PREP', offset:  30, template: 'EMPTY_STOMACH_PREP'                        },
+                { type: 'EMPTY_STOMACH_PREP', offset:  15, template: 'EMPTY_STOMACH_PREP'                        },
                 { type: 'MAIN',               offset:   0, template: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN'  },
-                { type: 'SAFE_TO_EAT',        offset: -60, template: 'EMPTY_STOMACH_SAFE'                        },
+                { type: 'SAFE_TO_EAT',        offset: -40, template: 'EMPTY_STOMACH_SAFE'                        },
             ];
         }
 
@@ -362,10 +370,11 @@ class NotificationService {
             freq.includes('Before lunch')     ||
             freq.includes('Before dinner')) {
             if (priority === 'HIGH') return [
-                { type: 'BEFORE_MEAL_EARLY',    offset:  15, template: 'BEFORE_MEAL_EARLY_HIGH' },
+                { type: 'BEFORE_MEAL_EARLY',    offset:  10, template: 'BEFORE_MEAL_EARLY_HIGH' },
                 { type: 'BEFORE_MEAL_MAIN',     offset:   0, template: 'BEFORE_MEAL_MAIN_HIGH'  },
                 { type: 'BEFORE_MEAL_FOLLOWUP', offset: -10, template: 'BEFORE_MEAL_FOLLOWUP'   },
-                { type: 'INFORM_LATE',          offset: -20, template: 'INFORM_LATE'             },
+                { type: 'INFORM_LATE',          offset: -15, template: 'INFORM_LATE'             },
+                // INFORM_LATE fires 15min after BEFORE_MEAL_MAIN (= meal time )
             ];
             if (priority === 'LOW') return [
                 { type: 'BEFORE_MEAL_MAIN', offset: 0, template: 'BEFORE_MEAL_MAIN' },
@@ -374,7 +383,8 @@ class NotificationService {
             return [
                 { type: 'BEFORE_MEAL_EARLY', offset:  10, template: 'BEFORE_MEAL_EARLY' },
                 { type: 'BEFORE_MEAL_MAIN',  offset:   0, template: 'BEFORE_MEAL_MAIN'  },
-                { type: 'INFORM_LATE',       offset: -20, template: 'INFORM_LATE'        },
+                { type: 'INFORM_LATE',       offset: -15, template: 'INFORM_LATE'        },
+                // INFORM_LATE fires 15min after BEFORE_MEAL_MAIN (= meal time )
             ];
         }
 
@@ -412,7 +422,7 @@ class NotificationService {
         //  MEDIUM : PREP(+15) → MAIN(0) → MISSED(-30)
         //  HIGH   : PREP(+30) → MAIN(0) → FOLLOW_UP(-15) → ESCALATION(-45)
         if (priority === 'HIGH') return [
-            { type: 'PREP',       offset:  30, template: 'EARLY_HIGH' },
+            { type: 'PREP',       offset:  20, template: 'EARLY_HIGH' },
             { type: 'MAIN',       offset:   0, template: 'MAIN_HIGH'  },
             { type: 'FOLLOW_UP',  offset: -15, template: 'FOLLOW_UP'  },
             { type: 'ESCALATION', offset: -45, template: 'ESCALATION' },
@@ -457,8 +467,8 @@ class NotificationService {
                 message: `${name}${dosage} is due in 15 minutes${relStr}.`,
             },
             EARLY_HIGH: {
-                title:   '⏰ Critical medication — 30 min',
-                message: `${name}${dosage} is due in 30 minutes. Prepare now.`,
+                title:   '⏰ Critical medication — 20 min',
+                message: `${name}${dosage} is due in 20 minutes. Prepare now.`,
             },
             FOLLOW_UP: {
                 title:   '⚠️ Dose still pending',
@@ -483,7 +493,7 @@ class NotificationService {
             },
             BEFORE_MEAL_EARLY_HIGH: {
                 title:   `⏰ Critical: take ${name} before your meal`,
-                message: `${name}${dosage} must be taken ${rel}. You have about 15 minutes — do not wait.`,
+                message: `${name}${dosage} must be taken ${rel}. You have about 10 minutes — do not wait.`,
             },
             BEFORE_MEAL_MAIN: {
                 title:   `💊 Take ${name} now — ${rel}`,
@@ -520,14 +530,14 @@ class NotificationService {
 
             // ── Empty stomach ────────────────────────────────────────────────
             EMPTY_STOMACH_PREP: {
-                title:   '🥣 Empty stomach medication — 30 min',
-                message: `Prepare ${name}${dosage} — take it in 30 minutes on an empty stomach.`,
+                title:   '🥣 Empty stomach medication — 15 min',
+                message: `Prepare ${name}${dosage} — take it in 15 minutes on an empty stomach.`,
             },
             // SAFE_TO_EAT is purely informational.
             // Flutter _getStyle() shows NO action buttons for this stage.
             EMPTY_STOMACH_SAFE: {
                 title:   '🍽️ You can eat now',
-                message: `60 minutes have passed since ${name}${dosage}. You can have breakfast now.`,
+                message: `40 minutes have passed since ${name}${dosage}. You can have breakfast now.`,
             },
         };
 
