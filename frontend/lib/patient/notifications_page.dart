@@ -288,55 +288,53 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   // ── SNOOZE ─────────────────────────────────────────────────────────────────
 
-  Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
-    final data       = _parseData(notification['data']);
-    final scheduleId = _parseId(data['schedule_id']);
-    final notifId    = notification['id'] as int;
-    if (scheduleId == null) return;
+Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
+  final data       = _parseData(notification['data']);
+  final scheduleId = _parseId(data['schedule_id']);
+  final notifId    = notification['id'] as int;
+  if (scheduleId == null) return;
 
-    final minutes = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20),
-          const Row(children: [
-            Icon(Icons.snooze, color: Colors.blue, size: 24),
-            SizedBox(width: 12),
-            Text('Snooze Reminder', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ]),
-          const SizedBox(height: 6),
-          Text('How long would you like to snooze?', style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 20),
-          Row(children: [
-            _snoozeOption(ctx, '15 min', 15, Colors.blue),
-            const SizedBox(width: 10),
-            _snoozeOption(ctx, '30 min', 30, Colors.orange),
-            const SizedBox(width: 10),
-            _snoozeOption(ctx, '1 hour', 60, Colors.purple),
-          ]),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: Colors.grey.shade500)),
-            ),
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
-        ]),
+  final minutes = await showModalBottomSheet<int>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-    );
+      padding: const EdgeInsets.all(24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 40, height: 4,
+            decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 20),
+        const Row(children: [
+          Icon(Icons.snooze, color: Colors.blue, size: 24),
+          SizedBox(width: 12),
+          Text('Snooze Reminder', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ]),
+        const SizedBox(height: 6),
+        Text('How long would you like to snooze?', style: TextStyle(color: Colors.grey.shade600)),
+        const SizedBox(height: 20),
+        Row(children: [
+          Expanded(child: _snoozeOption(ctx, '15 min', 15, Colors.blue)),
+          const SizedBox(width: 12),
+          Expanded(child: _snoozeOption(ctx, '30 min', 30, Colors.orange)),
+        ]),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade500)),
+          ),
+        ),
+        SizedBox(height: MediaQuery.of(context).padding.bottom),
+      ]),
+    ),
+  );
 
-    if (minutes != null && mounted) await _snooze(scheduleId, notifId, minutes);
-  }
+  if (minutes != null && mounted) await _snooze(scheduleId, notifId, minutes);
+}
 
   Widget _snoozeOption(BuildContext ctx, String label, int minutes, Color color) {
     return Expanded(child: GestureDetector(
@@ -861,7 +859,7 @@ class _NotificationsPageState extends State<NotificationsPage>
       final schedDt = data['scheduled_date_time']?.toString();
       if (schedDt != null) {
         try {
-          final d = DateTime.parse(schedDt).add(const Duration(hours: 1));
+          final d = DateTime.parse(schedDt);
           scheduledAt = '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
         } catch (_) {}
       }

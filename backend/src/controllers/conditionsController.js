@@ -108,7 +108,7 @@ exports.removeCondition = async (req, res) => {
         
         // Check if there are active treatments for this condition
         const [treatments] = await db.execute(
-            'SELECT id FROM treatments WHERE patient_id = ? AND condition_id = ? AND is_active = 1',
+            'SELECT id FROM treatments WHERE patient_id = ? AND condition_id = ? AND is_active = 1 AND deleted_at IS NULL',
             [patientId, conditionId]
         );
         

@@ -341,9 +341,9 @@ class NotificationService {
             //   MAIN:               07:20
             //   SAFE_TO_EAT:        08:00
             return [
-                { type: 'EMPTY_STOMACH_PREP', offset:  15, template: 'EMPTY_STOMACH_PREP'                        },
-                { type: 'MAIN',               offset:   0, template: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN'  },
-                { type: 'SAFE_TO_EAT',        offset: -40, template: 'EMPTY_STOMACH_SAFE'                        },
+                { type: 'EMPTY_STOMACH_PREP', offset:  15, template: 'EMPTY_STOMACH_PREP' },
+                { type: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN', offset: 0, template: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN' },
+                { type: 'SAFE_TO_EAT',        offset: -40, template: 'EMPTY_STOMACH_SAFE' },
             ];
         }
 
@@ -371,7 +371,7 @@ class NotificationService {
             freq.includes('Before dinner')) {
             if (priority === 'HIGH') return [
                 { type: 'BEFORE_MEAL_EARLY',    offset:  10, template: 'BEFORE_MEAL_EARLY_HIGH' },
-                { type: 'BEFORE_MEAL_MAIN',     offset:   0, template: 'BEFORE_MEAL_MAIN_HIGH'  },
+                { type: 'BEFORE_MEAL_MAIN_HIGH',     offset:   0, template: 'BEFORE_MEAL_MAIN_HIGH'  },
                 { type: 'BEFORE_MEAL_FOLLOWUP', offset: -10, template: 'BEFORE_MEAL_FOLLOWUP'   },
                 { type: 'INFORM_LATE',          offset: -15, template: 'INFORM_LATE'             },
                 // INFORM_LATE fires 15min after BEFORE_MEAL_MAIN (= meal time )
@@ -405,7 +405,7 @@ class NotificationService {
         //           Missing a HIGH interval dose (e.g. every-6h antibiotic) is serious.
         if (freq.includes('Every')) {
             if (priority === 'HIGH') return [
-                { type: 'MAIN',       offset:   0, template: 'MAIN_HIGH'  },
+                { type: 'MAIN_HIGH',       offset:   0, template: 'MAIN_HIGH'  },
                 { type: 'FOLLOW_UP',  offset: -15, template: 'FOLLOW_UP'  },
                 { type: 'ESCALATION', offset: -45, template: 'ESCALATION' },
             ];
@@ -423,7 +423,7 @@ class NotificationService {
         //  HIGH   : PREP(+30) → MAIN(0) → FOLLOW_UP(-15) → ESCALATION(-45)
         if (priority === 'HIGH') return [
             { type: 'PREP',       offset:  20, template: 'EARLY_HIGH' },
-            { type: 'MAIN',       offset:   0, template: 'MAIN_HIGH'  },
+            { type: 'MAIN_HIGH',       offset:   0, template: 'MAIN_HIGH'  },
             { type: 'FOLLOW_UP',  offset: -15, template: 'FOLLOW_UP'  },
             { type: 'ESCALATION', offset: -45, template: 'ESCALATION' },
         ];

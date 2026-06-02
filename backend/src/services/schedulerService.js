@@ -222,66 +222,71 @@ class SchedulerService {
         }
     }
 
-    /**
-     * Interval scheduling — distributes doses strictly by interval within the
-     * patient's waking window (wake_time → bedtime). Never schedules past bedtime
-     * or during sleep.
-     *
-     * Algorithm:
-     *   - First dose at wake_time.
-     *   - Each subsequent dose at wake_time + i * interval.
-     *   - Stop when the next dose would exceed bedtime.
-     *   - Handles overnight windows (e.g. wake=06:00, bed=01:00).
-     *
-     * Examples (wake=07:00, bed=22:00 → 15h window):
-     *   Every  4h → 07:00, 11:00, 15:00, 19:00  (4 doses, strict 4h gaps)
-     *   Every  6h → 07:00, 13:00, 19:00          (3 doses, strict 6h gaps)
-     *   Every  8h → 07:00, 15:00                 (2 doses, next 23:00 > bed)
-     *   Every 12h → 07:00, 19:00                 (2 doses, next 07:00 = next day)
-     *
-     * Why not redistribute evenly?
-     *   "Every 8 hours" means the drug must maintain concentration for 8h.
-     *   Stretching to 15h between doses defeats the medical purpose.
-     *   We accept fewer doses rather than distort the interval.
-     */
-    static _fillIntervalTimes(interval, prefs, resultTimes) {
-        const parseMin = (timeStr, fallback) => {
-            if (!timeStr) return fallback;
-            const parts = timeStr.toString().split(':');
-            return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
-        };
+/**
+ * Interval scheduling — distributes doses strictly by interval within the
+ * patient's waking window (wake_time → bedtime). Never schedules past bedtime
+ * or during sleep.
+ *
+ * Algorithm:
+ *   - First dose at wake_time + 25 min (gives patient time to wake up properly)
+ *   - Each subsequent dose at (wake_time + 25min) + i * interval.
+ *   - Stop when the next dose would exceed bedtime.
+ *   - Handles overnight windows (e.g. wake=06:00, bed=01:00).
+ *
+ * Examples (wake=07:00, bed=22:00 → 15h window):
+ *   Every  4h → 07:25, 11:25, 15:25, 19:25  (4 doses, strict 4h gaps)
+ *   Every  6h → 07:25, 13:25, 19:25          (3 doses, strict 6h gaps)
+ *   Every  8h → 07:25, 15:25                 (2 doses, next 23:25 > bed)
+ *   Every 12h → 07:25, 19:25                 (2 doses, next 07:25 = next day)
+ *
+ * Why not redistribute evenly?
+ *   "Every 8 hours" means the drug must maintain concentration for 8h.
+ *   Stretching to 15h between doses defeats the medical purpose.
+ *   We accept fewer doses rather than distort the interval.
+ */
+static _fillIntervalTimes(interval, prefs, resultTimes) {
+    const parseMin = (timeStr, fallback) => {
+        if (!timeStr) return fallback;
+        const parts = timeStr.toString().split(':');
+        return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+    };
 
-        const wakeMin     = parseMin(prefs.wake_time, 7 * 60);
-        const bedtimeMin  = parseMin(prefs.bedtime,   22 * 60);
-        const intervalMin = interval * 60;
+    const wakeMin     = parseMin(prefs.wake_time, 7 * 60);
+    const bedtimeMin  = parseMin(prefs.bedtime,   22 * 60);
+    const intervalMin = interval * 60;
+    
+    // Add 25-minute buffer after wake time for first dose
+    const FIRST_DOSE_BUFFER = 25;
+    const firstDoseMin = wakeMin + FIRST_DOSE_BUFFER;
 
-        // Waking window in minutes (handle overnight wrap e.g. bed=01:00)
-        let windowMin = bedtimeMin - wakeMin;
-        if (windowMin <= 0) windowMin += 24 * 60;
+    // Waking window in minutes (handle overnight wrap e.g. bed=01:00)
+    // Calculate from first dose time to bedtime
+    let windowMin = bedtimeMin - firstDoseMin;
+    if (windowMin <= 0) windowMin += 24 * 60;
 
-        const toTime = (totalMin) => {
-            const wrapped = ((Math.round(totalMin) % 1440) + 1440) % 1440;
-            const h = Math.floor(wrapped / 60);
-            const m = wrapped % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        };
+    const toTime = (totalMin) => {
+        const wrapped = ((Math.round(totalMin) % 1440) + 1440) % 1440;
+        const h = Math.floor(wrapped / 60);
+        const m = wrapped % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
 
-        let offset = 0;
-        while (offset <= windowMin) {
-            resultTimes.add(toTime(wakeMin + offset));
-            offset += intervalMin;
-        }
-
-        // Safety: if nothing was added (window = 0), add wake time
-        if (resultTimes.size === 0) {
-            resultTimes.add(toTime(wakeMin));
-        }
-
-        console.log(
-            `[Scheduler] Every ${interval}h → ${resultTimes.size} doses:`,
-            Array.from(resultTimes).sort()
-        );
+    let offset = 0;
+    while (offset <= windowMin) {
+        resultTimes.add(toTime(firstDoseMin + offset));
+        offset += intervalMin;
     }
+
+    // Safety: if nothing was added (window = 0), add first dose time
+    if (resultTimes.size === 0) {
+        resultTimes.add(toTime(firstDoseMin));
+    }
+
+    console.log(
+        `[Scheduler] Every ${interval}h → ${resultTimes.size} doses (first dose at wake+${FIRST_DOSE_BUFFER}min):`,
+        Array.from(resultTimes).sort()
+    );
+}
 
     // ─────────────────────────────────────────────────────────────────────────
     // SCHEDULE ACTIONS

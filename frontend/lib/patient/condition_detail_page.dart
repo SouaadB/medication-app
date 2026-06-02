@@ -44,7 +44,9 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _medications = data['treatments'];
+          _medications = (data['treatments'] as List)
+           .where((t) => t['deleted_at'] == null)
+           .toList();
           _isLoading   = false;
         });
       } else {
@@ -651,10 +653,13 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
 
   final List<String> _mealAnchorsEn = const [
     'Before breakfast',
+    'During breakfast',
     'After breakfast',
     'Before lunch',
+    'During lunch',
     'After lunch',
     'Before dinner',
+    'During dinner',
     'After dinner',
     'Before sleeping',
     'Empty stomach',   // ← ADDED
