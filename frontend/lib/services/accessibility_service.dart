@@ -64,8 +64,26 @@ class AccessibilityService extends ChangeNotifier {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage(_ttsLanguage);
-    await _tts.setSpeechRate(0.38);   // slow — elderly patients
+    // Force Google TTS engine — avoids device default which may be French
+    await _tts.setEngine('com.google.android.tts');
+    await _tts.setLanguage('en-US');
+    // Explicitly set an English voice if available
+    final voices = await _tts.getVoices as List?;
+    if (voices != null) {
+      final enVoice = voices.firstWhere(
+        (v) => v is Map &&
+               (v['locale'] == 'en-US' || v['locale'] == 'en-GB') &&
+               (v['name'] as String? ?? '').toLowerCase().contains('english'),
+        orElse: () => null,
+      );
+      if (enVoice != null && enVoice is Map) {
+        await _tts.setVoice({
+          'name':   enVoice['name'] as String,
+          'locale': enVoice['locale'] as String,
+        });
+      }
+    }
+    await _tts.setSpeechRate(0.38);
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.0);
     _ttsReady = true;

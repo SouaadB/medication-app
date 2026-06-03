@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/accessibility_service.dart';
+import '../services/shake_confirm_service.dart';
+import '../services/voice_confirm_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCESSIBLE NOTIFICATION CARDS  v3
@@ -154,8 +156,14 @@ class _IlliteracyNotificationCardState
   late Animation<double>   _successScale;
   late Animation<double>   _successOpacity;
 
-  bool _showSuccess = false;
-  final _a11y = AccessibilityService.instance;
+  bool _showSuccess  = false;
+  int  _shakeCount   = 0;   // 0-3, shown as progress dots
+  bool _isListening  = false;
+  String _heardText  = '';
+
+  final _a11y  = AccessibilityService.instance;
+  final _shake = ShakeConfirmService();
+  final _voice = VoiceConfirmService();
 
   @override
   void initState() {
@@ -171,7 +179,7 @@ class _IlliteracyNotificationCardState
       _pulse.repeat(reverse: true);
     }
 
-    // Success animation — scale up then fade
+    // Success animation
     _successCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _successScale = Tween<double>(begin: 0.5, end: 1.2).animate(
@@ -179,13 +187,51 @@ class _IlliteracyNotificationCardState
     _successOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(parent: _successCtrl,
             curve: const Interval(0.0, 0.5, curve: Curves.easeIn)));
+
+    // Start shake detection automatically when card is visible
+    // Only if this card has a "Taken" button
+    final style = widget.getStyle(widget.notification);
+    if (style.showTaken) {
+      _shake.start(
+        onConfirmed: _handleTaken,
+        onShakeProgress: (count) {
+          if (mounted) setState(() => _shakeCount = count);
+        },
+      );
+    }
   }
 
   @override
   void dispose() {
     _pulse.dispose();
     _successCtrl.dispose();
+    _shake.stop();
+    _voice.dispose();
     super.dispose();
+  }
+
+  // ── Voice confirm ─────────────────────────────────────────────────────────
+
+  Future<void> _toggleVoice() async {
+    if (_isListening) {
+      await _voice.stop();
+      if (mounted) setState(() { _isListening = false; _heardText = ''; });
+      return;
+    }
+
+    await _a11y.speak('Say: I took it');
+    await _voice.startListening(
+      onConfirmed: () {
+        if (mounted) setState(() { _isListening = false; _heardText = ''; });
+        _handleTaken();
+      },
+      onListeningChanged: (v) {
+        if (mounted) setState(() => _isListening = v);
+      },
+      onPartialResult: (text) {
+        if (mounted) setState(() => _heardText = text);
+      },
+    );
   }
 
   Future<void> _speak() async {
@@ -416,6 +462,71 @@ class _IlliteracyNotificationCardState
                       ),
                     ]),
 
+                    // ── SHAKE PROGRESS ──────────────────────────────────────
+                    if (_shakeCount > 0 && !_showSuccess) ...[
+                      const SizedBox(height: 10),
+                      Row(mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                        Icon(Icons.vibration,
+                            size: 14, color: Colors.orange.shade600),
+                        const SizedBox(width: 6),
+                        Text('Shake to confirm ',
+                            style: TextStyle(
+                                fontSize: 11 * fs,
+                                color: Colors.orange.shade600)),
+                        // 3 dots showing shake progress
+                        ...List.generate(3, (i) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: 10, height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: i < _shakeCount
+                                ? Colors.orange.shade600
+                                : Colors.grey.shade300,
+                          ),
+                        )),
+                      ]),
+                    ],
+
+                    // ── VOICE LISTENING FEEDBACK ────────────────────────────
+                    if (_isListening) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(children: [
+                          // Pulsing mic icon
+                          const _PulsingMic(),
+                          const SizedBox(width: 10),
+                          Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text('Listening...',
+                                style: TextStyle(
+                                    fontSize: 13 * fs,
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.bold)),
+                            if (_heardText.isNotEmpty)
+                              Text('"$_heardText"',
+                                  style: TextStyle(
+                                      fontSize: 11 * fs,
+                                      color: Colors.blue.shade500,
+                                      fontStyle: FontStyle.italic)),
+                          ])),
+                          GestureDetector(
+                            onTap: _toggleVoice,
+                            child: Icon(Icons.close,
+                                color: Colors.blue.shade400, size: 18),
+                          ),
+                        ]),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
 
                     // Action buttons
@@ -447,7 +558,66 @@ class _IlliteracyNotificationCardState
       if (style.showTaken) ...[
         _btn(emoji: '✅', label: 'I took it',
             color: const Color(0xFF2E7D32), fs: fs,
-            onTap: _handleTaken),   // ← confirmation handler
+            onTap: _handleTaken),
+        const SizedBox(height: 10),
+
+        // ── ALTERNATIVE CONFIRMATION ROW ──────────────────────────────────
+        // Shake hint (always shown) + Voice button (mic tap)
+        Row(children: [
+          // Shake hint
+          Expanded(child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+              Icon(Icons.vibration, size: 16, color: Colors.orange.shade600),
+              const SizedBox(width: 6),
+              Text('Or shake phone',
+                  style: TextStyle(
+                      fontSize: 12 * fs,
+                      color: Colors.orange.shade600,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          )),
+          const SizedBox(width: 10),
+          // Voice button
+          GestureDetector(
+            onTap: _toggleVoice,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _isListening
+                    ? Colors.blue.shade600
+                    : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  _isListening ? Icons.mic : Icons.mic_none_outlined,
+                  size: 18,
+                  color: _isListening ? Colors.white : Colors.blue.shade600,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _isListening ? 'Listening...' : 'Say it',
+                  style: TextStyle(
+                    fontSize: 12 * fs,
+                    color: _isListening
+                        ? Colors.white
+                        : Colors.blue.shade600,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
         const SizedBox(height: 10),
       ],
       if (style.showSnooze) ...[
@@ -744,6 +914,58 @@ class _VisualImpairmentNotificationCardState
           color: Colors.white, fontSize: 18 * fs,
           fontWeight: FontWeight.bold,
         ))),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PULSING MIC ICON
+// Animated mic icon shown while voice recognition is active
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PulsingMic extends StatefulWidget {
+  const _PulsingMic();
+
+  @override
+  State<_PulsingMic> createState() => _PulsingMicState();
+}
+
+class _PulsingMicState extends State<_PulsingMic>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl  = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _scale = Tween<double>(begin: 1.0, end: 1.4).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (_, __) => Transform.scale(
+        scale: _scale.value,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade600,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.mic, color: Colors.white, size: 16),
+        ),
       ),
     );
   }
