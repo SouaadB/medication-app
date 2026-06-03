@@ -3,9 +3,18 @@ const emailSenderService = require('../services/emailSenderService');
 const db = require('../config/database');
 const bcrypt = require('bcryptjs');
 
+// Helper function to generate random password
+const generateTempPassword = () => {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
 exports.getCaregivers = async (req, res) => {
     try {
-        const caregivers = await Caregiver.findByPatientId(req.user.id);
+        // Get all caregivers excluding REVOKED ones
+        const [caregivers] = await db.execute(
+            'SELECT * FROM caregivers WHERE patient_id = ? AND status != "REVOKED"',
+            [req.user.id]
+        );
         res.json({
             success: true,
             count: caregivers.length,
@@ -24,26 +33,135 @@ exports.addCaregiver = async (req, res) => {
         if (!name || !relationship || !email) {
             return res.status(400).json({ success: false, message: 'Please provide name, relationship and email' });
         }
+        
+        // Check if trying to add self as caregiver
+        if (email === req.user.email) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'You cannot add yourself as a caregiver' 
+            });
+        }
+        
+        // Check if email exists in users table (could be patient or admin)
+        const [existingUser] = await db.execute(
+            'SELECT id, role FROM users WHERE email = ?',
+            [email]
+        );
+        
+        let isPatient = false;
+        if (existingUser.length > 0 && existingUser[0].role === 'patient') {
+            isPatient = true;
+            console.log(`📝 Note: ${email} is already a patient in the system. They can still be a caregiver.`);
+        }
+        
+        // Check if caregiver already exists for this patient (including REVOKED)
+        const [existing] = await db.execute(
+            'SELECT id, status FROM caregivers WHERE patient_id = ? AND email = ?',
+            [req.user.id, email]
+        );
+        
+        if (existing.length > 0) {
+            const existingRecord = existing[0];
+            
+            // If it's REVOKED, reactivate it
+            if (existingRecord.status === 'REVOKED') {
+                const tempPassword = generateTempPassword();
+                const hashedPassword = await bcrypt.hash(tempPassword, 10);
+                
+                await db.execute(
+                    `UPDATE caregivers 
+                     SET name = ?, 
+                         relationship = ?, 
+                         view_location = ?, 
+                         view_medications = ?, 
+                         receive_alerts = ?,
+                         status = 'PENDING',
+                         temp_password = ?,
+                         expires_at = DATE_ADD(NOW(), INTERVAL 7 DAY)
+                     WHERE id = ?`,
+                    [name, relationship, view_location || 0, view_medications || 1, receive_alerts || 1, 
+                     hashedPassword, existingRecord.id]
+                );
+                
+                const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
+                
+                return res.status(201).json({
+                    success: true,
+                    message: emailSent ? 'Caregiver re-invited successfully' : 'Caregiver re-added but email failed to send',
+                    caregiverId: existingRecord.id,
+                    isPatient: isPatient
+                });
+            }
+            
+            // If it's PENDING or ACTIVE, don't allow duplicate
+            if (existingRecord.status === 'PENDING') {
+                return res.status(409).json({ 
+                    success: false, 
+                    message: 'An invitation has already been sent to this email. Please wait for them to accept.'
+                });
+            }
+            
+            if (existingRecord.status === 'ACTIVE') {
+                return res.status(409).json({ 
+                    success: false, 
+                    message: 'This caregiver is already active for your account.'
+                });
+            }
+        }
+        
+        // Check if email already exists in caregiver_users (caregiver account)
+        const [existingCaregiverUser] = await db.execute(
+            'SELECT id FROM caregiver_users WHERE email = ?',
+            [email]
+        );
+        
+        if (existingCaregiverUser.length === 0) {
+            // Create new caregiver user account
+            const tempPassword = generateTempPassword();
+            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            
+            await db.execute(
+                'INSERT INTO caregiver_users (email, name, password) VALUES (?, ?, ?)',
+                [email, name, hashedPassword]
+            );
+            console.log('✅ New caregiver user created for:', email);
+        } else {
+            console.log('✅ Reusing existing caregiver account for:', email);
+        }
+        
+        // Create new caregiver relationship
+        const tempPassword = generateTempPassword();
+        const hashedTempPassword = await bcrypt.hash(tempPassword, 10);
+        
+        const [result] = await db.execute(
+            `INSERT INTO caregivers 
+             (patient_id, name, relationship, email, view_location, view_medications, receive_alerts, 
+              status, temp_password, expires_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+            [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1, 
+             hashedTempPassword]
+        );
 
-        const result = await Caregiver.create({
-            patient_id: req.user.id,
-            name,
-            relationship,
-            email,
-            view_location,
-            view_medications,
-            receive_alerts
-        });
-
-        const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, result.tempPassword);
+        const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
 
         res.status(201).json({
             success: true,
             message: emailSent ? 'Caregiver invitation sent successfully' : 'Caregiver added but email failed to send',
-            caregiverId: result.insertId
+            caregiverId: result.insertId,
+            isPatient: isPatient
         });
+        
     } catch (error) {
         console.error('Add Caregiver Error:', error);
+        
+        // Handle duplicate key error from database
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'This caregiver is already linked to your account'
+            });
+        }
+        
         res.status(500).json({ success: false, message: 'Error adding caregiver' });
     }
 };
@@ -51,7 +169,12 @@ exports.addCaregiver = async (req, res) => {
 exports.removeCaregiver = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await Caregiver.delete(id, req.user.id);
+        
+        // Soft delete - just update status to REVOKED instead of actual DELETE
+        const [result] = await db.execute(
+            'UPDATE caregivers SET status = "REVOKED" WHERE id = ? AND patient_id = ?',
+            [id, req.user.id]
+        );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Caregiver not found' });
@@ -59,7 +182,7 @@ exports.removeCaregiver = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Caregiver removed successfully'
+            message: 'Caregiver removed successfully. You can add them again anytime.'
         });
     } catch (error) {
         console.error('Remove Caregiver Error:', error);
@@ -76,7 +199,10 @@ exports.updateCaregiverStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid status' });
         }
 
-        const result = await Caregiver.updateStatus(id, req.user.id, status);
+        const [result] = await db.execute(
+            'UPDATE caregivers SET status = ? WHERE id = ? AND patient_id = ?',
+            [status, id, req.user.id]
+        );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: 'Caregiver not found' });
@@ -103,6 +229,7 @@ exports.acceptInvitation = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Email and password required' });
         }
         
+        // Get ALL pending invitations for this email (including reactivated ones)
         const [invitations] = await db.execute(
             'SELECT * FROM caregivers WHERE email = ? AND status = "PENDING" AND expires_at > NOW()',
             [email]
@@ -115,8 +242,19 @@ exports.acceptInvitation = async (req, res) => {
             });
         }
         
+        // Handle multiple invitations for same email
+        if (invitations.length > 1) {
+            console.warn(`⚠️ Multiple pending invitations found for ${email}. Keeping the first one.`);
+            const idsToDelete = invitations.slice(1).map(inv => inv.id);
+            await db.execute(
+                `DELETE FROM caregivers WHERE id IN (${idsToDelete.join(',')}) AND email = ? AND status = 'PENDING'`,
+                [email]
+            );
+        }
+        
         const invitation = invitations[0];
         
+        // Verify password
         const isValid = await bcrypt.compare(password, invitation.temp_password);
         if (!isValid) {
             return res.status(401).json({ 
@@ -125,25 +263,31 @@ exports.acceptInvitation = async (req, res) => {
             });
         }
         
+        // Check if caregiver user already exists
         const [existingUser] = await db.execute(
             'SELECT id FROM caregiver_users WHERE email = ?',
             [email]
         );
-        
+
         if (existingUser.length === 0) {
+            // Create new caregiver user account
+            const hashedPassword = await bcrypt.hash(invitation.temp_password, 10);
             await db.execute(
                 'INSERT INTO caregiver_users (email, name, password) VALUES (?, ?, ?)',
-                [email, invitation.name, invitation.temp_password]
+                [email, invitation.name, hashedPassword]
             );
-            console.log('✅ Caregiver user created for:', email);
+            console.log('✅ New caregiver user created for:', email);
+        } else {
+            console.log('✅ Reusing existing caregiver account for:', email);
         }
         
+        // Update ALL invitations for this email to ACTIVE
         await db.execute(
-            'UPDATE caregivers SET status = "ACTIVE" WHERE id = ?',
-            [invitation.id]
+            'UPDATE caregivers SET status = "ACTIVE" WHERE email = ? AND status = "PENDING"',
+            [email]
         );
         
-        console.log('✅ Invitation accepted for:', email);
+        console.log('✅ Invitation(s) accepted for:', email);
         
         res.json({ 
             success: true, 
@@ -155,10 +299,7 @@ exports.acceptInvitation = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error accepting invitation' });
     }
 };
- // ── ADD THESE 3 FUNCTIONS to caregiverController.js ──────────────────────────
- 
 
- 
 // GET /caregivers/profile
 exports.getProfile = async (req, res) => {
     try {
@@ -176,7 +317,7 @@ exports.getProfile = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching profile' });
     }
 };
- 
+
 // PUT /caregivers/profile
 exports.updateProfile = async (req, res) => {
     try {
@@ -195,7 +336,7 @@ exports.updateProfile = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error updating profile' });
     }
 };
- 
+
 // PUT /caregivers/password
 exports.changePassword = async (req, res) => {
     try {
@@ -209,7 +350,6 @@ exports.changePassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
         }
  
-        // Get current hashed password
         const [rows] = await db.execute(
             'SELECT password FROM caregiver_users WHERE email = ?',
             [caregiverEmail]
@@ -218,13 +358,11 @@ exports.changePassword = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
  
-        // Verify current password
         const isValid = await bcrypt.compare(currentPassword, rows[0].password);
         if (!isValid) {
             return res.status(401).json({ success: false, message: 'Current password is incorrect' });
         }
  
-        // Hash and save new password
         const hashed = await bcrypt.hash(newPassword, 10);
         await db.execute(
             'UPDATE caregiver_users SET password = ? WHERE email = ?',
@@ -237,6 +375,7 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error changing password' });
     }
 };
+
 // Get patients for logged-in caregiver
 exports.getPatientsForCaregiver = async (req, res) => {
     try {
@@ -350,11 +489,12 @@ exports.getPatientsForCaregiver = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching patients' });
     }
 };
+
 // DELETE /caregivers/unfollow/:patientId
 exports.unfollowPatient = async (req, res) => {
     try {
         const caregiverEmail = req.user.email;
-        const { patientId }  = req.params;
+        const { patientId } = req.params;
 
         const [result] = await db.execute(
             'DELETE FROM caregivers WHERE email = ? AND patient_id = ?',
@@ -371,6 +511,7 @@ exports.unfollowPatient = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error unfollowing patient' });
     }
 };
+
 // Get detailed information for a specific patient
 exports.getPatientDetails = async (req, res) => {
     try {
@@ -436,7 +577,6 @@ exports.getPatientDetails = async (req, res) => {
             }
         }
         
-        // Get today's medications
         let todayMedications = [];
         if (permissions.view_medications) {
             const [medications] = await db.execute(
@@ -459,7 +599,6 @@ exports.getPatientDetails = async (req, res) => {
             todayMedications = medications;
         }
         
-        // Get recent alerts (last 3)
         let recentAlerts = [];
         if (permissions.receive_alerts) {
             const [alerts] = await db.execute(
@@ -478,40 +617,40 @@ exports.getPatientDetails = async (req, res) => {
         }
         
         let location = null;
-if (permissions.view_location) {
-    const [patientLocation] = await db.execute(
-        `SELECT location_sharing_enabled, last_latitude, last_longitude, 
-                last_location_address, last_location_timestamp
-         FROM patients WHERE id = ?`,
-        [patientId]
-    );
-    
-    if (patientLocation[0]?.location_sharing_enabled && patientLocation[0]?.last_latitude) {
-        let timeAgo = 'Never';
-        if (patientLocation[0].last_location_timestamp) {
-            const minutes = Math.floor((new Date() - new Date(patientLocation[0].last_location_timestamp)) / 60000);
-            if (minutes < 1) timeAgo = 'Just now';
-            else if (minutes < 60) timeAgo = `${minutes} min ago`;
-            else if (minutes < 1440) timeAgo = `${Math.floor(minutes / 60)} hours ago`;
-            else timeAgo = `${Math.floor(minutes / 1440)} days ago`;
+        if (permissions.view_location) {
+            const [patientLocation] = await db.execute(
+                `SELECT location_sharing_enabled, last_latitude, last_longitude, 
+                        last_location_address, last_location_timestamp
+                 FROM patients WHERE id = ?`,
+                [patientId]
+            );
+            
+            if (patientLocation[0]?.location_sharing_enabled && patientLocation[0]?.last_latitude) {
+                let timeAgo = 'Never';
+                if (patientLocation[0].last_location_timestamp) {
+                    const minutes = Math.floor((new Date() - new Date(patientLocation[0].last_location_timestamp)) / 60000);
+                    if (minutes < 1) timeAgo = 'Just now';
+                    else if (minutes < 60) timeAgo = `${minutes} min ago`;
+                    else if (minutes < 1440) timeAgo = `${Math.floor(minutes / 60)} hours ago`;
+                    else timeAgo = `${Math.floor(minutes / 1440)} days ago`;
+                }
+                
+                location = {
+                    enabled: true,
+                    lat: parseFloat(patientLocation[0].last_latitude),
+                    lng: parseFloat(patientLocation[0].last_longitude),
+                    address: patientLocation[0].last_location_address || 'Location available',
+                    last_updated: patientLocation[0].last_location_timestamp,
+                    time_ago: timeAgo
+                };
+            } else {
+                location = {
+                    enabled: true,
+                    address: 'Location sharing is enabled but no data yet. Patient needs to open the app.',
+                    last_updated: null
+                };
+            }
         }
-        
-        location = {
-            enabled: true,
-            lat: parseFloat(patientLocation[0].last_latitude),
-            lng: parseFloat(patientLocation[0].last_longitude),
-            address: patientLocation[0].last_location_address || 'Location available',
-            last_updated: patientLocation[0].last_location_timestamp,
-            time_ago: timeAgo
-        };
-    } else {
-        location = {
-            enabled: true,
-            address: 'Location sharing is enabled but no data yet. Patient needs to open the app.',
-            last_updated: null
-        };
-    }
-}
         
         res.json({
             success: true,
@@ -539,11 +678,12 @@ if (permissions.view_location) {
         res.status(500).json({ success: false, message: 'Error fetching patient details' });
     }
 };
+
 const CaregiverNotificationService = require('../services/caregiverNotificationService');
- 
+
 // GET /caregivers/notifications
 exports.getNotifications = async (req, res) => {
-        try {
+    try {
         const result = await CaregiverNotificationService.getForCaregiver(req.user.email);
         res.json({ 
             success: true, 
@@ -555,6 +695,7 @@ exports.getNotifications = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error fetching notifications' });
     }
 };
+
 // PUT /caregivers/notifications/read/:id
 exports.markNotificationRead = async (req, res) => {
     try {
@@ -569,7 +710,7 @@ exports.markNotificationRead = async (req, res) => {
         res.status(500).json({ success: false });
     }
 };
- 
+
 // GET /caregivers/notifications/count
 exports.getNotificationCount = async (req, res) => {
     try {
@@ -579,20 +720,20 @@ exports.getNotificationCount = async (req, res) => {
         res.status(500).json({ success: false, count: 0 });
     }
 };
+
 // POST /caregivers/remind/:patientId
 exports.sendReminder = async (req, res) => {
     try {
         const caregiverEmail = req.user.email;
-        const { patientId }  = req.params;
+        const { patientId } = req.params;
 
-        // Check caregiver has access to this patient
-const [access] = await db.execute(
-    `SELECT c.*, cu.name AS caregiver_name 
-     FROM caregivers c 
-     JOIN caregiver_users cu ON c.email = cu.email
-     WHERE c.email = ? AND c.patient_id = ? AND c.status = 'ACTIVE'`,
-    [caregiverEmail, patientId]
-);
+        const [access] = await db.execute(
+            `SELECT c.*, cu.name AS caregiver_name 
+             FROM caregivers c 
+             JOIN caregiver_users cu ON c.email = cu.email
+             WHERE c.email = ? AND c.patient_id = ? AND c.status = 'ACTIVE'`,
+            [caregiverEmail, patientId]
+        );
 
         if (access.length === 0) {
             return res.status(403).json({ success: false, message: 'No access to this patient' });
@@ -600,7 +741,6 @@ const [access] = await db.execute(
 
         const caregiverName = access[0].caregiver_name || 'Your caregiver';
 
-        // Get patient FCM token
         const [[patient]] = await db.execute(
             `SELECT p.fcm_token, u.name AS patient_name 
              FROM patients p 
@@ -613,7 +753,6 @@ const [access] = await db.execute(
             return res.status(400).json({ success: false, message: 'Patient has no FCM token' });
         }
 
-        // Send Firebase push to patient
         const FirebaseService = require('../services/firebaseService');
         await FirebaseService.sendPushNotification(
             patient.fcm_token,
@@ -623,7 +762,6 @@ const [access] = await db.execute(
             false
         );
 
-        // Also create a notification in patient's notifications table
         await db.execute(
             `INSERT INTO notifications (patient_id, type, title, message, data)
              VALUES (?, 'reminder', ?, ?, ?)`,
