@@ -7,6 +7,8 @@ import '../config/api_config.dart';
 import '../services/language_service.dart';
 import '../widgets/barcode_scan_sheet.dart';
 import '../services/barcode_service.dart';
+import '../services/accessibility_service.dart';
+import 'accessible_notification_cards.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -842,6 +844,30 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
   // ── NOTIFICATION CARD ──────────────────────────────────────────────────────
 
   Widget _buildNotificationCard(Map<String, dynamic> notification, bool isFr) {
+      // ── Accessibility overrides ──────────────────────────────────
+  final a11y = AccessibilityService.instance;
+  if (a11y.illiteracyMode) {
+    return IlliteracyNotificationCard(
+      notification: notification,
+      isFr:         isFr,
+      onTaken:      () => _handleTaken(notification),
+      onSnooze:     () => _showSnoozeDialog(notification),
+      onSkip:       () => _skipDose(notification),
+      onDismiss:    () => _markAsRead(notification['id'] as int),
+      getStyle:     _getStyle,
+    );
+  }
+  if (a11y.visualImpairmentMode) {
+    return VisualImpairmentNotificationCard(
+      notification: notification,
+      isFr:         isFr,
+      onTaken:      () => _handleTaken(notification),
+      onSnooze:     () => _showSnoozeDialog(notification),
+      onSkip:       () => _skipDose(notification),
+      onDismiss:    () => _markAsRead(notification['id'] as int),
+      getStyle:     _getStyle,
+    );
+  }
     final notifId   = notification['id'] as int;
     final style     = _getStyle(notification);
     final isRead    = notification['is_read'] == 1 || notification['is_read'] == true;
