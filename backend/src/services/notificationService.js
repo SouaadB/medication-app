@@ -188,8 +188,9 @@ class NotificationService {
                 JOIN treatments t  ON ms.treatment_id = t.id
                 JOIN patients   p  ON ms.patient_id   = p.id
                 LEFT JOIN chronic_conditions c ON t.condition_id = c.id
-                WHERE ms.status = 'SCHEDULED'
+                WHERE ms.status IN ('SCHEDULED', 'MISSED')
                 AND DATE(ms.scheduled_date_time) = CURDATE()
+                 AND ms.scheduled_date_time > DATE_SUB(NOW(), INTERVAL 90 MINUTE)
             `);
 
             let sent = 0;
@@ -340,11 +341,14 @@ class NotificationService {
             //   EMPTY_STOMACH_PREP: 07:05
             //   MAIN:               07:20
             //   SAFE_TO_EAT:        08:00
-            return [
-                { type: 'EMPTY_STOMACH_PREP', offset:  15, template: 'EMPTY_STOMACH_PREP' },
-                { type: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN', offset: 0, template: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN' },
-                { type: 'SAFE_TO_EAT',        offset: -40, template: 'EMPTY_STOMACH_SAFE' },
-            ];
+          return [
+          { type: 'EMPTY_STOMACH_PREP',
+           offset:   15, template: 'EMPTY_STOMACH_PREP' },
+          { type:     priority === 'HIGH' ? 'MAIN_HIGH' : 'EMPTY_STOMACH_MAIN',
+          offset:    0, template: priority === 'HIGH' ? 'MAIN_HIGH' : 'MAIN' },
+          { type: 'SAFE_TO_EAT',
+           offset:  -40, template: 'EMPTY_STOMACH_SAFE' },
+         ];
         }
 
         // ── 3. BEFORE MEAL (breakfast / lunch / dinner) ───────────────────────
@@ -412,7 +416,7 @@ class NotificationService {
             // LOW + MEDIUM
             return [
                 { type: 'MAIN',   offset:   0, template: 'MAIN'   },
-                { type: 'MISSED', offset: -30, template: 'MISSED' },
+                { type: 'MISSED', offset: -25, template: 'MISSED' },
             ];
         }
 

@@ -668,6 +668,13 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
         showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
       );
     }
+    if (stage == 'EMPTY_STOMACH_MAIN') {
+  return _NotifStyle(
+    color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
+    icon: Icons.no_meals_outlined, stage: 'empty_stomach_main',
+    showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
+  );
+}
 
     // SAFE_TO_EAT: purely informational — you can eat now. Dismiss only.
     if (stage == 'SAFE_TO_EAT') {

@@ -712,8 +712,14 @@ class _VisualImpairmentNotificationCardState
 
   late AnimationController _successCtrl;
   late Animation<double>   _successScale;
-  bool _showSuccess = false;
-  final _a11y = AccessibilityService.instance;
+  bool   _showSuccess = false;
+  int    _shakeCount  = 0;
+  bool   _isListening = false;
+  String _heardText   = '';
+
+  final _a11y  = AccessibilityService.instance;
+  final _shake = ShakeConfirmService();
+  final _voice = VoiceConfirmService();
 
   @override
   void initState() {
@@ -722,11 +728,24 @@ class _VisualImpairmentNotificationCardState
         vsync: this, duration: const Duration(milliseconds: 600));
     _successScale = Tween<double>(begin: 0.5, end: 1.0).animate(
         CurvedAnimation(parent: _successCtrl, curve: Curves.elasticOut));
+
+    // Start shake detection if card has a Taken button
+    final style = widget.getStyle(widget.notification);
+    if (style.showTaken) {
+      _shake.start(
+        onConfirmed: _handleTaken,
+        onShakeProgress: (count) {
+          if (mounted) setState(() => _shakeCount = count);
+        },
+      );
+    }
   }
 
   @override
   void dispose() {
     _successCtrl.dispose();
+    _shake.stop();
+    _voice.dispose();
     super.dispose();
   }
 
@@ -744,6 +763,27 @@ class _VisualImpairmentNotificationCardState
     await _a11y.speakConfirmation();
     await Future.delayed(const Duration(milliseconds: 900));
     widget.onTaken();
+  }
+
+  Future<void> _toggleVoice() async {
+    if (_isListening) {
+      await _voice.stop();
+      if (mounted) setState(() { _isListening = false; _heardText = ''; });
+      return;
+    }
+    await _a11y.speak('Say: I took it');
+    await _voice.startListening(
+      onConfirmed: () {
+        if (mounted) setState(() { _isListening = false; _heardText = ''; });
+        _handleTaken();
+      },
+      onListeningChanged: (v) {
+        if (mounted) setState(() => _isListening = v);
+      },
+      onPartialResult: (text) {
+        if (mounted) setState(() => _heardText = text);
+      },
+    );
   }
 
   @override
@@ -878,7 +918,135 @@ class _VisualImpairmentNotificationCardState
         Semantics(button: true, label: 'Mark as taken',
             child: _btn('✅  I took it', Colors.green.shade700, fs, _handleTaken)),
         const SizedBox(height: 10),
+
+        // ── Alternative confirmation row ──────────────────────────────────
+        Row(children: [
+          // Shake hint
+          Expanded(child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+              Icon(Icons.vibration, size: 16,
+                  color: Colors.orange.shade400),
+              const SizedBox(width: 6),
+              Text('Or shake phone',
+                  style: TextStyle(
+                      fontSize: 12 * fs,
+                      color: Colors.orange.shade400,
+                      fontWeight: FontWeight.w600)),
+            ]),
+          )),
+          const SizedBox(width: 10),
+          // Voice button
+          Semantics(
+            button: true,
+            label: _isListening ? 'Stop listening' : 'Say I took it',
+            child: GestureDetector(
+              onTap: _toggleVoice,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _isListening
+                      ? Colors.blue.shade600
+                      : Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    _isListening ? Icons.mic : Icons.mic_none_outlined,
+                    size: 18,
+                    color: _isListening
+                        ? Colors.white
+                        : Colors.blue.shade400,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isListening ? 'Listening...' : 'Say it',
+                    style: TextStyle(
+                      fontSize: 12 * fs,
+                      color: _isListening
+                          ? Colors.white
+                          : Colors.blue.shade400,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
       ],
+
+      // Shake progress dots
+      if (_shakeCount > 0 && !_showSuccess) ...[
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.vibration, size: 13,
+              color: Colors.orange.shade400),
+          const SizedBox(width: 6),
+          Text('Shake to confirm ',
+              style: TextStyle(
+                  fontSize: 11 * fs, color: Colors.orange.shade400)),
+          ...List.generate(3, (i) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            width: 10, height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i < _shakeCount
+                  ? Colors.orange.shade400
+                  : Colors.grey.shade700,
+            ),
+          )),
+        ]),
+        const SizedBox(height: 8),
+      ],
+
+      // Voice listening feedback
+      if (_isListening) ...[
+        Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withOpacity(0.3)),
+          ),
+          child: Row(children: [
+            const _PulsingMic(),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text('Listening...',
+                  style: TextStyle(
+                      fontSize: 13 * fs,
+                      color: Colors.blue.shade300,
+                      fontWeight: FontWeight.bold)),
+              if (_heardText.isNotEmpty)
+                Text('"$_heardText"',
+                    style: TextStyle(
+                        fontSize: 11 * fs,
+                        color: Colors.blue.shade400,
+                        fontStyle: FontStyle.italic)),
+            ])),
+            GestureDetector(
+              onTap: _toggleVoice,
+              child: Icon(Icons.close,
+                  color: Colors.blue.shade400, size: 18),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+      ],
+
       if (style.showSnooze) ...[
         Semantics(button: true, label: 'Snooze',
             child: _btn('⏰  Remind me later',
