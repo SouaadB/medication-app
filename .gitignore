@@ -31,3 +31,11 @@ frontend/build/
 frontend/build/
 frontend/.dart_tool/
 frontend/.flutter-plugins-dependencies
+# Temp/garbage files
+*.tmp
+~$*
+.~*
+
+# Firebase
+backend/firebase-service-account.json
+backend/.env

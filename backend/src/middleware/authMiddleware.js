@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const db = require('../config/database');
 
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
@@ -18,7 +19,21 @@ exports.protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id);
+        
+        // First, try to find in users table
+        let user = await User.findById(decoded.id);
+        
+        // If not found in users, check caregiver_users table
+        if (!user) {
+            const [caregivers] = await db.execute(
+                'SELECT id, name, email, "caregiver" as role FROM caregiver_users WHERE id = ?',
+                [decoded.id]
+            );
+            
+            if (caregivers.length > 0) {
+                user = caregivers[0];
+            }
+        }
         
         if (!user) {
             return res.status(401).json({ 
@@ -30,6 +45,7 @@ exports.protect = async (req, res, next) => {
         req.user = user;
         next();
     } catch (error) {
+        console.error('Auth error:', error);
         return res.status(401).json({ 
             success: false, 
             message: 'Not authorized - Invalid token' 

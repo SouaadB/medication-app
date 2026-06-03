@@ -1,3 +1,7 @@
+# Forcer Visual Studio 2022 (compatible avec ta version 2026)
+set(CMAKE_GENERATOR "Visual Studio 17 2022" CACHE INTERNAL "" FORCE)
+set(CMAKE_GENERATOR_PLATFORM "x64" CACHE INTERNAL "" FORCE)
+message(STATUS "🔧 Using generator: ${CMAKE_GENERATOR}")
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
 project(flutter_application_1 LANGUAGES CXX)

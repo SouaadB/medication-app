@@ -19,6 +19,12 @@ class User {
         const [rows] = await db.execute(query, [id]);
         return rows[0];
     }
+    static async findByPhone(phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const query = 'SELECT * FROM users WHERE phone = ?';
+    const [rows] = await db.execute(query, [cleanPhone]);
+    return rows[0];
+}
 }
 
 module.exports = User;
