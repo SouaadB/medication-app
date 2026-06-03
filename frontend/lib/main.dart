@@ -39,9 +39,11 @@ import 'caregiver/accept_invitation_page.dart';
 import 'caregiver/caregiver_forgot_password_page.dart';
 import 'caregiver/caregiver_verify_code_page.dart';
 import 'caregiver/caregiver_reset_password_page.dart';
+import 'services/accessibility_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+   await AccessibilityService.instance.load();
 
   // Initialize background location service BEFORE running app
   if (!kIsWeb) {

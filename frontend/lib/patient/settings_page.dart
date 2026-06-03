@@ -11,6 +11,7 @@ import '../services/location_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
+import 'accessibility_settings_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -238,6 +239,21 @@ Future<void> _exportPdf() async {
             ),
           ]),
           const SizedBox(height: 20),
+          // ── ACCESSIBILITY ───────────────────────────────────────────────
+_section('Accessibilité', Icons.accessibility_new_outlined, Colors.orange, isDark),
+_card(isDark, [
+  _navTile(
+    icon: Icons.auto_awesome_outlined,
+    iconColor: Colors.orange,
+    title: 'Mode Lecture Facile',
+    subtitle: 'Icônes, audio, grand texte',
+    onTap: () => Navigator.push(context,
+        MaterialPageRoute(builder: (_) => const AccessibilitySettingsPage())),
+    isDark: isDark,
+    showChevron: true,
+  ),
+]),
+const SizedBox(height: 20),
 
           // ── SUPPORT ─────────────────────────────────────────────────────
        _section('Support & Legal', Icons.help_outline, Colors.grey, isDark),
