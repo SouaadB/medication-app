@@ -20,7 +20,7 @@ const rewardsRoutes = require('./routes/rewardsRoutes');
 const caregiverRoutes = require('./routes/caregiverRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const { startNotificationJobs } = require('./jobs/notificationJob');
-const signalRoutes = require('./routes/signalRoutes');
+//const signalRoutes = require('./routes/signalRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 
 const app = express();
@@ -45,7 +45,7 @@ app.use('/api/caregivers', caregiverRoutes);
 const chatRoutes = require('./routes/chatRoutes');
 app.use('/api/chat', chatRoutes);
 app.use('/api/location', locationRoutes);
-app.use('/api/signals', signalRoutes);
+//app.use('/api/signals', signalRoutes);
 app.use('/api/assessments', assessmentRoutes);
 
 app.get('/', (req, res) => {
