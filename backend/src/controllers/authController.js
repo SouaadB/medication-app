@@ -176,28 +176,20 @@ exports.register = async (req, res) => {
             console.error('❌ Erreur envoi email (non bloquante):', emailError);
         }
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { id: userId, email, role: 'patient' },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRE }
-        );
 
-        res.status(201).json({
-            success: true,
-            message: 'Registration successful',
-            token,
-            user: { 
-                id: userId, 
-                name, 
-                email, 
-                role: 'patient',
-                phone,
-                chifaCardRegistrationNumber,
-                dateOfBirth,
-                smartphoneSkillLevel
-            }
-        });
+
+res.status(201).json({
+    success: true,
+    message: 'Registration successful. Please check your email to verify your account before logging in.',
+    emailSent: true,
+    user: { 
+        id: userId, 
+        name, 
+        email, 
+        role: 'patient'
+    }
+    
+});
 
     } catch (error) {
         console.error('Registration error:', error);

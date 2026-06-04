@@ -119,52 +119,31 @@ class _SignUpPageState extends State<SignUpPage>
       ).timeout(const Duration(seconds: 20));
 
       final data = jsonDecode(response.body);
-      if (response.statusCode == 201 && data['success'] == true) {
-        if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Row(children: [
-                Text('📧', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 10),
-                Text('Check your email'),
-              ]),
-              content: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text(
-                  'We sent a verification link to your email address.',
-                  style: TextStyle(fontSize: 15),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _emailController.text.trim(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: primary),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Please click the link in the email to activate your account before logging in.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-              ]),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context); // close dialog
-                    Navigator.pop(context); // go back to login
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text('Go to Login'),
-                ),
-              ],
-            ),
-          );
-        }
-      } else {
+if (response.statusCode == 201 && data['success'] == true) {
+  // Don't save token or navigate to app — show verification message instead
+  if (mounted) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Check your email'),
+        content: const Text(
+          'A verification link has been sent to your email address. '
+          'Please verify your account before logging in.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.pushReplacementNamed(context, '/signin');
+            },
+            child: const Text('Go to Login'),
+          ),
+        ],
+      ),
+    );
+  }
+}else {
         throw Exception(data['message'] ?? 'Registration failed');
       }
     } catch (e) {

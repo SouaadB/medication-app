@@ -106,44 +106,35 @@ class EmailSenderService {
             return false;
         }
     }
-    // ADD this method before the last closing }
-    async sendVerificationEmail(userEmail, userName, verificationToken) {
+
+    async sendVerificationEmail(email, name, token) {
         try {
-            const verifyLink = `${process.env.BACKEND_URL || 'http://192.168.1.8:5000'}/api/auth/verify-email?token=${verificationToken}`;
-            
+            const verificationUrl = `${process.env.APP_URL}/api/auth/verify-email?token=${token}`;
+
             const mailOptions = {
                 from: `"MediCare" <${process.env.EMAIL_USER}>`,
-                to: userEmail,
-                subject: '✅ Vérifiez votre adresse email — MediCare',
+                to: email,
+                subject: '✅ Verify your MediCare account',
                 html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #007AFF; border-radius: 10px;">
-                        <div style="text-align: center;">
-                            <h1 style="color: #007AFF;">Vérification de votre email</h1>
-                            <div style="font-size: 48px; margin: 20px 0;">📧</div>
-                            <h2 style="color: #333;">Bonjour ${userName},</h2>
-                            <p style="font-size: 16px; color: #666; line-height: 1.6;">
-                                Merci de vous être inscrit sur MediCare. Veuillez cliquer sur le bouton ci-dessous pour activer votre compte.
-                            </p>
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="${verifyLink}" 
-                                   style="display: inline-block; background-color: #007AFF; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
-                                    ✅ Vérifier mon email
-                                </a>
-                            </div>
-                            <p style="font-size: 14px; color: #999;">
-                                Ce lien expire dans 24 heures.<br>
-                                Si vous n'avez pas créé de compte, ignorez cet email.
-                            </p>
-                            <p style="font-size: 12px; color: #bbb; margin-top: 20px;">
-                                Lien direct: <a href="${verifyLink}" style="color: #007AFF;">${verifyLink}</a>
-                            </p>
-                        </div>
+                    <div style="font-family:Arial;max-width:600px;margin:0 auto;padding:20px;">
+                        <h2 style="color:#1565C0;">Welcome to MediCare, ${name}!</h2>
+                        <p>Click the button below to verify your email address:</p>
+                        <a href="${verificationUrl}" 
+                           style="display:inline-block;background:#1565C0;color:white;padding:14px 28px;
+                                  border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0;">
+                            Verify My Email
+                        </a>
+                        <p style="color:#999;font-size:13px;">
+                            If the button doesn't work, copy this link:<br>
+                            <a href="${verificationUrl}">${verificationUrl}</a>
+                        </p>
+                        <p style="color:#999;font-size:12px;">This link expires in 24 hours.</p>
                     </div>
                 `
             };
 
             await this.transporter.sendMail(mailOptions);
-            console.log(`✅ Email de vérification envoyé à ${userEmail}`);
+            console.log(`✅ Email de vérification envoyé à ${email}`);
             return { success: true };
         } catch (error) {
             console.error('❌ Erreur envoi email vérification:', error);

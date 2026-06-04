@@ -275,14 +275,7 @@ class _SetupProfilePageState extends State<SetupProfilePage>
 
   Future<void> _saveProfile() async {
     final lang = Provider.of<LanguageService>(context, listen: false);
-    final ageText = _ageController.text.trim();
-    if (ageText.isEmpty) {
-      setState(() => _error = 'Please enter your age'); return;
-    }
-    final age = int.tryParse(ageText);
-    if (age == null || age < 0 || age > 120) {
-      setState(() => _error = 'Age must be between 0 and 120'); return;
-    }
+
     setState(() { _isLoading = true; _error = null; });
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -290,7 +283,7 @@ class _SetupProfilePageState extends State<SetupProfilePage>
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/profile/setup'),
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'age': age, 'conditions': _selectedConditionIds}),
+        body: jsonEncode({'conditions': _selectedConditionIds}),
       );
       if (response.statusCode == 200) {
         await prefs.setBool('profile_completed', true);

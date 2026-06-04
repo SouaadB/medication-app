@@ -70,45 +70,39 @@ class Patient {
         return result;
     }
 
-    static async setupProfile(userId, profileData) {
-        const { age, conditions } = profileData;
-        const connection = await db.getConnection();
-        
-        try {
-            await connection.beginTransaction();
+static async setupProfile(userId, profileData) {
+    const { conditions } = profileData;
+    const connection = await db.getConnection();
+    
+    try {
+        await connection.beginTransaction();
 
-            // 1. Update age in patients table
-            await connection.execute(
-                'UPDATE patients SET age = ? WHERE id = ?',
-                [age, userId]
+        // 1. Clear existing conditions for this patient
+        await connection.execute(
+            'DELETE FROM patient_conditions WHERE patient_id = ?',
+            [userId]
+        );
+
+        // 2. Insert new conditions
+        if (conditions && conditions.length > 0) {
+            const conditionQueries = conditions.map(conditionId => 
+                connection.execute(
+                    'INSERT INTO patient_conditions (patient_id, condition_id) VALUES (?, ?)',
+                    [userId, conditionId]
+                )
             );
-
-            // 2. Clear existing conditions for this patient
-            await connection.execute(
-                'DELETE FROM patient_conditions WHERE patient_id = ?',
-                [userId]
-            );
-
-            // 3. Insert new conditions
-            if (conditions && conditions.length > 0) {
-                const conditionQueries = conditions.map(conditionId => 
-                    connection.execute(
-                        'INSERT INTO patient_conditions (patient_id, condition_id) VALUES (?, ?)',
-                        [userId, conditionId]
-                    )
-                );
-                await Promise.all(conditionQueries);
-            }
-
-            await connection.commit();
-            return { success: true };
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
+            await Promise.all(conditionQueries);
         }
+
+        await connection.commit();
+        return { success: true };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
     }
+}
 
     static async getPatientConditions(userId) {
         const query = `

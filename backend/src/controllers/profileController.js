@@ -49,7 +49,7 @@ exports.getProfile = async (req, res) => {
         console.error('Erreur getProfile:', error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la récupération du profil'
+            message: 'Erreur while configuring profile'
         });
     }
 };
@@ -58,26 +58,26 @@ exports.getProfile = async (req, res) => {
 exports.setupPatientProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { age, conditions } = req.body;
+        const { conditions } = req.body;
 
-        if (!age || !conditions) {
+        if ( !conditions) {
             return res.status(400).json({
                 success: false,
-                message: 'L\'âge et les conditions sont requis'
+                message: 'Conditions are required'
             });
         }
 
-        await Patient.setupProfile(userId, { age, conditions });
+        await Patient.setupProfile(userId, { conditions });
 
         res.json({
             success: true,
-            message: 'Profil configuré avec succès'
+            message: 'Profil was successfully configured'
         });
     } catch (error) {
         console.error('Erreur setupPatientProfile:', error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la configuration du profil'
+            message: 'Eerror while configuring profile '
         });
     }
 };
