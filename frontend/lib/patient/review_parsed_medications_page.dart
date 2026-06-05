@@ -40,7 +40,6 @@ class _ReviewParsedMedicationsPageState
     'Once daily',
     'Twice daily',
     'Three times daily',
-    'Four times daily',
     'Every 12 hours',
     'Every 8 hours',
     'Every 6 hours',
@@ -52,7 +51,6 @@ class _ReviewParsedMedicationsPageState
     'Une fois par jour',
     'Deux fois par jour',
     'Trois fois par jour',
-    'Quatre fois par jour',
     'Toutes les 12 heures',
     'Toutes les 8 heures',
     'Toutes les 6 heures',
@@ -93,7 +91,6 @@ class _ReviewParsedMedicationsPageState
     'Une fois par jour':          'Once daily',
     'Deux fois par jour':         'Twice daily',
     'Trois fois par jour':        'Three times daily',
-    'Quatre fois par jour':       'Four times daily',
     'Toutes les 4 heures':        'Every 4 hours',
     'Toutes les 6 heures':        'Every 6 hours',
     'Toutes les 8 heures':        'Every 8 hours',
@@ -380,6 +377,26 @@ class _ReviewParsedMedicationsPageState
       }
     }
 
+    // Require meal anchor for daily frequencies
+    final isFr = lang.getCurrentLanguage() == 'fr';
+    for (int i = 0; i < _items.length; i++) {
+      if (!_items[i].include) continue;
+      final mainFreq = _mainFrequencies[i] ?? '';
+      final mainEn   = _frToEnMap[mainFreq] ?? mainFreq;
+      final needsAnchor = mainEn == 'Once daily' ||
+                          mainEn == 'Twice daily' ||
+                          mainEn == 'Three times daily';
+      if (needsAnchor && (_mealAnchorsPerItem[i] ?? []).isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isFr
+              ? 'Sélectionnez le moment de prise pour ${_items[i].nameController.text}'
+              : 'Select meal timing for ${_items[i].nameController.text}'),
+          backgroundColor: Colors.orange,
+        ));
+        return;
+      }
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -551,13 +568,12 @@ class _ReviewParsedMedicationsPageState
             : null;
         final isInterval = mainFreqEn != null &&
             (mainFreqEn.contains('Every') ||
-                mainFreqEn == 'As needed' ||
-                mainFreqEn == 'Four times daily');
-        final isThreeTimes = mainFreqEn == 'Three times daily';
+                mainFreqEn == 'As needed');
 
         int maxAnchors = 99;
         if (mainFreqEn == 'Once daily') maxAnchors = 1;
         else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
+        else if (mainFreqEn == 'Three times daily') maxAnchors = 3;
 
         // Empty stomach is always a single-anchor selection
         final currentAnchors = _mealAnchorsPerItem[itemIndex] ?? [];
@@ -611,17 +627,14 @@ class _ReviewParsedMedicationsPageState
                       setModalState(() {
                         _mainFrequencies[itemIndex] = val;
                         final valEn = _frToEnMap[val] ?? val;
-                        if (valEn == 'Three times daily') {
-                          _mealAnchorsPerItem[itemIndex] = [
-                            anchors[1], anchors[3], anchors[5]
-                          ];
-                        } else if (valEn.contains('Every') ||
-                            valEn == 'As needed' ||
-                            valEn == 'Four times daily') {
+                        if (valEn.contains('Every') ||
+                            valEn == 'As needed') {
                           _mealAnchorsPerItem[itemIndex] = [];
                         } else {
-                          int newMax =
-                              valEn == 'Once daily' ? 1 : valEn == 'Twice daily' ? 2 : 99;
+                          int newMax = 99;
+                          if (valEn == 'Once daily') newMax = 1;
+                          else if (valEn == 'Twice daily') newMax = 2;
+                          else if (valEn == 'Three times daily') newMax = 3;
                           final cur = _mealAnchorsPerItem[itemIndex] ?? [];
                           if (cur.length > newMax) {
                             _mealAnchorsPerItem[itemIndex] =
@@ -658,18 +671,6 @@ class _ReviewParsedMedicationsPageState
                       style: TextStyle(
                           color: Colors.grey.shade500,
                           fontStyle: FontStyle.italic),
-                    ),
-                  )
-                else if (isThreeTimes)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      isFr
-                          ? 'Auto-sélectionné pour 3 fois/jour'
-                          : 'Auto-selected for 3 times/day',
-                      style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold),
                     ),
                   )
                 else
@@ -978,6 +979,41 @@ class _ReviewParsedMedicationsPageState
                       ]),
                     ),
                   ),
+                  // ── As needed info banner ───────────────────────────────
+                  if ((_frToEnMap[_mainFrequencies[index]] ??
+                          _mainFrequencies[index]) ==
+                      'As needed') ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border:
+                            Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.orange.shade700, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isFr
+                                  ? 'Aucun rappel ne sera envoyé. Ce médicament n\'apparaîtra pas dans le planning quotidien. Prenez-le uniquement si nécessaire.'
+                                  : 'No reminders will be sent. This medication will not appear in the daily schedule. Take it only when needed.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade800,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
 
                   // priority

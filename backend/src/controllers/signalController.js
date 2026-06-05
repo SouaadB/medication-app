@@ -29,13 +29,14 @@ async function getPatientSignals(req, res) {
     const existing = await getLatestForecast(patientId);
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
-    let forecast;
-    if (!existing || new Date(existing.createdAt) < sixHoursAgo) {
-      // Stale or missing — regenerate
-      forecast = await analyzeAndSave(patientId);
-    } else {
-      forecast = existing;
-    }
+let forecast;
+if (!existing || new Date(existing.createdAt) < sixHoursAgo) {
+  // Stale or missing — regenerate, then fetch from DB for consistent shape
+  await analyzeAndSave(patientId);
+  forecast = await getLatestForecast(patientId);
+} else {
+  forecast = existing;
+}
 
     return res.json({
       success: true,

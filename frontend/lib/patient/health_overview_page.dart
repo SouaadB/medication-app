@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/health_service.dart';
 import '../services/language_service.dart';
 import 'condition_detail_page.dart';
+import '../patient/early_warning_card.dart';
 
 class HealthOverviewPage extends StatefulWidget {
   const HealthOverviewPage({super.key});
@@ -201,11 +202,16 @@ class _HealthOverviewPageState extends State<HealthOverviewPage>
             const SizedBox(height: 16),
 
             // ── streak card ───────────────────────────────────────────────
-            _buildStreakCard(lang),
-            const SizedBox(height: 16),
+             
+           _buildStreakCard(lang),
+           const SizedBox(height: 16),
 
-            // ── stats row ─────────────────────────────────────────────────
-            _buildStatsRow(lang),
+           // ── AI early warning ──────────────────────────────────────────
+           const EarlyWarningCard(),
+           const SizedBox(height: 16),
+
+           // ── stats row ─────────────────────────────────────────────────
+              _buildStatsRow(lang),
             const SizedBox(height: 24),
 
             // ── achievements ──────────────────────────────────────────────

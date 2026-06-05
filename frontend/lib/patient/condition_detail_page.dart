@@ -45,8 +45,8 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
         final data = jsonDecode(response.body);
         setState(() {
           _medications = (data['treatments'] as List)
-           .where((t) => t['deleted_at'] == null)
-           .toList();
+              .where((t) => t['deleted_at'] == null)
+              .toList();
           _isLoading   = false;
         });
       } else {
@@ -643,7 +643,6 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
     'Once daily',
     'Twice daily',
     'Three times daily',
-    'Four times daily',
     'Every 4 hours',
     'Every 6 hours',
     'Every 8 hours',
@@ -653,13 +652,10 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
 
   final List<String> _mealAnchorsEn = const [
     'Before breakfast',
-    'During breakfast',
     'After breakfast',
     'Before lunch',
-    'During lunch',
     'After lunch',
     'Before dinner',
-    'During dinner',
     'After dinner',
     'Before sleeping',
     'Empty stomach',   // ← ADDED
@@ -771,6 +767,21 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
+    // Validate meal anchor for daily frequencies
+    final needsAnchor = _mainFrequency == 'Once daily' ||
+                        _mainFrequency == 'Twice daily' ||
+                        _mainFrequency == 'Three times daily';
+    if (needsAnchor && _mealAnchors.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text(
+            'Please select when to take this medication (e.g. After breakfast)'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -850,13 +861,12 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
       builder: (_) => StatefulBuilder(builder: (ctx, setModal) {
         final isInterval = _mainFrequency != null &&
             (_mainFrequency!.contains('Every') ||
-                _mainFrequency == 'As needed' ||
-                _mainFrequency == 'Four times daily');
-        final isThree = _mainFrequency == 'Three times daily';
+                _mainFrequency == 'As needed');
 
         int maxAnchors = 99;
-        if (_mainFrequency == 'Once daily') maxAnchors = 1;
-        else if (_mainFrequency == 'Twice daily') maxAnchors = 2;
+        if (_mainFrequency == 'Once daily')             maxAnchors = 1;
+        else if (_mainFrequency == 'Twice daily')       maxAnchors = 2;
+        else if (_mainFrequency == 'Three times daily') maxAnchors = 3;
 
         final hasEmptyStomach =
             _mealAnchors.contains('Empty stomach');
@@ -896,22 +906,14 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
                     if (val == null) return;
                     setModal(() {
                       _mainFrequency = val;
-                      if (val == 'Three times daily') {
-                        _mealAnchors = [
-                          _mealAnchorsEn[1],
-                          _mealAnchorsEn[2],
-                          _mealAnchorsEn[5],
-                        ];
-                      } else if (val.contains('Every') ||
-                          val == 'As needed' ||
-                          val == 'Four times daily') {
+                      if (val.contains('Every') ||
+                          val == 'As needed') {
                         _mealAnchors = [];
                       } else {
-                        int nm = val == 'Once daily'
-                            ? 1
-                            : val == 'Twice daily'
-                                ? 2
-                                : 99;
+                        int nm = 99;
+                        if (val == 'Once daily') nm = 1;
+                        else if (val == 'Twice daily') nm = 2;
+                        else if (val == 'Three times daily') nm = 3;
                         if (_mealAnchors.length > nm) {
                           _mealAnchors =
                               _mealAnchors.sublist(0, nm);
@@ -939,14 +941,6 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
                         style: TextStyle(
                             color: Colors.grey.shade500,
                             fontStyle: FontStyle.italic)),
-                  )
-                else if (isThree)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text('Auto-selected for 3 times/day',
-                        style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold)),
                   )
                 else
                   ..._mealAnchorsEn.map((a) {
@@ -1159,30 +1153,80 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
               _sectionLabel(Icons.access_time, 'Frequency'),
               const SizedBox(height: 8),
               _isEditing
-                  ? GestureDetector(
-                      onTap: _showFrequencySelector,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                              color: Colors.blue.shade200, width: 1.5),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.blue.shade50,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: _showFrequencySelector,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: _mainFrequency == 'As needed'
+                                    ? Colors.orange.shade300
+                                    : Colors.blue.shade200,
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: _mainFrequency == 'As needed'
+                                  ? Colors.orange.shade50
+                                  : Colors.blue.shade50,
+                            ),
+                            child: Row(children: [
+                              Icon(Icons.access_time,
+                                  color: _mainFrequency == 'As needed'
+                                      ? Colors.orange.shade400
+                                      : Colors.blue.shade400,
+                                  size: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                  child: Text(_buildFrequency(),
+                                      style: TextStyle(
+                                          fontSize: 15,
+                                          color: _mainFrequency == 'As needed'
+                                              ? Colors.orange.shade700
+                                              : Colors.blue.shade700))),
+                              Icon(Icons.arrow_drop_down,
+                                  color: _mainFrequency == 'As needed'
+                                      ? Colors.orange.shade400
+                                      : Colors.blue.shade400),
+                            ]),
+                          ),
                         ),
-                        child: Row(children: [
-                          Icon(Icons.access_time,
-                              color: Colors.blue.shade400, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: Text(_buildFrequency(),
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.blue.shade700))),
-                          Icon(Icons.arrow_drop_down,
-                              color: Colors.blue.shade400),
-                        ]),
-                      ),
+                        if (_mainFrequency == 'As needed') ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: Colors.orange.shade200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: Colors.orange.shade700,
+                                    size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'No reminders will be sent. This medication will not appear in the daily schedule. Take it only when needed.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade800,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     )
                   : _readField(med['frequency'] ?? '—',
                       Icons.access_time),

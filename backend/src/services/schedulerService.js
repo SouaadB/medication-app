@@ -23,7 +23,6 @@ class SchedulerService {
         'Once daily':        { count: 1, type: 'daily' },
         'Twice daily':       { count: 2, type: 'daily' },
         'Three times daily': { count: 3, type: 'daily' },
-        'Four times daily':  { count: 4, type: 'daily' },
         'Every 4 hours':     { interval: 4,  type: 'interval' },
         'Every 6 hours':     { interval: 6,  type: 'interval' },
         'Every 8 hours':     { interval: 8,  type: 'interval' },
@@ -51,6 +50,18 @@ class SchedulerService {
             );
 
             const preferences = patients[0] || this.DEFAULT_SCHEDULE;
+
+            // Normalize time fields — DB returns TIME as 'HH:MM:SS' but scheduler
+            // expects 'HH:MM'. Strip the seconds component if present.
+            const trimTime = (t) => t ? t.toString().substring(0, 5) : null;
+            if (patients[0]) {
+                preferences.wake_time      = trimTime(preferences.wake_time);
+                preferences.breakfast_time = trimTime(preferences.breakfast_time);
+                preferences.lunch_time     = trimTime(preferences.lunch_time);
+                preferences.dinner_time    = trimTime(preferences.dinner_time);
+                preferences.bedtime        = trimTime(preferences.bedtime);
+            }
+
             const times = this._calculateSmartTimes(frequency, preferences);
 
             if (times.length === 0) {
@@ -154,8 +165,6 @@ class SchedulerService {
      * FIX (bedtime): 'Before sleeping' now stores the actual bedtime as
      * scheduled_date_time (offset 0), NOT bedtime-30.
      * The notification engine owns the -30 offset via the BEDTIME_PREP stage.
-     * Previously storing bedtime-30 caused a double-offset that fired
-     * notifications 75 and 45 minutes before bedtime instead of 30 and 0.
      */
     static _resolveAnchorToTime(anchor, prefs) {
         const format = (timeStr, offsetMin) => {
@@ -187,8 +196,6 @@ class SchedulerService {
             //   EMPTY_STOMACH_PREP fires at wake + 5min  (dose - 15min)
             //   MAIN               fires at wake + 20min (dose time)
             //   SAFE_TO_EAT        fires at wake + 60min (dose + 40min = breakfast_time)
-            // This requires breakfast_time = wake_time + 60min minimum (enforced by DailySchedulePage).
-            // Example: wake=07:00 → dose at 07:20, PREP at 07:05, SAFE_TO_EAT at 08:00
             case 'Empty stomach':     return format(prefs.wake_time || '07:00', 20);
 
             // FIX: store actual bedtime — notification engine owns all offsets
@@ -199,20 +206,26 @@ class SchedulerService {
     }
 
     /**
-     * Smart distribution for daily counts (1×, 2×, 3×, 4×).
-     * If meal anchors already satisfy the count, does nothing.
+     * Smart distribution for daily counts (1×, 2×, 3×).
+     *
+     * The patient selects their own meal anchors from the Flutter UI.
+     * This function only provides FALLBACK defaults when the patient
+     * selected zero anchors — which should rarely happen.
+     *
+     * Once daily  : fallback → After breakfast
+     * Twice daily : fallback → After breakfast + After dinner
+     * Three times : fallback → After breakfast + After lunch + After dinner
+     *
+     * Four times daily has been removed — use interval frequencies instead.
      */
     static _fillDailyTimes(count, existingAnchors, prefs, resultTimes) {
+        // Patient already selected enough anchors — respect their choice
         if (resultTimes.size >= count) return;
 
         const defaults = [];
         if      (count === 1) defaults.push('After breakfast');
         else if (count === 2) defaults.push('After breakfast', 'After dinner');
         else if (count === 3) defaults.push('After breakfast', 'After lunch', 'After dinner');
-        else if (count === 4) {
-            resultTimes.add(prefs.wake_time || '07:00');
-            defaults.push('After lunch', 'After dinner', 'Before sleeping');
-        }
 
         for (const def of defaults) {
             if (resultTimes.size < count) {
@@ -222,71 +235,65 @@ class SchedulerService {
         }
     }
 
-/**
- * Interval scheduling — distributes doses strictly by interval within the
- * patient's waking window (wake_time → bedtime). Never schedules past bedtime
- * or during sleep.
- *
- * Algorithm:
- *   - First dose at wake_time + 25 min (gives patient time to wake up properly)
- *   - Each subsequent dose at (wake_time + 25min) + i * interval.
- *   - Stop when the next dose would exceed bedtime.
- *   - Handles overnight windows (e.g. wake=06:00, bed=01:00).
- *
- * Examples (wake=07:00, bed=22:00 → 15h window):
- *   Every  4h → 07:25, 11:25, 15:25, 19:25  (4 doses, strict 4h gaps)
- *   Every  6h → 07:25, 13:25, 19:25          (3 doses, strict 6h gaps)
- *   Every  8h → 07:25, 15:25                 (2 doses, next 23:25 > bed)
- *   Every 12h → 07:25, 19:25                 (2 doses, next 07:25 = next day)
- *
- * Why not redistribute evenly?
- *   "Every 8 hours" means the drug must maintain concentration for 8h.
- *   Stretching to 15h between doses defeats the medical purpose.
- *   We accept fewer doses rather than distort the interval.
- */
-static _fillIntervalTimes(interval, prefs, resultTimes) {
-    const parseMin = (timeStr, fallback) => {
-        if (!timeStr) return fallback;
-        const parts = timeStr.toString().split(':');
-        return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
-    };
+    /**
+     * Interval scheduling — distributes doses strictly by interval within the
+     * patient's waking window (wake_time → bedtime). Never schedules past bedtime
+     * or during sleep.
+     *
+     * Algorithm:
+     *   - First dose at wake_time + 25 min (gives patient time to wake up properly)
+     *   - Each subsequent dose at (wake_time + 25min) + i * interval.
+     *   - Stop when the next dose would exceed bedtime.
+     *   - Handles overnight windows (e.g. wake=06:00, bed=01:00).
+     *
+     * Examples (wake=07:00, bed=22:00 → 15h window):
+     *   Every  4h → 07:25, 11:25, 15:25, 19:25  (4 doses, strict 4h gaps)
+     *   Every  6h → 07:25, 13:25, 19:25          (3 doses, strict 6h gaps)
+     *   Every  8h → 07:25, 15:25                 (2 doses, next 23:25 > bed)
+     *   Every 12h → 07:25, 19:25                 (2 doses, next 07:25 = next day)
+     */
+    static _fillIntervalTimes(interval, prefs, resultTimes) {
+        const parseMin = (timeStr, fallback) => {
+            if (!timeStr) return fallback;
+            const parts = timeStr.toString().split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+        };
 
-    const wakeMin     = parseMin(prefs.wake_time, 7 * 60);
-    const bedtimeMin  = parseMin(prefs.bedtime,   22 * 60);
-    const intervalMin = interval * 60;
-    
-    // Add 25-minute buffer after wake time for first dose
-    const FIRST_DOSE_BUFFER = 25;
-    const firstDoseMin = wakeMin + FIRST_DOSE_BUFFER;
+        const wakeMin     = parseMin(prefs.wake_time, 7 * 60);
+        const bedtimeMin  = parseMin(prefs.bedtime,   22 * 60);
+        const intervalMin = interval * 60;
 
-    // Waking window in minutes (handle overnight wrap e.g. bed=01:00)
-    // Calculate from first dose time to bedtime
-    let windowMin = bedtimeMin - firstDoseMin;
-    if (windowMin <= 0) windowMin += 24 * 60;
+        // Add 25-minute buffer after wake time for first dose
+        const FIRST_DOSE_BUFFER = 25;
+        const firstDoseMin = wakeMin + FIRST_DOSE_BUFFER;
 
-    const toTime = (totalMin) => {
-        const wrapped = ((Math.round(totalMin) % 1440) + 1440) % 1440;
-        const h = Math.floor(wrapped / 60);
-        const m = wrapped % 60;
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    };
+        // Waking window in minutes (handle overnight wrap e.g. bed=01:00)
+        let windowMin = bedtimeMin - firstDoseMin;
+        if (windowMin <= 0) windowMin += 24 * 60;
 
-    let offset = 0;
-    while (offset <= windowMin) {
-        resultTimes.add(toTime(firstDoseMin + offset));
-        offset += intervalMin;
+        const toTime = (totalMin) => {
+            const wrapped = ((Math.round(totalMin) % 1440) + 1440) % 1440;
+            const h = Math.floor(wrapped / 60);
+            const m = wrapped % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        };
+
+        let offset = 0;
+        while (offset <= windowMin) {
+            resultTimes.add(toTime(firstDoseMin + offset));
+            offset += intervalMin;
+        }
+
+        // Safety: if nothing was added (window = 0), add first dose time
+        if (resultTimes.size === 0) {
+            resultTimes.add(toTime(firstDoseMin));
+        }
+
+        console.log(
+            `[Scheduler] Every ${interval}h → ${resultTimes.size} doses (first dose at wake+${FIRST_DOSE_BUFFER}min):`,
+            Array.from(resultTimes).sort()
+        );
     }
-
-    // Safety: if nothing was added (window = 0), add first dose time
-    if (resultTimes.size === 0) {
-        resultTimes.add(toTime(firstDoseMin));
-    }
-
-    console.log(
-        `[Scheduler] Every ${interval}h → ${resultTimes.size} doses (first dose at wake+${FIRST_DOSE_BUFFER}min):`,
-        Array.from(resultTimes).sort()
-    );
-}
 
     // ─────────────────────────────────────────────────────────────────────────
     // SCHEDULE ACTIONS

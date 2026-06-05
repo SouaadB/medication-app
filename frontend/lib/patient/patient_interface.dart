@@ -11,7 +11,7 @@ import '../services/condition_service.dart';
 import '../services/location_service.dart';
 import 'patient_caregivers_page.dart';
 import '../services/background_location_service.dart';
-
+import '../services/signal_service.dart';
 class PatientInterface extends StatefulWidget {
   const PatientInterface({super.key});
 
@@ -62,6 +62,7 @@ class _PatientInterfaceState extends State<PatientInterface> {
   @override
   void dispose() {
     _locationService.stopLocationTracking();
+    SignalService.instance.clearCache();
     super.dispose();
   }
 

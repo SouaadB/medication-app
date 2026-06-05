@@ -1,12 +1,12 @@
 const db = require('../config/database');
+const FirebaseService = require('./firebaseService');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADHERENCE SIGNAL SERVICE
+// ADHERENCE SIGNAL SERVICE — with Day 4 Intervention Logic
 // Early Warning System — detects decline BEFORE doses are missed
 // Feature by: Berrached Malak
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── SIGNAL WEIGHTS (must sum to 1.0) ────────────────────────────────────────
 const SIGNAL_WEIGHTS = {
   responseTimeDegradation: 0.20,
   partialDayAdherence:     0.25,
@@ -15,7 +15,6 @@ const SIGNAL_WEIGHTS = {
   specificMedDrift:        0.20,
 };
 
-// ── RISK THRESHOLDS ──────────────────────────────────────────────────────────
 const RISK_LEVELS = {
   LOW:      { min: 0.00, max: 0.25, label: 'low' },
   MODERATE: { min: 0.25, max: 0.50, label: 'moderate' },
@@ -23,35 +22,18 @@ const RISK_LEVELS = {
   CRITICAL: { min: 0.75, max: 1.00, label: 'critical' },
 };
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SIGNAL 1 — Response Time Degradation
-// How long after the scheduled time does the patient actually take their meds?
-// If this average is increasing week over week, it's a warning sign.
-// Uses: medication_schedules (scheduled_date_time, taken_time, status)
 // ─────────────────────────────────────────────────────────────────────────────
 async function detectResponseTimeDegradation(patientId) {
   const [rows] = await db.query(
     `SELECT
-       AVG(CASE
-         WHEN week_num = 0
-          AND status = 'TAKEN'
-          AND taken_time IS NOT NULL
-         THEN TIMESTAMPDIFF(MINUTE, scheduled_date_time, taken_time)
-       END) AS avg_response_this_week,
-
-       AVG(CASE
-         WHEN week_num = 1
-          AND status = 'TAKEN'
-          AND taken_time IS NOT NULL
-         THEN TIMESTAMPDIFF(MINUTE, scheduled_date_time, taken_time)
-       END) AS avg_response_last_week
-
+       AVG(CASE WHEN week_num = 0 AND status = 'TAKEN' AND taken_time IS NOT NULL
+           THEN TIMESTAMPDIFF(MINUTE, scheduled_date_time, taken_time) END) AS avg_response_this_week,
+       AVG(CASE WHEN week_num = 1 AND status = 'TAKEN' AND taken_time IS NOT NULL
+           THEN TIMESTAMPDIFF(MINUTE, scheduled_date_time, taken_time) END) AS avg_response_last_week
      FROM (
-       SELECT
-         scheduled_date_time,
-         taken_time,
-         status,
+       SELECT scheduled_date_time, taken_time, status,
          CASE
            WHEN scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)  THEN 0
            WHEN scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 14 DAY) THEN 1
@@ -71,7 +53,7 @@ async function detectResponseTimeDegradation(patientId) {
     return { active: false, score: 0, detail: 'Insufficient data', thisWeek: 0, lastWeek: 0 };
   }
 
-  let score  = 0;
+  let score = 0;
   let detail = '';
 
   if (lastWeek === 0 && thisWeek > 0) {
@@ -80,7 +62,6 @@ async function detectResponseTimeDegradation(patientId) {
   } else {
     const degradation = (thisWeek - lastWeek) / Math.max(lastWeek, 1);
     score = Math.min(Math.max(degradation, 0), 1.0);
-
     if (score > 0.3) {
       detail = `Response time up from ${Math.round(lastWeek)} min to ${Math.round(thisWeek)} min avg`;
     } else if (thisWeek <= lastWeek) {
@@ -99,12 +80,8 @@ async function detectResponseTimeDegradation(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SIGNAL 2 — Partial Day Adherence
-// Morning doses fine but evening doses slipping?
-// Splits doses into morning (before 12:00), afternoon (12-16), evening (17+)
-// Uses: medication_schedules
 // ─────────────────────────────────────────────────────────────────────────────
 async function detectPartialDayAdherence(patientId) {
   const [rows] = await db.query(
@@ -132,9 +109,7 @@ async function detectPartialDayAdherence(patientId) {
   if (afternoonRate !== null) rates.push({ slot: 'afternoon', rate: afternoonRate });
   if (eveningRate   !== null) rates.push({ slot: 'evening',   rate: eveningRate });
 
-  if (rates.length === 0) {
-    return { active: false, score: 0, detail: 'Insufficient data', worstSlot: null };
-  }
+  if (rates.length === 0) return { active: false, score: 0, detail: 'Insufficient data', worstSlot: null };
 
   const best  = Math.max(...rates.map(r => r.rate));
   const worst = rates.reduce((a, b) => a.rate < b.rate ? a : b);
@@ -158,11 +133,8 @@ async function detectPartialDayAdherence(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SIGNAL 3 — Weekend Cliff
-// Patient takes meds reliably Mon-Fri but drops on Sat-Sun
-// Uses: medication_schedules (DAYOFWEEK: 1=Sun, 2=Mon ... 7=Sat)
 // ─────────────────────────────────────────────────────────────────────────────
 async function detectWeekendCliff(patientId) {
   const [rows] = await db.query(
@@ -179,7 +151,6 @@ async function detectWeekendCliff(patientId) {
   );
 
   const r = rows[0];
-
   if (r.weekday_total === 0 || r.weekend_total === 0) {
     return { active: false, score: 0, detail: 'Insufficient data', weekdayRate: null, weekendRate: null };
   }
@@ -202,11 +173,8 @@ async function detectWeekendCliff(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
-// SIGNAL 4 — Post-Illness Recovery Dip
-// After a streak of missed doses, is the patient recovering slowly?
-// Uses: medication_schedules
+// SIGNAL 4 — Post-Illness Recovery
 // ─────────────────────────────────────────────────────────────────────────────
 async function detectPostIllnessRecovery(patientId) {
   const [rows] = await db.query(
@@ -224,9 +192,7 @@ async function detectPostIllnessRecovery(patientId) {
     [patientId]
   );
 
-  if (rows.length < 5) {
-    return { active: false, score: 0, detail: 'Insufficient data', missStreakDays: 0 };
-  }
+  if (rows.length < 5) return { active: false, score: 0, detail: 'Insufficient data', missStreakDays: 0 };
 
   let maxStreakLength = 0;
   let currentStreak  = 0;
@@ -244,9 +210,7 @@ async function detectPostIllnessRecovery(patientId) {
     }
   }
 
-  if (maxStreakLength < 3) {
-    return { active: false, score: 0, detail: 'No significant missed dose streak detected', missStreakDays: maxStreakLength };
-  }
+  if (maxStreakLength < 3) return { active: false, score: 0, detail: 'No significant missed dose streak detected', missStreakDays: maxStreakLength };
 
   const recoveryDays = rows.slice(streakEndIndex + 1);
   if (recoveryDays.length === 0) {
@@ -269,26 +233,19 @@ async function detectPostIllnessRecovery(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SIGNAL 5 — Specific Medication Drift
-// One specific medication is consistently being missed or taken very late
-// Joins medication_schedules with treatments
 // ─────────────────────────────────────────────────────────────────────────────
 async function detectSpecificMedDrift(patientId) {
   const [rows] = await db.query(
     `SELECT
-       t.medication_name,
-       t.priority,
-       t.id AS treatment_id,
+       t.medication_name, t.priority, t.id AS treatment_id,
        COUNT(*)                                                           AS total_doses,
        SUM(CASE WHEN ms.status = 'TAKEN'  THEN 1 ELSE 0 END)            AS taken_doses,
        SUM(CASE WHEN ms.status = 'MISSED' THEN 1 ELSE 0 END)            AS missed_doses,
        SUM(CASE WHEN ms.status = 'TAKEN'  THEN 1 ELSE 0 END) / COUNT(*) AS adherence_rate,
-       AVG(CASE
-         WHEN ms.status = 'TAKEN' AND ms.taken_time IS NOT NULL
-         THEN TIMESTAMPDIFF(MINUTE, ms.scheduled_date_time, ms.taken_time)
-       END) AS avg_delay_minutes
+       AVG(CASE WHEN ms.status = 'TAKEN' AND ms.taken_time IS NOT NULL
+           THEN TIMESTAMPDIFF(MINUTE, ms.scheduled_date_time, ms.taken_time) END) AS avg_delay_minutes
      FROM medication_schedules ms
      JOIN treatments t ON ms.treatment_id = t.id
      WHERE ms.patient_id = ?
@@ -301,9 +258,7 @@ async function detectSpecificMedDrift(patientId) {
     [patientId]
   );
 
-  if (rows.length === 0) {
-    return { active: false, score: 0, detail: 'Insufficient data', driftingMed: null };
-  }
+  if (rows.length === 0) return { active: false, score: 0, detail: 'Insufficient data', driftingMed: null };
 
   if (rows.length === 1) {
     const med   = rows[0];
@@ -343,10 +298,8 @@ async function detectSpecificMedDrift(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // FORECAST ENGINE
-// Runs all 5 signals, computes weighted score, classifies risk level
 // ─────────────────────────────────────────────────────────────────────────────
 async function analyzePatientSignals(patientId) {
   const [signal1, signal2, signal3, signal4, signal5] = await Promise.all([
@@ -365,7 +318,6 @@ async function analyzePatientSignals(patientId) {
     specificMedDrift:        signal5,
   };
 
-  // Weighted forecast score (0.0 – 1.0)
   const forecastScore =
     signal1.score * SIGNAL_WEIGHTS.responseTimeDegradation +
     signal2.score * SIGNAL_WEIGHTS.partialDayAdherence     +
@@ -373,16 +325,54 @@ async function analyzePatientSignals(patientId) {
     signal4.score * SIGNAL_WEIGHTS.postIllnessRecovery     +
     signal5.score * SIGNAL_WEIGHTS.specificMedDrift;
 
-  // Risk level classification
   let riskLevel = 'low';
   if      (forecastScore >= RISK_LEVELS.CRITICAL.min) riskLevel = 'critical';
   else if (forecastScore >= RISK_LEVELS.HIGH.min)     riskLevel = 'high';
   else if (forecastScore >= RISK_LEVELS.MODERATE.min) riskLevel = 'moderate';
 
-  // Active signals only
   const activeSignals = Object.entries(signals)
     .filter(([, s]) => s.active)
     .map(([key, s]) => ({ signal: key, detail: s.detail, score: s.score }));
+
+  // ── Baseline adherence override ───────────────────────────────────────────
+  // Prevents "low risk" for patients who are simply and consistently
+  // non-adherent across all dimensions (all signals score 0 because
+  // there is no pattern change to detect — everything is uniformly bad).
+  const [baselineRows] = await db.query(
+    `SELECT
+       SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) / COUNT(*) AS adherence_rate
+     FROM medication_schedules
+     WHERE patient_id = ?
+       AND scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       AND scheduled_date_time <= NOW()`,
+    [patientId]
+  );
+
+  const overallRate = parseFloat(baselineRows[0]?.adherence_rate) || 0;
+
+  if (overallRate < 0.5 && riskLevel === 'low') {
+    riskLevel = 'moderate';
+    activeSignals.push({
+      signal: 'lowOverallAdherence',
+      detail: `Overall adherence is ${Math.round(overallRate * 100)}% this week — below the 50% threshold`,
+      score:  parseFloat((1 - overallRate).toFixed(3)),
+    });
+  }
+
+  if (overallRate < 0.3 && (riskLevel === 'low' || riskLevel === 'moderate')) {
+    riskLevel = 'high';
+    // Update detail if signal was just added
+    const existing = activeSignals.find(s => s.signal === 'lowOverallAdherence');
+    if (!existing) {
+      activeSignals.push({
+        signal: 'lowOverallAdherence',
+        detail: `Overall adherence is ${Math.round(overallRate * 100)}% this week — critically low`,
+        score:  parseFloat((1 - overallRate).toFixed(3)),
+      });
+    } else {
+      existing.detail = `Overall adherence is ${Math.round(overallRate * 100)}% this week — critically low`;
+    }
+  }
 
   return {
     patientId,
@@ -394,22 +384,146 @@ async function analyzePatientSignals(patientId) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DAY 4 — INTERVENTION LOGIC
+//
+// When the forecast runs, active signals trigger targeted FCM notifications
+// to the patient. Each signal has a specific message explaining what's wrong
+// and what to do. Only fires once per 24h per signal to avoid spam.
+//
+// Intervention map:
+//   responseTimeDegradation → remind patient to take meds promptly
+//   partialDayAdherence     → remind about the specific weak time slot
+//   weekendCliff            → weekend-specific reminder
+//   postIllnessRecovery     → recovery encouragement
+//   specificMedDrift        → name the specific medication that's drifting
+// ─────────────────────────────────────────────────────────────────────────────
+async function triggerInterventions(patientId, forecastResult) {
+  try {
+    // Get patient FCM token and notification prefs
+    const [[patient]] = await db.query(
+      `SELECT p.fcm_token, p.all_notifications, p.smart_insights, u.name
+       FROM patients p JOIN users u ON u.id = p.id
+       WHERE p.id = ?`,
+      [patientId]
+    );
+
+    if (!patient?.fcm_token || !patient.all_notifications || !patient.smart_insights) {
+      console.log(`[Interventions] Patient ${patientId} has no FCM token or disabled smart insights`);
+      return [];
+    }
+
+    const triggered = [];
+    const { activeSignals, signals, riskLevel } = forecastResult;
+
+    // Only intervene for moderate risk and above
+    if (riskLevel === 'low') return [];
+
+    for (const { signal } of activeSignals) {
+      // Dedup: skip if this intervention was sent in the last 24h
+      const alreadySent = await _interventionSentRecently(patientId, signal);
+      if (alreadySent) continue;
+
+      const message = _buildInterventionMessage(signal, signals[signal], patient.name);
+      if (!message) continue;
+
+      // Send FCM push
+      await FirebaseService.sendPushNotification(
+        patient.fcm_token,
+        message.title,
+        message.body,
+        { type: 'ai_insight', signal, risk_level: riskLevel },
+        false // not high priority — these are insights, not urgent reminders
+      );
+
+      // Save to notifications table so patient sees it in the app
+      await db.query(
+        `INSERT INTO notifications (patient_id, type, title, message, data, scheduled_time)
+         VALUES (?, 'ai_insight', ?, ?, ?, NOW())`,
+        [
+          patientId,
+          message.title,
+          message.body,
+          JSON.stringify({ signal, risk_level: riskLevel, type: 'ai_insight' }),
+        ]
+      );
+
+      triggered.push(signal);
+      console.log(`[Interventions] ✅ ${signal} intervention sent to patient ${patientId}`);
+    }
+
+    return triggered;
+
+  } catch (error) {
+    console.error('[Interventions] ❌ Error:', error);
+    return [];
+  }
+}
+
+// ── Intervention message templates ───────────────────────────────────────────
+function _buildInterventionMessage(signal, signalData, patientName) {
+  switch (signal) {
+
+    case 'responseTimeDegradation':
+      return {
+        title: '⏰ Take your medications on time',
+        body:  `Hi ${patientName}, we noticed you've been taking your medications later than usual lately. Try to take them as soon as the reminder appears — timing matters for your treatment to work well.`,
+      };
+
+    case 'partialDayAdherence': {
+      const slot = signalData.worstSlot || 'evening';
+      const slotLabel = slot === 'morning' ? 'morning' : slot === 'afternoon' ? 'afternoon' : 'evening';
+      return {
+        title: `💊 Don't forget your ${slotLabel} medications`,
+        body:  `Hi ${patientName}, your ${slotLabel} doses are being missed more often than other times of day. Try setting a dedicated alarm to help you remember.`,
+      };
+    }
+
+    case 'weekendCliff':
+      return {
+        title: '📅 Weekend medication reminder',
+        body:  `Hi ${patientName}, your medication adherence tends to drop on weekends. Your health doesn't take weekends off — try to keep the same routine as weekdays.`,
+      };
+
+    case 'postIllnessRecovery':
+      return {
+        title: '💪 Getting back on track',
+        body:  `Hi ${patientName}, you seem to be recovering from a difficult period. It's important to get back to your full medication routine — every dose counts for your recovery.`,
+      };
+
+    case 'specificMedDrift': {
+      const medName = signalData.driftingMed || 'one of your medications';
+      return {
+        title: `⚠️ ${medName} — missed doses detected`,
+        body:  `Hi ${patientName}, you've been missing ${medName} more than your other medications this week. This one is important for your condition — please make sure to take it as prescribed.`,
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ── Dedup check — was this intervention sent in the last 24h? ────────────────
+async function _interventionSentRecently(patientId, signal) {
+  try {
+    const [rows] = await db.query(
+      `SELECT id FROM notifications
+       WHERE patient_id = ?
+         AND type = 'ai_insight'
+         AND JSON_UNQUOTE(JSON_EXTRACT(data, '$.signal')) = ?
+         AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)`,
+      [patientId, signal]
+    );
+    return rows.length > 0;
+  } catch (_) { return false; }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DB — saveForecast
-// Saves the forecast result into adherence_forecasts table
-// Called after analyzePatientSignals()
 // ─────────────────────────────────────────────────────────────────────────────
 async function saveForecast(forecastResult) {
-  const {
-    patientId,
-    forecastScore,
-    riskLevel,
-    signals,
-    activeSignals,
-  } = forecastResult;
-
-  // interventions_triggered: list of active signal names (filled in Day 4)
+  const { patientId, forecastScore, riskLevel, signals, activeSignals } = forecastResult;
   const interventionsTriggered = activeSignals.map(s => s.signal);
 
   await db.query(
@@ -426,31 +540,20 @@ async function saveForecast(forecastResult) {
   );
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // DB — getLatestForecast
-// Returns the most recent forecast for a patient
-// Used by the Flutter patient card (Day 6)
 // ─────────────────────────────────────────────────────────────────────────────
 async function getLatestForecast(patientId) {
   const [rows] = await db.query(
-    `SELECT
-       id,
-       patient_id,
-       forecast_score,
-       risk_level,
-       signal_data,
-       interventions_triggered,
-       created_at
+    `SELECT id, patient_id, forecast_score, risk_level,
+            signal_data, interventions_triggered, created_at
      FROM adherence_forecasts
      WHERE patient_id = ?
      ORDER BY created_at DESC
      LIMIT 1`,
     [patientId]
   );
-
   if (rows.length === 0) return null;
-
   const row = rows[0];
   return {
     id:                     row.id,
@@ -463,27 +566,18 @@ async function getLatestForecast(patientId) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // DB — getForecastHistory
-// Returns the last N forecasts for a patient (for the trend timeline)
-// Used by the Flutter history timeline (Day 7)
 // ─────────────────────────────────────────────────────────────────────────────
 async function getForecastHistory(patientId, limit = 10) {
   const [rows] = await db.query(
-    `SELECT
-       id,
-       forecast_score,
-       risk_level,
-       interventions_triggered,
-       created_at
+    `SELECT id, forecast_score, risk_level, interventions_triggered, created_at
      FROM adherence_forecasts
      WHERE patient_id = ?
      ORDER BY created_at DESC
      LIMIT ?`,
     [patientId, limit]
   );
-
   return rows.map(row => ({
     id:                     row.id,
     forecastScore:          row.forecast_score,
@@ -493,27 +587,18 @@ async function getForecastHistory(patientId, limit = 10) {
   }));
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // DB — getLatestForecastForCaregiver
-// Returns the latest forecast for every patient under a caregiver
-// Used by the Flutter caregiver panel (Day 7)
 // ─────────────────────────────────────────────────────────────────────────────
 async function getLatestForecastForCaregiver(caregiverEmail) {
   const [rows] = await db.query(
-    `SELECT
-       af.patient_id,
-       u.name AS patient_name,
-       af.forecast_score,
-       af.risk_level,
-       af.signal_data,
-       af.interventions_triggered,
-       af.created_at
+    `SELECT af.patient_id, u.name AS patient_name,
+            af.forecast_score, af.risk_level,
+            af.signal_data, af.interventions_triggered, af.created_at
      FROM adherence_forecasts af
      JOIN (
        SELECT patient_id, MAX(created_at) AS latest
-       FROM adherence_forecasts
-       GROUP BY patient_id
+       FROM adherence_forecasts GROUP BY patient_id
      ) latest_per_patient
        ON af.patient_id = latest_per_patient.patient_id
       AND af.created_at = latest_per_patient.latest
@@ -525,7 +610,6 @@ async function getLatestForecastForCaregiver(caregiverEmail) {
      ORDER BY af.forecast_score DESC`,
     [caregiverEmail]
   );
-
   return rows.map(row => ({
     patientId:              row.patient_id,
     patientName:            row.patient_name,
@@ -537,30 +621,26 @@ async function getLatestForecastForCaregiver(caregiverEmail) {
   }));
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN ENTRY POINT
-// analyzeAndSave — runs full pipeline: signals → forecast → DB save
-// Called by the cron job (Day 5) and the API endpoint
+// MAIN ENTRY POINT — analyzeAndSave
+// Runs full pipeline: signals → forecast → DB save → interventions
 // ─────────────────────────────────────────────────────────────────────────────
 async function analyzeAndSave(patientId) {
   const result = await analyzePatientSignals(patientId);
   await saveForecast(result);
+  // Day 4: trigger interventions after saving
+  const triggered = await triggerInterventions(patientId, result);
+  result.triggeredInterventions = triggered;
   return result;
 }
 
-
 module.exports = {
-  // Main entry points
   analyzeAndSave,
   analyzePatientSignals,
-
-  // DB reads
+  triggerInterventions,
   getLatestForecast,
   getForecastHistory,
   getLatestForecastForCaregiver,
-
-  // Individual signals (for testing)
   detectResponseTimeDegradation,
   detectPartialDayAdherence,
   detectWeekendCliff,

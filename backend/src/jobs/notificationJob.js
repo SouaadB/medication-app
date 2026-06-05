@@ -2,6 +2,7 @@ const cron                     = require('node-cron');
 const NotificationService      = require('../services/notificationService');
 const { generateDailySummary } = require('../controllers/notificationController');
 const CaregiverNotificationService  = require('../services/caregiverNotificationService');
+const { analyzeAndSave } = require('../services/adherenceSignalService');
      
 let _jobsStarted = false;
 function startNotificationJobs() {
@@ -60,6 +61,25 @@ function startNotificationJobs() {
             await CaregiverNotificationService.sendDailySummary();
             console.log(`[Job 6] ✅ ran at ${new Date().toLocaleTimeString()} — caregiver daily summaries sent`);
         } catch (e) { console.error('[Job 6] ❌', e.message); }
+    });
+    // Job 7: AI Early Warning — every 6 hours for all active patients
+    cron.schedule('0 */6 * * *', async () => {
+        try {
+            const db = require('../config/database');
+            const [patients] = await db.execute(
+                'SELECT id FROM patients WHERE is_active = 1'
+            );
+            let count = 0;
+            for (const p of patients) {
+                try {
+                    await analyzeAndSave(p.id);
+                    count++;
+                } catch (e) {
+                    console.error(`[Job 7] ❌ patient ${p.id}:`, e.message);
+                }
+            }
+            console.log(`[Job 7] ✅ ran at ${new Date().toLocaleTimeString()} — forecasts updated for ${count} patients`);
+        } catch (e) { console.error('[Job 7] ❌', e.message); }
     });
 
    

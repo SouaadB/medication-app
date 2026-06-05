@@ -685,7 +685,15 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
         isInformational: true,
       );
     }
-
+    // ── AI INSIGHT ────────────────────────────────────────────────────────
+if (type == 'ai_insight') {
+  return _NotifStyle(
+    color: const Color(0xFF6750A4), bgColor: const Color(0xFFF3EFF7),
+    icon: Icons.psychology_outlined, stage: 'ai_insight',
+    showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+    isInformational: true,
+  );
+}
     // ── DEFAULT ───────────────────────────────────────────────────────────
     // Fallback for any unrecognised stage. Treated as a standard main reminder.
     return _NotifStyle(
@@ -709,6 +717,7 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
               type != 'achievement' &&
               type != 'missed'  &&
               type != 'summary' &&
+              type != 'ai_insight' &&
               stage != 'MISSED' &&
               stage != 'INFORM_LATE' &&
               stage != 'SAFE_TO_EAT';

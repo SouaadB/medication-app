@@ -105,7 +105,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Une fois par jour',
     'Deux fois par jour',
     'Trois fois par jour',
-    'Quatre fois par jour',
     'Toutes les 4 heures',
     'Toutes les 6 heures',
     'Toutes les 8 heures',
@@ -117,7 +116,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Once daily',
     'Twice daily',
     'Three times daily',
-    'Four times daily',
     'Every 4 hours',
     'Every 6 hours',
     'Every 8 hours',
@@ -158,7 +156,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Une fois par jour':          'Once daily',
     'Deux fois par jour':         'Twice daily',
     'Trois fois par jour':        'Three times daily',
-    'Quatre fois par jour':       'Four times daily',
     'Toutes les 4 heures':        'Every 4 hours',
     'Toutes les 6 heures':        'Every 6 hours',
     'Toutes les 8 heures':        'Every 8 hours',
@@ -518,6 +515,17 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       _showError(isFr
           ? 'Veuillez sélectionner la fréquence'
           : 'Please select frequency');
+      return;
+    }
+    // Require meal anchor for daily frequencies
+    final mainEn = _frToEnMap[_mainFrequency ?? ''] ?? _mainFrequency ?? '';
+    final needsAnchor = mainEn == 'Once daily' ||
+                        mainEn == 'Twice daily' ||
+                        mainEn == 'Three times daily';
+    if (needsAnchor && _mealAnchors.isEmpty) {
+      _showError(isFr
+          ? 'Veuillez sélectionner le moment de prise (ex: Après le petit-déjeuner)'
+          : 'Please select when to take this medication (e.g. After breakfast)');
       return;
     }
     if (_startDateController.text.isEmpty) {
@@ -1248,27 +1256,115 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         ? ls.translate('selectFrequency')
         : parts.join(', ');
 
-    return GestureDetector(
-      onTap: () =>
-          _showSmartFrequencySelector(ls, baseFreqs, anchors),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white),
-        child: Row(children: [
-          Icon(Icons.access_time, color: Colors.blue.shade300),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(displayText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis)),
-          const Icon(Icons.arrow_drop_down, color: Colors.blue),
-        ]),
+    final mainEn = _mainFrequency != null
+        ? (_frToEnMap[_mainFrequency!] ?? _mainFrequency!)
+        : null;
+    final isAsNeeded   = mainEn == 'As needed';
+    final needsAnchor  = mainEn == 'Once daily' ||
+                         mainEn == 'Twice daily' ||
+                         mainEn == 'Three times daily';
+    final missingAnchor = needsAnchor && _mealAnchors.isEmpty;
+    final isFr = ls.getCurrentLanguage() == 'fr';
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      GestureDetector(
+        onTap: () =>
+            _showSmartFrequencySelector(ls, baseFreqs, anchors),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+              border: Border.all(
+                color: missingAnchor
+                    ? Colors.red.shade300
+                    : isAsNeeded
+                        ? Colors.orange.shade300
+                        : Colors.grey.shade300,
+                width: (missingAnchor || isAsNeeded) ? 1.5 : 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white),
+          child: Row(children: [
+            Icon(Icons.access_time,
+                color: missingAnchor
+                    ? Colors.red.shade300
+                    : Colors.blue.shade300),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(displayText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis)),
+            const Icon(Icons.arrow_drop_down, color: Colors.blue),
+          ]),
+        ),
       ),
-    );
+
+      // ── Meal anchor required banner ───────────────────────────────────
+      if (missingAnchor) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.red.shade200),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  color: Colors.red.shade600, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isFr
+                      ? 'Veuillez sélectionner le moment de prise (ex: Après le petit-déjeuner, Avant le dîner…)'
+                      : 'Please select when to take this medication (e.g. After breakfast, Before dinner…)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+
+      // ── As needed info banner ─────────────────────────────────────────
+      if (isAsNeeded) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline,
+                  color: Colors.orange.shade700, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isFr
+                      ? 'Aucun rappel ne sera envoyé pour ce médicament. Il apparaîtra dans votre liste mais pas dans votre planning quotidien. Prenez-le uniquement si nécessaire.'
+                      : 'No reminders will be sent for this medication. It will appear in your list but not in your daily schedule. Take it only when needed.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange.shade800,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ]);
   }
 
   void _showSmartFrequencySelector(LanguageService ls,
@@ -1288,13 +1384,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             : null;
         final isInterval = mainFreqEn != null &&
             (mainFreqEn.contains('Every') ||
-                mainFreqEn == 'As needed' ||
-                mainFreqEn == 'Four times daily');
-        final isThreeTimes = mainFreqEn == 'Three times daily';
+                mainFreqEn == 'As needed');
 
         int maxAnchors = 99;
         if (mainFreqEn == 'Once daily') maxAnchors = 1;
         else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
+        else if (mainFreqEn == 'Three times daily') maxAnchors = 3;
 
         // Determine if Empty stomach is currently selected
         final emptyStomachLabel =
@@ -1344,23 +1439,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                         _mainFrequency = val;
                         final valEn =
                             _frToEnMap[val] ?? val;
-                        if (valEn == 'Three times daily') {
-                          _mealAnchors = [
-                            anchors[1],
-                            anchors[3],
-                            anchors[5]
-                          ];
-                        } else if (valEn.contains('Every') ||
-                            valEn == 'As needed' ||
-                            valEn == 'Four times daily') {
+                        if (valEn.contains('Every') ||
+                            valEn == 'As needed') {
                           _mealAnchors = [];
                         } else {
                           int newMax = 99;
-                          if (valEn == 'Once daily') {
-                            newMax = 1;
-                          } else if (valEn == 'Twice daily') {
-                            newMax = 2;
-                          }
+                          if (valEn == 'Once daily') newMax = 1;
+                          else if (valEn == 'Twice daily') newMax = 2;
+                          else if (valEn == 'Three times daily') newMax = 3;
                           if (_mealAnchors.length > newMax) {
                             _mealAnchors =
                                 _mealAnchors.sublist(0, newMax);
@@ -1387,18 +1473,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       style: TextStyle(
                           color: Colors.grey.shade500,
                           fontStyle: FontStyle.italic),
-                    ),
-                  )
-                else if (isThreeTimes)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      isFr
-                          ? 'Auto-sélectionné pour 3 fois/jour'
-                          : 'Auto-selected for 3 times/day',
-                      style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold),
                     ),
                   )
                 else

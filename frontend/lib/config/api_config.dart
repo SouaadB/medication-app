@@ -9,7 +9,7 @@ class ApiConfig {
   static const String baseUrlAndroidEmulator = 'http://10.0.2.2:5000/api';
   
   // Pour Android (vrai téléphone) - MIS À JOUR AVEC TON IP ACTUELLE
-   static const String baseUrlAndroidPhone = 'http://192.168.1.7:5000/api';
+   static const String baseUrlAndroidPhone = 'http://192.168.1.5:5000/api';
   
   // Détection automatique de la plateforme
   static String get baseUrl {
