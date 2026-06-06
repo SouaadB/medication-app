@@ -48,10 +48,10 @@ class FirebaseService {
         }
 
         // FCM data values must all be strings
-        const stringData = {};
-        for (const [k, v] of Object.entries(data)) {
-            stringData[k] = String(v);
-        }
+const stringData = { navigate_to: 'notifications' };
+for (const [k, v] of Object.entries(data)) {
+    stringData[k] = String(v);
+}
 
         try {
             const message = {
@@ -118,8 +118,10 @@ class FirebaseService {
         this.initialize();
         if (!this.initialized || !fcmTokens || fcmTokens.length === 0) return false;
 
-        const stringData = {};
-        for (const [k, v] of Object.entries(data)) stringData[k] = String(v);
+    const stringData = { navigate_to: 'notifications' };
+for (const [k, v] of Object.entries(data)) {
+    stringData[k] = String(v);
+}
 
         try {
             const message = {

@@ -5,34 +5,11 @@ import '../services/shake_confirm_service.dart';
 import '../services/voice_confirm_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCESSIBLE NOTIFICATION CARDS  v3
+// ACCESSIBLE NOTIFICATION CARDS  v4
 //
-// Features:
-//   ✅ Medication photo/icon area (large pill visual + med name)
-//   ✅ Confirmation animation + audio when "I took it" is tapped
-//   ✅ Dynamic font size from AccessibilityService.textScaleFactor
-//   ✅ Audio only on tap — never on scroll
-//   ✅ All action buttons working
-//
-// HOW TO USE in notifications_page.dart — top of _buildNotificationCard():
-//
-//   final a11y = AccessibilityService.instance;
-//   if (a11y.illiteracyMode) {
-//     return IlliteracyNotificationCard(
-//       notification: notification, isFr: isFr,
-//       onTaken:   () => _handleTaken(notification),
-//       onSnooze:  () => _showSnoozeDialog(notification),
-//       onSkip:    () => _skipDose(notification),
-//       onDismiss: () => _markAsRead(notification['id'] as int),
-//       getStyle:  _getStyle,
-//     );
-//   }
-//   if (a11y.visualImpairmentMode) {
-//     return VisualImpairmentNotificationCard(...same args...);
-//   }
+// Shake fix: ShakeConfirmService is now a singleton — only the card the user
+// is currently viewing registers itself. One shake → one confirmation.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ── Stage config ─────────────────────────────────────────────────────────────
 
 class _StageCfg {
   final Color   color;
@@ -110,8 +87,6 @@ _StageCfg _cfgForStage(String stage) {
   }
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
-
 Map<String, dynamic> _parseNotifData(dynamic raw) {
   if (raw == null) return {};
   if (raw is Map<String, dynamic>) return raw;
@@ -156,20 +131,21 @@ class _IlliteracyNotificationCardState
   late Animation<double>   _successScale;
   late Animation<double>   _successOpacity;
 
-  bool _showSuccess  = false;
-  int  _shakeCount   = 0;   // 0-3, shown as progress dots
-  bool _isListening  = false;
-  String _heardText  = '';
+  bool   _showSuccess = false;
+  int    _shakeCount  = 0;
+  bool   _isListening = false;
+  String _heardText   = '';
 
   final _a11y  = AccessibilityService.instance;
-  final _shake = ShakeConfirmService();
+  // ── FIX: no local _shake instance — use singleton ─────────────────────────
   final _voice = VoiceConfirmService();
+
+  int get _notifId => widget.notification['id'] as int;
 
   @override
   void initState() {
     super.initState();
 
-    // Pulse for critical stages
     _pulse = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 800));
     final data  = _parseNotifData(widget.notification['data']);
@@ -179,7 +155,6 @@ class _IlliteracyNotificationCardState
       _pulse.repeat(reverse: true);
     }
 
-    // Success animation
     _successCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
     _successScale = Tween<double>(begin: 0.5, end: 1.2).animate(
@@ -188,13 +163,13 @@ class _IlliteracyNotificationCardState
         CurvedAnimation(parent: _successCtrl,
             curve: const Interval(0.0, 0.5, curve: Curves.easeIn)));
 
-    // Start shake detection automatically when card is visible
-    // Only if this card has a "Taken" button
+    // ── FIX: register with singleton — only THIS card will receive the shake
     final style = widget.getStyle(widget.notification);
     if (style.showTaken) {
-      _shake.start(
+      ShakeConfirmService.instance.register(
+        notificationId: _notifId,
         onConfirmed: _handleTaken,
-        onShakeProgress: (count) {
+        onProgress: (count) {
           if (mounted) setState(() => _shakeCount = count);
         },
       );
@@ -205,12 +180,11 @@ class _IlliteracyNotificationCardState
   void dispose() {
     _pulse.dispose();
     _successCtrl.dispose();
-    _shake.stop();
+    // ── FIX: unregister by id — stops sensor only if no other card registered
+    ShakeConfirmService.instance.unregister(_notifId);
     _voice.dispose();
     super.dispose();
   }
-
-  // ── Voice confirm ─────────────────────────────────────────────────────────
 
   Future<void> _toggleVoice() async {
     if (_isListening) {
@@ -218,7 +192,6 @@ class _IlliteracyNotificationCardState
       if (mounted) setState(() { _isListening = false; _heardText = ''; });
       return;
     }
-
     await _a11y.speak('Say: I took it');
     await _voice.startListening(
       onConfirmed: () {
@@ -243,14 +216,11 @@ class _IlliteracyNotificationCardState
   }
 
   Future<void> _handleTaken() async {
-    // 1. Trigger success animation
+    // Stop listening for shakes on this card immediately
+    ShakeConfirmService.instance.unregister(_notifId);
     setState(() => _showSuccess = true);
     _successCtrl.forward();
-
-    // 2. Play confirmation sound
     await _a11y.speakConfirmation();
-
-    // 3. Wait for animation to finish then call the real handler
     await Future.delayed(const Duration(milliseconds: 900));
     widget.onTaken();
   }
@@ -271,14 +241,6 @@ class _IlliteracyNotificationCardState
     } catch (_) { return ''; }
   }
 
-  bool _hasBarcode() {
-    final data = widget.notification['data'];
-    final parsed = _parseNotifData(data);
-    // Check if treatment has barcode via treatment_id presence
-    // Actual barcode check is done via the barcode_data field if available
-    return parsed['has_barcode'] == true || parsed['has_barcode'] == 1;
-  }
-
   @override
   Widget build(BuildContext context) {
     final data  = _parseNotifData(widget.notification['data']);
@@ -289,7 +251,7 @@ class _IlliteracyNotificationCardState
                    widget.notification['is_read'] == true;
     final name  = _medName();
     final time  = _time();
-    final fs    = _a11y.textScaleFactor; // dynamic font scale
+    final fs    = _a11y.textScaleFactor;
 
     return AnimatedBuilder(
       animation: _pulse,
@@ -314,8 +276,6 @@ class _IlliteracyNotificationCardState
                 )],
               ),
               child: Column(children: [
-
-                // ── TOP BANNER — color + emoji ──────────────────────────────
                 Stack(children: [
                   Container(
                     width: double.infinity,
@@ -326,11 +286,6 @@ class _IlliteracyNotificationCardState
                           top: Radius.circular(24)),
                     ),
                     child: Column(children: [
-
-                      // ── MEDICATION PHOTO AREA ─────────────────────────────
-                      // Shows a stylised pill illustration with the med name.
-                      // If a real image URL is ever added to the treatment,
-                      // replace the icon widget with Image.network(url).
                       Container(
                         width: 100, height: 100,
                         decoration: BoxDecoration(
@@ -338,18 +293,13 @@ class _IlliteracyNotificationCardState
                           shape: BoxShape.circle,
                         ),
                         child: Stack(alignment: Alignment.center, children: [
-                          // Pill icon background
                           Icon(Icons.medication_rounded,
                               color: Colors.white.withOpacity(0.3), size: 72),
-                          // Stage emoji on top
                           Text(cfg.emoji,
                               style: const TextStyle(fontSize: 42)),
                         ]),
                       ),
-
                       const SizedBox(height: 12),
-
-                      // Stage label badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 5),
@@ -367,8 +317,6 @@ class _IlliteracyNotificationCardState
                       ),
                     ]),
                   ),
-
-                  // ── SUCCESS OVERLAY ───────────────────────────────────────
                   if (_showSuccess)
                     AnimatedBuilder(
                       animation: _successCtrl,
@@ -398,13 +346,9 @@ class _IlliteracyNotificationCardState
                       ),
                     ),
                 ]),
-
-                // ── BOTTOM — med name, time, buttons ───────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                   child: Column(children: [
-
-                    // Medication name + time
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -435,10 +379,7 @@ class _IlliteracyNotificationCardState
                         ],
                       ],
                     ),
-
                     const SizedBox(height: 6),
-
-                    // Tap hint + speaker
                     Row(children: [
                       Icon(Icons.touch_app_outlined,
                           size: 12, color: Colors.grey.shade400),
@@ -461,8 +402,6 @@ class _IlliteracyNotificationCardState
                         ),
                       ),
                     ]),
-
-                    // ── SHAKE PROGRESS ──────────────────────────────────────
                     if (_shakeCount > 0 && !_showSuccess) ...[
                       const SizedBox(height: 10),
                       Row(mainAxisAlignment: MainAxisAlignment.center,
@@ -474,7 +413,6 @@ class _IlliteracyNotificationCardState
                             style: TextStyle(
                                 fontSize: 11 * fs,
                                 color: Colors.orange.shade600)),
-                        // 3 dots showing shake progress
                         ...List.generate(3, (i) => Container(
                           margin: const EdgeInsets.symmetric(horizontal: 2),
                           width: 10, height: 10,
@@ -487,8 +425,6 @@ class _IlliteracyNotificationCardState
                         )),
                       ]),
                     ],
-
-                    // ── VOICE LISTENING FEEDBACK ────────────────────────────
                     if (_isListening) ...[
                       const SizedBox(height: 10),
                       Container(
@@ -500,7 +436,6 @@ class _IlliteracyNotificationCardState
                           border: Border.all(color: Colors.blue.shade200),
                         ),
                         child: Row(children: [
-                          // Pulsing mic icon
                           const _PulsingMic(),
                           const SizedBox(width: 10),
                           Expanded(child: Column(
@@ -526,10 +461,7 @@ class _IlliteracyNotificationCardState
                         ]),
                       ),
                     ],
-
                     const SizedBox(height: 16),
-
-                    // Action buttons
                     if (!isRead && !_showSuccess)
                       _buildButtons(style, cfg, fs)
                     else if (isRead && !_showSuccess)
@@ -560,11 +492,7 @@ class _IlliteracyNotificationCardState
             color: const Color(0xFF2E7D32), fs: fs,
             onTap: _handleTaken),
         const SizedBox(height: 10),
-
-        // ── ALTERNATIVE CONFIRMATION ROW ──────────────────────────────────
-        // Shake hint (always shown) + Voice button (mic tap)
         Row(children: [
-          // Shake hint
           Expanded(child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
@@ -584,7 +512,6 @@ class _IlliteracyNotificationCardState
             ]),
           )),
           const SizedBox(width: 10),
-          // Voice button
           GestureDetector(
             onTap: _toggleVoice,
             child: Container(
@@ -608,9 +535,7 @@ class _IlliteracyNotificationCardState
                   _isListening ? 'Listening...' : 'Say it',
                   style: TextStyle(
                     fontSize: 12 * fs,
-                    color: _isListening
-                        ? Colors.white
-                        : Colors.blue.shade600,
+                    color: _isListening ? Colors.white : Colors.blue.shade600,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -656,8 +581,7 @@ class _IlliteracyNotificationCardState
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: double.infinity,
-        height: 64,
+        width: double.infinity, height: 64,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
@@ -718,8 +642,10 @@ class _VisualImpairmentNotificationCardState
   String _heardText   = '';
 
   final _a11y  = AccessibilityService.instance;
-  final _shake = ShakeConfirmService();
+  // ── FIX: no local _shake instance — use singleton ─────────────────────────
   final _voice = VoiceConfirmService();
+
+  int get _notifId => widget.notification['id'] as int;
 
   @override
   void initState() {
@@ -729,12 +655,13 @@ class _VisualImpairmentNotificationCardState
     _successScale = Tween<double>(begin: 0.5, end: 1.0).animate(
         CurvedAnimation(parent: _successCtrl, curve: Curves.elasticOut));
 
-    // Start shake detection if card has a Taken button
+    // ── FIX: register with singleton
     final style = widget.getStyle(widget.notification);
     if (style.showTaken) {
-      _shake.start(
+      ShakeConfirmService.instance.register(
+        notificationId: _notifId,
         onConfirmed: _handleTaken,
-        onShakeProgress: (count) {
+        onProgress: (count) {
           if (mounted) setState(() => _shakeCount = count);
         },
       );
@@ -744,7 +671,8 @@ class _VisualImpairmentNotificationCardState
   @override
   void dispose() {
     _successCtrl.dispose();
-    _shake.stop();
+    // ── FIX: unregister by id
+    ShakeConfirmService.instance.unregister(_notifId);
     _voice.dispose();
     super.dispose();
   }
@@ -758,6 +686,7 @@ class _VisualImpairmentNotificationCardState
   }
 
   Future<void> _handleTaken() async {
+    ShakeConfirmService.instance.unregister(_notifId);
     setState(() => _showSuccess = true);
     _successCtrl.forward();
     await _a11y.speakConfirmation();
@@ -816,18 +745,14 @@ class _VisualImpairmentNotificationCardState
             )],
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
             Container(height: 5,
                 decoration: BoxDecoration(color: cfg.color,
                     borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(20)))),
-
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                // Success overlay
                 if (_showSuccess)
                   AnimatedBuilder(
                     animation: _successCtrl,
@@ -856,8 +781,6 @@ class _VisualImpairmentNotificationCardState
                       ),
                     ),
                   ),
-
-                // Header row
                 Row(children: [
                   Text(cfg.emoji, style: const TextStyle(fontSize: 32)),
                   const SizedBox(width: 12),
@@ -880,19 +803,14 @@ class _VisualImpairmentNotificationCardState
                     ),
                   ),
                 ]),
-
                 const SizedBox(height: 12),
-
                 Text(message, style: TextStyle(
                     fontSize: 16 * fs, color: Colors.white, height: 1.6)),
-
                 const SizedBox(height: 6),
                 Text('Tap card to hear this message',
                     style: TextStyle(fontSize: 10 * fs,
                         color: Colors.grey.shade600)),
-
                 const SizedBox(height: 20),
-
                 if (!isRead && !_showSuccess)
                   _buildActions(style, fs)
                 else if (isRead && !_showSuccess)
@@ -918,10 +836,7 @@ class _VisualImpairmentNotificationCardState
         Semantics(button: true, label: 'Mark as taken',
             child: _btn('✅  I took it', Colors.green.shade700, fs, _handleTaken)),
         const SizedBox(height: 10),
-
-        // ── Alternative confirmation row ──────────────────────────────────
         Row(children: [
-          // Shake hint
           Expanded(child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
@@ -931,8 +846,7 @@ class _VisualImpairmentNotificationCardState
             ),
             child: Row(mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-              Icon(Icons.vibration, size: 16,
-                  color: Colors.orange.shade400),
+              Icon(Icons.vibration, size: 16, color: Colors.orange.shade400),
               const SizedBox(width: 6),
               Text('Or shake phone',
                   style: TextStyle(
@@ -942,7 +856,6 @@ class _VisualImpairmentNotificationCardState
             ]),
           )),
           const SizedBox(width: 10),
-          // Voice button
           Semantics(
             button: true,
             label: _isListening ? 'Stop listening' : 'Say I took it',
@@ -956,25 +869,20 @@ class _VisualImpairmentNotificationCardState
                       ? Colors.blue.shade600
                       : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: Colors.blue.withOpacity(0.3)),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(
                     _isListening ? Icons.mic : Icons.mic_none_outlined,
                     size: 18,
-                    color: _isListening
-                        ? Colors.white
-                        : Colors.blue.shade400,
+                    color: _isListening ? Colors.white : Colors.blue.shade400,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     _isListening ? 'Listening...' : 'Say it',
                     style: TextStyle(
                       fontSize: 12 * fs,
-                      color: _isListening
-                          ? Colors.white
-                          : Colors.blue.shade400,
+                      color: _isListening ? Colors.white : Colors.blue.shade400,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -985,16 +893,12 @@ class _VisualImpairmentNotificationCardState
         ]),
         const SizedBox(height: 10),
       ],
-
-      // Shake progress dots
       if (_shakeCount > 0 && !_showSuccess) ...[
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.vibration, size: 13,
-              color: Colors.orange.shade400),
+          Icon(Icons.vibration, size: 13, color: Colors.orange.shade400),
           const SizedBox(width: 6),
           Text('Shake to confirm ',
-              style: TextStyle(
-                  fontSize: 11 * fs, color: Colors.orange.shade400)),
+              style: TextStyle(fontSize: 11 * fs, color: Colors.orange.shade400)),
           ...List.generate(3, (i) => Container(
             margin: const EdgeInsets.symmetric(horizontal: 2),
             width: 10, height: 10,
@@ -1008,12 +912,9 @@ class _VisualImpairmentNotificationCardState
         ]),
         const SizedBox(height: 8),
       ],
-
-      // Voice listening feedback
       if (_isListening) ...[
         Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.blue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
@@ -1039,14 +940,12 @@ class _VisualImpairmentNotificationCardState
             ])),
             GestureDetector(
               onTap: _toggleVoice,
-              child: Icon(Icons.close,
-                  color: Colors.blue.shade400, size: 18),
+              child: Icon(Icons.close, color: Colors.blue.shade400, size: 18),
             ),
           ]),
         ),
         const SizedBox(height: 10),
       ],
-
       if (style.showSnooze) ...[
         Semantics(button: true, label: 'Snooze',
             child: _btn('⏰  Remind me later',
@@ -1089,12 +988,10 @@ class _VisualImpairmentNotificationCardState
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PULSING MIC ICON
-// Animated mic icon shown while voice recognition is active
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PulsingMic extends StatefulWidget {
   const _PulsingMic();
-
   @override
   State<_PulsingMic> createState() => _PulsingMicState();
 }
@@ -1115,10 +1012,7 @@ class _PulsingMicState extends State<_PulsingMic>
   }
 
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -1129,9 +1023,7 @@ class _PulsingMicState extends State<_PulsingMic>
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.blue.shade600,
-            shape: BoxShape.circle,
-          ),
+              color: Colors.blue.shade600, shape: BoxShape.circle),
           child: const Icon(Icons.mic, color: Colors.white, size: 16),
         ),
       ),

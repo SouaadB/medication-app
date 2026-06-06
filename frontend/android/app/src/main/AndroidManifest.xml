@@ -56,6 +56,13 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Handles notification tap → opens app and routes to notifications page -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+
         </activity>
         <!-- Background location service -->
          <service
@@ -67,12 +74,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
-
-
-
-
-
 
     </application>
 

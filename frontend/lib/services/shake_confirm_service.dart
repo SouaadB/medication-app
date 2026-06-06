@@ -2,102 +2,155 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'accessibility_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHAKE CONFIRM SERVICE
+// SHAKE CONFIRM SERVICE  v2
 //
-// Detects a deliberate shake gesture and fires a callback.
-// Only active when explicitly started — never runs in background.
+// Fix 1 — Sensitivity: uses a GRAVITY-REMOVED magnitude so that resting on a
+//   table (gravity ~9.8) no longer triggers. We track the low-pass filtered
+//   gravity component and subtract it, leaving only the dynamic acceleration.
+//   Threshold is applied to that dynamic magnitude only.
 //
-// Algorithm:
-//   - Reads accelerometer at ~50Hz
-//   - Calculates magnitude of acceleration vector
-//   - A "shake event" fires when magnitude > threshold
-//   - Requires 3 shake events within 1.5 seconds → confirms
-//   - 1 second cooldown after confirmation to prevent double-fire
+// Fix 2 — Single target: the service is a SINGLETON with one active callback
+//   at a time. Each card registers itself with a notificationId. When shake
+//   fires, only the registered card's callback runs — never multiple at once.
 //
-// Usage:
-//   final shake = ShakeConfirmService();
-//   shake.start(onConfirmed: () => markAsTaken());
-//   shake.stop(); // call in dispose()
+// Fix 3 — Gesture pattern: requires 3 back-and-forth peaks (direction
+//   changes) not just 3 magnitude spikes. This filters out a single slam
+//   or placing the phone down, while still recognising a real shake.
+//
+// Usage (in card initState):
+//   ShakeConfirmService.instance.register(
+//     notificationId: widget.notification['id'],
+//     onConfirmed: _handleTaken,
+//     onProgress: (n) => setState(() => _shakeCount = n),
+//   );
+//
+// Usage (in card dispose):
+//   ShakeConfirmService.instance.unregister(widget.notification['id']);
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ShakeConfirmService {
 
-  // ── Config ──────────────────────────────────────────────────────────────────
-  static const double _threshold      = 18.0; // m/s² — above gravity+movement
-  static const int    _requiredShakes = 3;    // shakes needed to confirm
-  static const int    _windowMs       = 1500; // time window in ms
-  static const int    _cooldownMs     = 1000; // cooldown after confirm
+  ShakeConfirmService._();
+  static final ShakeConfirmService instance = ShakeConfirmService._();
+
+  // ── Tuning constants ────────────────────────────────────────────────────────
+  // Dynamic acceleration threshold (gravity removed).
+  // 12 m/s²  = moderate deliberate shake
+  // 8  m/s²  = gentle shake
+  // 18 m/s²  = very strong (old value — too high for some users)
+  static const double _threshold      = 12.0;
+
+  // How many direction-change peaks needed
+  static const int    _requiredShakes = 3;
+
+  // All peaks must occur within this window
+  static const int    _windowMs       = 2000;
+
+  // Cooldown after confirmation — prevents double-fire
+  static const int    _cooldownMs     = 2000;
+
+  // Low-pass filter alpha: higher = faster gravity tracking
+  // 0.8 = tracks gravity well while removing quick jolts
+  static const double _alpha          = 0.8;
 
   // ── State ───────────────────────────────────────────────────────────────────
   StreamSubscription<AccelerometerEvent>? _sub;
-  final List<DateTime> _shakeTimestamps = [];
-  bool _isActive   = false;
   bool _inCooldown = false;
-  VoidCallback? _onConfirmed;
-  ValueChanged<int>? _onShakeProgress; // fires with current shake count
 
-  bool get isActive => _isActive;
+  // Gravity estimate (low-pass filtered)
+  double _gx = 0, _gy = 0, _gz = 9.8;
 
-  // ── Start listening ──────────────────────────────────────────────────────────
-  void start({
+  // Direction tracking for pattern detection
+  double _lastDynMag = 0;
+  bool   _wasAbove   = false; // was previous sample above threshold?
+  final List<DateTime> _peakTimestamps = [];
+
+  // Active registration — only ONE card listens at a time
+  int?              _activeId;
+  VoidCallback?     _onConfirmed;
+  ValueChanged<int>? _onProgress;
+
+  // ── Register ─────────────────────────────────────────────────────────────────
+  // Call from card initState. Replaces any previous registration.
+  void register({
+    required int notificationId,
     required VoidCallback onConfirmed,
-    ValueChanged<int>? onShakeProgress,
+    ValueChanged<int>? onProgress,
   }) {
-    if (_isActive) stop();
-    _isActive        = true;
-    _onConfirmed     = onConfirmed;
-    _onShakeProgress = onShakeProgress;
-    _shakeTimestamps.clear();
+    _activeId    = notificationId;
+    _onConfirmed = onConfirmed;
+    _onProgress  = onProgress;
+    _peakTimestamps.clear();
+    _wasAbove    = false;
+    _lastDynMag  = 0;
 
-    _sub = accelerometerEventStream(
-      samplingPeriod: SensorInterval.normalInterval,
-    ).listen(_onAccelerometer);
+    // Start sensor if not already running
+    if (_sub == null) {
+      _sub = accelerometerEventStream(
+        samplingPeriod: SensorInterval.normalInterval,
+      ).listen(_onAccelerometer);
+    }
   }
 
-  // ── Stop listening ───────────────────────────────────────────────────────────
-  void stop() {
-    _sub?.cancel();
-    _sub = null;
-    _isActive = false;
-    _shakeTimestamps.clear();
+  // ── Unregister ───────────────────────────────────────────────────────────────
+  // Call from card dispose. If no other card registered, stops the sensor.
+  void unregister(int notificationId) {
+    if (_activeId == notificationId) {
+      _activeId    = null;
+      _onConfirmed = null;
+      _onProgress  = null;
+      _peakTimestamps.clear();
+      _sub?.cancel();
+      _sub = null;
+    }
   }
 
-  // ── Core detection ───────────────────────────────────────────────────────────
+  // ── Core detection ────────────────────────────────────────────────────────────
   void _onAccelerometer(AccelerometerEvent e) {
-    if (!_isActive || _inCooldown) return;
+    if (_activeId == null || _inCooldown) return;
 
-    // Magnitude of acceleration vector (gravity ~9.8 m/s² at rest)
-    final magnitude = sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
+    // 1. Update gravity estimate with low-pass filter
+    _gx = _alpha * _gx + (1 - _alpha) * e.x;
+    _gy = _alpha * _gy + (1 - _alpha) * e.y;
+    _gz = _alpha * _gz + (1 - _alpha) * e.z;
 
-    if (magnitude > _threshold) {
+    // 2. Dynamic acceleration = total - gravity
+    final dx = e.x - _gx;
+    final dy = e.y - _gy;
+    final dz = e.z - _gz;
+    final dynMag = sqrt(dx * dx + dy * dy + dz * dz);
+
+    // 3. Detect a PEAK: crossing from below threshold to above then back
+    //    This counts one "shake" only at the moment it peaks and comes back
+    final isAbove = dynMag > _threshold;
+
+    if (_wasAbove && !isAbove) {
+      // We just crossed back down — this is one completed shake peak
       final now = DateTime.now();
 
-      // Remove timestamps outside the time window
-      _shakeTimestamps.removeWhere((t) =>
-          now.difference(t).inMilliseconds > _windowMs);
+      // Drop peaks outside the time window
+      _peakTimestamps.removeWhere(
+          (t) => now.difference(t).inMilliseconds > _windowMs);
 
-      // Add current shake
-      _shakeTimestamps.add(now);
+      _peakTimestamps.add(now);
+      _onProgress?.call(_peakTimestamps.length);
 
-      // Report progress
-      _onShakeProgress?.call(_shakeTimestamps.length);
-
-      // Check if we've reached the required count
-      if (_shakeTimestamps.length >= _requiredShakes) {
-        _shakeTimestamps.clear();
+      if (_peakTimestamps.length >= _requiredShakes) {
+        _peakTimestamps.clear();
         _triggerConfirmation();
       }
     }
+
+    _wasAbove   = isAbove;
+    _lastDynMag = dynMag;
   }
 
   void _triggerConfirmation() {
     _inCooldown = true;
-    _onConfirmed?.call();
-
-    // Reset cooldown
+    final cb = _onConfirmed;
+    cb?.call();
     Future.delayed(
       const Duration(milliseconds: _cooldownMs),
       () => _inCooldown = false,

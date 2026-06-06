@@ -240,13 +240,13 @@ Future<void> _exportPdf() async {
           ]),
           const SizedBox(height: 20),
           // ── ACCESSIBILITY ───────────────────────────────────────────────
-_section('Accessibilité', Icons.accessibility_new_outlined, Colors.orange, isDark),
+_section('Accessibility', Icons.accessibility_new_outlined, Colors.orange, isDark),
 _card(isDark, [
   _navTile(
     icon: Icons.auto_awesome_outlined,
     iconColor: Colors.orange,
-    title: 'Mode Lecture Facile',
-    subtitle: 'Icônes, audio, grand texte',
+    title: 'Easy Read Mode',
+    subtitle: 'Icons, audio, clear text',
     onTap: () => Navigator.push(context,
         MaterialPageRoute(builder: (_) => const AccessibilitySettingsPage())),
     isDark: isDark,

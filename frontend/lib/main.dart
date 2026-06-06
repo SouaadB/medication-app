@@ -40,6 +40,7 @@ import 'caregiver/caregiver_forgot_password_page.dart';
 import 'caregiver/caregiver_verify_code_page.dart';
 import 'caregiver/caregiver_reset_password_page.dart';
 import 'services/accessibility_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -149,8 +150,9 @@ class MyApp extends StatelessWidget {
     final settingsService = Provider.of<SettingsService>(context);
     final languageService = Provider.of<LanguageService>(context);
 
-    return MaterialApp(
-      title: 'MediCare',
+return MaterialApp(
+  navigatorKey: notificationNavigatorKey,
+  title: 'MediCare',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
