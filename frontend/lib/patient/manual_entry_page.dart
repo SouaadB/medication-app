@@ -95,12 +95,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   List<Map<String, dynamic>> _conditions = [];
   bool     _loadingConditions     = true;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FREQUENCY & MEAL ANCHOR LISTS
-  // FIX: 'Empty stomach' / 'Estomac vide' added to both EN and FR lists
-  // and to the FR→EN translation map.
-  // ─────────────────────────────────────────────────────────────────────────
-
   final List<String> _frequencyBaseFr = const [
     'Une fois par jour',
     'Deux fois par jour',
@@ -123,7 +117,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'As needed',
   ];
 
-  // FIX: Empty stomach added as the last meal anchor in both lists
   final List<String> _mealAnchorsFr = const [
     'Avant le petit-déjeuner',
     'Pendant le petit-déjeuner',
@@ -135,7 +128,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Pendant le dîner',
     'Après le dîner',
     'Avant de dormir',
-    'Estomac vide',      // ← ADDED
+    'Estomac vide',
   ];
 
   final List<String> _mealAnchorsEn = const [
@@ -149,7 +142,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'During dinner',
     'After dinner',
     'Before sleeping',
-    'Empty stomach',     // ← ADDED
+    'Empty stomach',
   ];
 
   final Map<String, String> _frToEnMap = const {
@@ -171,7 +164,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     'Pendant le dîner':           'During dinner',
     'Après le dîner':             'After dinner',
     'Avant de dormir':            'Before sleeping',
-    'Estomac vide':               'Empty stomach',   // ← ADDED
+    'Estomac vide':               'Empty stomach',
   };
 
   List<String> _getCurrentFrequencyBase(LanguageService ls) =>
@@ -191,6 +184,37 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       parts.add(_frToEnMap[a] ?? a);
     }
     return parts.isEmpty ? 'Once daily' : parts.join(' + ');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ANCHOR HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  String? _mealGroupOf(String enAnchor) {
+    if (enAnchor.contains('breakfast')) return 'breakfast';
+    if (enAnchor.contains('lunch'))     return 'lunch';
+    if (enAnchor.contains('dinner'))    return 'dinner';
+    return null;
+  }
+
+  // Only Empty stomach is exclusive (Before sleeping is NOT exclusive)
+  bool _isExclusive(String enAnchor) => enAnchor == 'Empty stomach';
+
+  bool _isAnchorDisabled(String enAnchor, List<String> enSelected, int maxAnchors) {
+    if (enSelected.contains(enAnchor)) return false;
+    if (enSelected.any(_isExclusive)) return true;
+    if (_isExclusive(enAnchor) && enSelected.isNotEmpty) return true;
+    if (enSelected.length >= maxAnchors) return true;
+    final group = _mealGroupOf(enAnchor);
+    if (group != null && enSelected.any((a) => _mealGroupOf(a) == group)) return true;
+    return false;
+  }
+
+  int _maxAnchorsFor(String? enFreq) {
+    if (enFreq == 'Once daily')        return 1;
+    if (enFreq == 'Twice daily')       return 2;
+    if (enFreq == 'Three times daily') return 3;
+    return 0;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -464,8 +488,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     final medName = _medicationController.text.trim();
     final result  = await BarcodeScanSheet.show(
       context,
-      medicationName:
-          medName.isNotEmpty ? medName : 'Medication',
+      medicationName: medName.isNotEmpty ? medName : 'Medication',
     );
     if (result != null && mounted) {
       setState(() => _scannedBarcode = result);
@@ -517,7 +540,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           : 'Please select frequency');
       return;
     }
-    // Require meal anchor for daily frequencies
     final mainEn = _frToEnMap[_mainFrequency ?? ''] ?? _mainFrequency ?? '';
     final needsAnchor = mainEn == 'Once daily' ||
                         mainEn == 'Twice daily' ||
@@ -540,8 +562,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       final prefs  = await SharedPreferences.getInstance();
       final token  = prefs.getString('auth_token');
       final startP = _startDateController.text.split('/');
-      final startDate =
-          '${startP[2]}-${startP[1]}-${startP[0]}';
+      final startDate = '${startP[2]}-${startP[1]}-${startP[0]}';
       String? endDate;
       if (_endDateController.text.isNotEmpty) {
         final e = _endDateController.text.split('/');
@@ -648,7 +669,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
 
-                  // header
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -671,7 +691,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // condition
                   Row(children: [
                     _buildLabelWithIcon(Icons.medical_information,
                         ls.translate('conditions')),
@@ -686,7 +705,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   _buildConditionSelector(isFr),
                   const SizedBox(height: 20),
 
-                  // medication name
                   _buildLabelWithIcon(
                       Icons.medication, ls.translate('medicationName')),
                   const SizedBox(height: 4),
@@ -701,18 +719,15 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   _buildMedicationField(isFr),
                   const SizedBox(height: 12),
 
-                  // barcode
                   _buildBarcodeSection(isFr),
                   const SizedBox(height: 20),
 
-                  // dosage
                   _buildLabelWithIcon(
                       Icons.science, ls.translate('dosage')),
                   const SizedBox(height: 8),
                   _buildDosageField(isFr),
                   const SizedBox(height: 20),
 
-                  // frequency
                   _buildLabelWithIcon(
                       Icons.access_time, ls.translate('frequency')),
                   const SizedBox(height: 8),
@@ -720,14 +735,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                       ls, currentFreqBase, currentAnchors),
                   const SizedBox(height: 20),
 
-                  // priority
                   _buildLabelWithIcon(Icons.priority_high,
                       isFr ? 'Priorité' : 'Priority'),
                   const SizedBox(height: 8),
                   _buildPrioritySelector(isFr),
                   const SizedBox(height: 20),
 
-                  // start date
                   _buildLabelWithIcon(Icons.calendar_today,
                       ls.translate('startDate')),
                   const SizedBox(height: 8),
@@ -739,7 +752,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // end date
                   _buildLabelWithIcon(Icons.calendar_today,
                       ls.translate('endDate')),
                   const SizedBox(height: 8),
@@ -751,7 +763,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // save
                   _buildSaveButton(ls, isFr),
                   const SizedBox(height: 40),
                 ]),
@@ -771,8 +782,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         decoration: BoxDecoration(
           color: Colors.green.shade50,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: Colors.green.shade200, width: 1.5),
+          border: Border.all(color: Colors.green.shade200, width: 1.5),
         ),
         child: Row(children: [
           Container(
@@ -780,8 +790,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             decoration: BoxDecoration(
                 color: Colors.green.shade100,
                 borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.qr_code,
-                color: Colors.green, size: 24),
+            child: const Icon(Icons.qr_code, color: Colors.green, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -806,11 +815,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             Text(
               '${_scannedBarcode!.format} • '
               '${isFr ? "optionnel" : "optional"}',
-              style: TextStyle(
-                  fontSize: 11, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ])),
-          // re-scan
           GestureDetector(
             onTap: _openBarcodeScanner,
             child: Container(
@@ -823,7 +830,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             ),
           ),
           const SizedBox(width: 6),
-          // remove
           GestureDetector(
             onTap: () => setState(() => _scannedBarcode = null),
             child: Container(
@@ -831,8 +837,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(8)),
-              child: Icon(Icons.close,
-                  color: Colors.red.shade400, size: 20),
+              child: Icon(Icons.close, color: Colors.red.shade400, size: 20),
             ),
           ),
         ]),
@@ -846,8 +851,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: Colors.grey.shade200, width: 1.5),
+          border: Border.all(color: Colors.grey.shade200, width: 1.5),
         ),
         child: Row(children: [
           Container(
@@ -877,8 +881,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
               isFr
                   ? 'Photographiez le code-barres de la boîte pour une meilleure identification'
                   : 'Scan the barcode on the box for better medication identification',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ])),
           Icon(Icons.chevron_right, color: Colors.grey.shade400),
@@ -940,8 +943,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                 : _buildMedicationSuffixIcon(),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    BorderSide(color: Colors.grey.shade300)),
+                borderSide: BorderSide(color: Colors.grey.shade300)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
@@ -970,9 +972,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           _medicationError == null &&
           _medicationWarning == null)
         _buildFeedbackRow(
-          isFr
-              ? 'Médicament reconnu ✓'
-              : 'Medication recognized ✓',
+          isFr ? 'Médicament reconnu ✓' : 'Medication recognized ✓',
           Colors.green.shade600,
           Icons.check_circle_outline,
         ),
@@ -986,15 +986,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     if (_medicationError != null)
       return const Icon(Icons.cancel, color: Colors.red);
     if (_medicationWarning != null)
-      return const Icon(Icons.warning_amber_rounded,
-          color: Colors.orange);
+      return const Icon(Icons.warning_amber_rounded, color: Colors.orange);
     if (_medicationAccepted)
       return const Icon(Icons.check_circle, color: Colors.green);
     return Icon(Icons.search, color: Colors.blue.shade300);
   }
 
-  Widget _buildFeedbackRow(
-      String message, Color color, IconData icon) {
+  Widget _buildFeedbackRow(String message, Color color, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 12),
       child: Row(
@@ -1010,8 +1008,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   Widget _buildSuggestionsDropdown() {
-    final query =
-        _medicationController.text.trim().toLowerCase();
+    final query = _medicationController.text.trim().toLowerCase();
     return Container(
       margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
@@ -1043,23 +1040,18 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: idx == 0
-                      ? Colors.blue.shade50
-                      : Colors.white,
+                  color: idx == 0 ? Colors.blue.shade50 : Colors.white,
                   border: idx < _suggestions.length - 1
                       ? Border(
-                          bottom: BorderSide(
-                              color: Colors.grey.shade100))
+                          bottom: BorderSide(color: Colors.grey.shade100))
                       : null,
                 ),
                 child: Row(children: [
-                  Text(emoji,
-                      style: const TextStyle(fontSize: 20)),
+                  Text(emoji, style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                     matchIdx >= 0
                         ? RichText(
@@ -1070,19 +1062,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                                   fontWeight: FontWeight.w500),
                               children: [
                                 if (matchIdx > 0)
-                                  TextSpan(
-                                      text: name.substring(
-                                          0, matchIdx)),
+                                  TextSpan(text: name.substring(0, matchIdx)),
                                 TextSpan(
                                     text: name.substring(
-                                        matchIdx,
-                                        matchIdx + query.length),
+                                        matchIdx, matchIdx + query.length),
                                     style: TextStyle(
                                         color: Colors.blue.shade700,
-                                        fontWeight:
-                                            FontWeight.bold)),
-                                if (matchIdx + query.length <
-                                    name.length)
+                                        fontWeight: FontWeight.bold)),
+                                if (matchIdx + query.length < name.length)
                                   TextSpan(
                                       text: name.substring(
                                           matchIdx + query.length)),
@@ -1141,22 +1128,18 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             hintText: isFr
                 ? 'ex: 500mg, 1g, 50mcg, 10ml'
                 : 'e.g., 500mg, 1g, 50mcg, 10ml',
-            hintStyle:
-                TextStyle(color: Colors.grey.shade400),
+            hintStyle: TextStyle(color: Colors.grey.shade400),
             prefixIcon: Icon(Icons.science_outlined,
                 color: Colors.blue.shade300),
             suffixIcon: _dosageController.text.isEmpty
                 ? null
                 : _dosageError == null
-                    ? const Icon(Icons.check_circle,
-                        color: Colors.green)
-                    : const Icon(
-                        Icons.warning_amber_rounded,
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : const Icon(Icons.warning_amber_rounded,
                         color: Colors.orange),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    BorderSide(color: Colors.grey.shade300)),
+                borderSide: BorderSide(color: Colors.grey.shade300)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
@@ -1174,9 +1157,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                    color: _dosageError != null
-                        ? Colors.orange
-                        : Colors.blue,
+                    color: _dosageError != null ? Colors.orange : Colors.blue,
                     width: 2)),
             filled: true,
             fillColor: Colors.white,
@@ -1189,17 +1170,14 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         _buildFeedbackRow(_dosageError!, Colors.orange.shade700,
             Icons.warning_amber_rounded),
       if (_dosageController.text.isNotEmpty &&
-          RegExp(r'^\d+$')
-              .hasMatch(_dosageController.text.trim()))
+          RegExp(r'^\d+$').hasMatch(_dosageController.text.trim()))
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-            Text(
-                isFr ? 'Ajouter une unité :' : 'Add a unit:',
-                style: TextStyle(
-                    fontSize: 11, color: Colors.grey.shade500)),
+            Text(isFr ? 'Ajouter une unité :' : 'Add a unit:',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -1211,8 +1189,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                           _dosageController.text = newVal;
                           _dosageController.selection =
                               TextSelection.fromPosition(
-                                  TextPosition(
-                                      offset: newVal.length));
+                                  TextPosition(offset: newVal.length));
                           setState(() => _dosageError =
                               _validateDosage(newVal, isFr));
                         },
@@ -1221,10 +1198,8 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
-                            borderRadius:
-                                BorderRadius.circular(20),
-                            border: Border.all(
-                                color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.blue.shade200),
                           ),
                           child: Text(unit,
                               style: TextStyle(
@@ -1242,9 +1217,6 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
 
   // ─────────────────────────────────────────────────────────────────────────
   // FREQUENCY SELECTOR
-  //
-  // FIX: Empty stomach added and enforced as mutually exclusive with all
-  // other meal anchors. Same logic as the other pages.
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildFrequencySelector(LanguageService ls,
@@ -1259,20 +1231,18 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     final mainEn = _mainFrequency != null
         ? (_frToEnMap[_mainFrequency!] ?? _mainFrequency!)
         : null;
-    final isAsNeeded   = mainEn == 'As needed';
-    final needsAnchor  = mainEn == 'Once daily' ||
-                         mainEn == 'Twice daily' ||
-                         mainEn == 'Three times daily';
+    final isAsNeeded    = mainEn == 'As needed';
+    final needsAnchor   = mainEn == 'Once daily' ||
+                          mainEn == 'Twice daily' ||
+                          mainEn == 'Three times daily';
     final missingAnchor = needsAnchor && _mealAnchors.isEmpty;
     final isFr = ls.getCurrentLanguage() == 'fr';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       GestureDetector(
-        onTap: () =>
-            _showSmartFrequencySelector(ls, baseFreqs, anchors),
+        onTap: () => _showSmartFrequencySelector(ls, baseFreqs, anchors),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
               border: Border.all(
                 color: missingAnchor
@@ -1292,14 +1262,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             const SizedBox(width: 8),
             Expanded(
                 child: Text(displayText,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis)),
+                    maxLines: 2, overflow: TextOverflow.ellipsis)),
             const Icon(Icons.arrow_drop_down, color: Colors.blue),
           ]),
         ),
       ),
 
-      // ── Meal anchor required banner ───────────────────────────────────
       if (missingAnchor) ...[
         const SizedBox(height: 8),
         Container(
@@ -1309,30 +1277,23 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.red.shade200),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.warning_amber_rounded,
-                  color: Colors.red.shade600, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  isFr
-                      ? 'Veuillez sélectionner le moment de prise (ex: Après le petit-déjeuner, Avant le dîner…)'
-                      : 'Please select when to take this medication (e.g. After breakfast, Before dinner…)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.red.shade700,
-                    height: 1.4,
-                  ),
-                ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.warning_amber_rounded,
+                color: Colors.red.shade600, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isFr
+                    ? 'Veuillez sélectionner le moment de prise (ex: Après le petit-déjeuner, Avant le dîner…)'
+                    : 'Please select when to take this medication (e.g. After breakfast, Before dinner…)',
+                style: TextStyle(
+                    fontSize: 12, color: Colors.red.shade700, height: 1.4),
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
       ],
 
-      // ── As needed info banner ─────────────────────────────────────────
       if (isAsNeeded) ...[
         const SizedBox(height: 8),
         Container(
@@ -1342,26 +1303,19 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.orange.shade200),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.info_outline,
-                  color: Colors.orange.shade700, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  isFr
-                      ? 'Aucun rappel ne sera envoyé pour ce médicament. Il apparaîtra dans votre liste mais pas dans votre planning quotidien. Prenez-le uniquement si nécessaire.'
-                      : 'No reminders will be sent for this medication. It will appear in your list but not in your daily schedule. Take it only when needed.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange.shade800,
-                    height: 1.4,
-                  ),
-                ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isFr
+                    ? 'Aucun rappel ne sera envoyé pour ce médicament. Il apparaîtra dans votre liste mais pas dans votre planning quotidien. Prenez-le uniquement si nécessaire.'
+                    : 'No reminders will be sent for this medication. It will appear in your list but not in your daily schedule. Take it only when needed.',
+                style: TextStyle(
+                    fontSize: 12, color: Colors.orange.shade800, height: 1.4),
               ),
-            ],
-          ),
+            ),
+          ]),
         ),
       ],
     ]);
@@ -1375,78 +1329,72 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(25))),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) =>
           StatefulBuilder(builder: (context, setModalState) {
         final mainFreqEn = _mainFrequency != null
             ? (_frToEnMap[_mainFrequency!] ?? _mainFrequency!)
             : null;
         final isInterval = mainFreqEn != null &&
-            (mainFreqEn.contains('Every') ||
-                mainFreqEn == 'As needed');
-
-        int maxAnchors = 99;
-        if (mainFreqEn == 'Once daily') maxAnchors = 1;
-        else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
-        else if (mainFreqEn == 'Three times daily') maxAnchors = 3;
-
-        // Determine if Empty stomach is currently selected
-        final emptyStomachLabel =
-            isFr ? 'Estomac vide' : 'Empty stomach';
-        final hasEmptyStomach =
-            _mealAnchors.contains(emptyStomachLabel);
+            (mainFreqEn.contains('Every') || mainFreqEn == 'As needed');
+        final maxAnchors = _maxAnchorsFor(mainFreqEn);
+        final enSelected = _mealAnchors
+            .map((a) => _frToEnMap[a] ?? a)
+            .toList();
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.88,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(children: [
             const SizedBox(height: 12),
             Container(
-                width: 40,
-                height: 4,
+                width: 40, height: 4,
                 decoration: BoxDecoration(
                     color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             Text(ls.translate('selectFrequency'),
                 style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold)),
+                    fontSize: 20, fontWeight: FontWeight.bold)),
             const Divider(),
             Expanded(
               child: ListView(children: [
 
-                // ── Base frequency ──────────────────────────
-                _buildSectionTitle(
-                    isFr ? 'Fréquence' : 'Frequency'),
+                // ── Base frequency ──────────────────────────────────────
+                _buildSectionTitle(isFr ? 'Fréquence' : 'Frequency'),
                 ...baseFreqs.asMap().entries.map((e) {
                   final idx = e.key;
                   final f   = e.value;
+                  final enF = _frToEnMap[f] ?? f;
+                  // Disable all frequencies except Once daily when
+                  // Empty stomach is selected
+                  final freqDisabled = enSelected.any(_isExclusive) &&
+                      enF != 'Once daily';
                   return RadioListTile<String>(
                     secondary: Icon(_getFrequencyIcon(idx),
-                        color: _mainFrequency == f
-                            ? Colors.blue
-                            : Colors.grey),
-                    title: Text(f),
+                        color: freqDisabled
+                            ? Colors.grey.shade300
+                            : (_mainFrequency == f
+                                ? Colors.blue
+                                : Colors.grey)),
+                    title: Text(f,
+                        style: TextStyle(
+                            color: freqDisabled
+                                ? Colors.grey.shade400
+                                : Colors.black)),
                     value: f,
-                    groupValue: _mainFrequency,
+                    groupValue: freqDisabled ? null : _mainFrequency,
                     activeColor: Colors.blue,
-                    onChanged: (val) {
+                    onChanged: freqDisabled ? null : (val) {
                       if (val == null) return;
                       setModalState(() {
                         _mainFrequency = val;
-                        final valEn =
-                            _frToEnMap[val] ?? val;
+                        final valEn = _frToEnMap[val] ?? val;
                         if (valEn.contains('Every') ||
                             valEn == 'As needed') {
                           _mealAnchors = [];
                         } else {
-                          int newMax = 99;
-                          if (valEn == 'Once daily') newMax = 1;
-                          else if (valEn == 'Twice daily') newMax = 2;
-                          else if (valEn == 'Three times daily') newMax = 3;
+                          final newMax = _maxAnchorsFor(valEn);
                           if (_mealAnchors.length > newMax) {
                             _mealAnchors =
                                 _mealAnchors.sublist(0, newMax);
@@ -1458,7 +1406,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   );
                 }),
 
-                // ── Meal anchors ────────────────────────────
+                // ── Meal anchors ────────────────────────────────────────
                 const SizedBox(height: 20),
                 _buildSectionTitle(
                     isFr ? 'Moment (Repas)' : 'Timing (Meals)'),
@@ -1477,21 +1425,34 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                   )
                 else
                   ...anchors.map((a) {
-                    final enAnchor = _frToEnMap[a] ?? a;
-                    final isEmptyStomach =
-                        enAnchor == 'Empty stomach';
-                    final isSel = _mealAnchors.contains(a);
+                    final enAnchor   = _frToEnMap[a] ?? a;
+                    final isEmptyStomach = enAnchor == 'Empty stomach';
+                    final isSel      = _mealAnchors.contains(a);
+                    final isDisabled = _isAnchorDisabled(
+                        enAnchor, enSelected, maxAnchors);
+                    final group      = _mealGroupOf(enAnchor);
 
-                    // Empty stomach is disabled when any other
-                    // anchor is selected, and vice versa
-                    final isDisabled = (!isSel &&
-                            _mealAnchors.length >= maxAnchors) ||
-                        (!isSel &&
-                            hasEmptyStomach &&
-                            !isEmptyStomach) ||
-                        (!isSel &&
-                            isEmptyStomach &&
-                            _mealAnchors.isNotEmpty);
+                    // Subtitle: exclusive hint OR meal already covered
+                    Widget? subtitleWidget;
+                    if (isEmptyStomach) {
+                      subtitleWidget = Text(
+                        isFr
+                            ? 'Ne peut pas être combiné avec d\'autres repas'
+                            : 'Cannot be combined with other meal anchors',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                      );
+                    } else if (!isSel &&
+                        group != null &&
+                        enSelected.any((s) => _mealGroupOf(s) == group)) {
+                      subtitleWidget = Text(
+                        isFr
+                            ? 'Ce repas est déjà couvert'
+                            : 'This meal is already covered',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                      );
+                    }
 
                     return CheckboxListTile(
                       title: Row(children: [
@@ -1508,8 +1469,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.teal.shade50,
-                              borderRadius:
-                                  BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                   color: Colors.teal.shade200),
                             ),
@@ -1521,16 +1481,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                             ),
                           ),
                       ]),
-                      subtitle: isEmptyStomach
-                          ? Text(
-                              isFr
-                                  ? 'Ne peut pas être combiné avec d\'autres repas'
-                                  : 'Cannot be combined with other meal anchors',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500),
-                            )
-                          : null,
+                      subtitle: subtitleWidget,
                       value: isSel,
                       activeColor: Colors.blue,
                       onChanged: isDisabled
@@ -1539,8 +1490,12 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                               setModalState(() {
                                 if (val == true) {
                                   if (isEmptyStomach) {
-                                    // Clear all others, select only this
+                                    // Exclusive: clear all others,
+                                    // force Once daily
                                     _mealAnchors = [a];
+                                    _mainFrequency = isFr
+                                        ? 'Une fois par jour'
+                                        : 'Once daily';
                                   } else {
                                     _mealAnchors.add(a);
                                   }
@@ -1566,12 +1521,10 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(ls.translate('confirm'),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold)),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -1582,7 +1535,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // REMAINING UI HELPERS (unchanged from original)
+  // REMAINING UI HELPERS
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildSaveButton(LanguageService ls, bool isFr) {
@@ -1623,8 +1576,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
                 const SizedBox(width: 8),
                 Text(ls.translate('save'),
                     style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ]),
       ),
     );
@@ -1635,8 +1587,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
       Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           border: Border.all(
             color: !_isConditionPreSelected &&
@@ -1661,8 +1612,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         ),
         child: _isConditionPreSelected
             ? Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Row(children: [
                   Container(
                       padding: const EdgeInsets.all(8),
@@ -1735,15 +1685,13 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         ]),
       );
 
-  Widget _buildPriorityOption(
-      String value, String label, Color color) {
+  Widget _buildPriorityOption(String value, String label, Color color) {
     final isSelected = _priority == value;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _priority = value),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isSelected ? color : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -1759,9 +1707,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
           child: Text(label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: isSelected
-                      ? Colors.white
-                      : Colors.grey.shade600,
+                  color: isSelected ? Colors.white : Colors.grey.shade600,
                   fontWeight: isSelected
                       ? FontWeight.bold
                       : FontWeight.normal)),
@@ -1771,8 +1717,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   }
 
   Widget _buildSectionTitle(String title) => Padding(
-        padding: const EdgeInsets.symmetric(
-            vertical: 8, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         child: Text(title,
             style: const TextStyle(
                 fontSize: 16,
@@ -1805,11 +1750,9 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
-          border:
-              Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
           boxShadow: [
@@ -1822,14 +1765,11 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
         child: Row(children: [
           Container(
               padding: const EdgeInsets.all(8),
-              child: Icon(icon,
-                  color: Colors.blue.shade300)),
+              child: Icon(icon, color: Colors.blue.shade300)),
           const SizedBox(width: 8),
           Expanded(
               child: Text(
-            controller.text.isEmpty
-                ? 'dd/mm/yyyy'
-                : controller.text,
+            controller.text.isEmpty ? 'dd/mm/yyyy' : controller.text,
             style: TextStyle(
                 color: controller.text.isEmpty
                     ? Colors.grey.shade400
@@ -1841,8 +1781,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
             decoration: BoxDecoration(
                 color: Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.arrow_drop_down,
-                color: Colors.blue),
+            child: const Icon(Icons.arrow_drop_down, color: Colors.blue),
           ),
         ]),
       ),
@@ -1870,8 +1809,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate:
-          DateTime.now().add(const Duration(days: 365 * 5)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(

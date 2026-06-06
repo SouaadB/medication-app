@@ -33,6 +33,7 @@ class _CaregiverEarlyWarningPanelState
     extends State<CaregiverEarlyWarningPanel> {
 
   Map<String, dynamic>? _forecast;
+  List<double>          _historyScores = [];
   bool _isLoading    = true;
   bool _isRefreshing = false;
   bool _expanded     = false;
@@ -47,8 +48,17 @@ class _CaregiverEarlyWarningPanelState
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
-    final f = await _fetchForecast();
-    if (mounted) setState(() { _forecast = f; _isLoading = false; });
+    final results = await Future.wait([
+      _fetchForecast(),
+      _fetchHistory(),
+    ]);
+    if (mounted) {
+      setState(() {
+        _forecast      = results[0] as Map<String, dynamic>?;
+        _historyScores = results[1] as List<double>;
+        _isLoading     = false;
+      });
+    }
   }
 
   Future<void> _refresh() async {
@@ -64,11 +74,37 @@ class _CaregiverEarlyWarningPanelState
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body);
         if (body['success'] == true && body['data'] != null) {
-          if (mounted) setState(() => _forecast = body['data']);
+          final history = await _fetchHistory();
+          if (mounted) setState(() {
+            _forecast      = body['data'];
+            _historyScores = history;
+          });
         }
       }
     } catch (e) { debugPrint('[CaregiverEWP] refresh error: $e'); }
     if (mounted) setState(() => _isRefreshing = false);
+  }
+
+  Future<List<double>> _fetchHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final resp  = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/signals/patient/${widget.patientId}/history?limit=7'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body);
+        if (body['success'] == true && body['data'] is List) {
+          final list = (body['data'] as List).reversed.toList();
+          return list.map<double>((e) =>
+              ((e['forecastScore'] ?? e['forecast_score'] ?? 0.0) as num).toDouble()
+          ).toList();
+        }
+      }
+    } catch (e) { debugPrint('[CaregiverEWP] history error: $e'); }
+    return [];
   }
 
   Future<Map<String, dynamic>?> _fetchForecast() async {
@@ -308,6 +344,38 @@ class _CaregiverEarlyWarningPanelState
               ),
             ),
 
+            // ── #3 Trend badge ───────────────────────────────────────────────
+            if (_historyScores.length >= 2) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Text('Trend:',
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.grey.shade500)),
+                const SizedBox(width: 8),
+                _buildTrendBadge(),
+              ]),
+            ],
+
+            // ── #1 Sparkline ─────────────────────────────────────────────────
+            if (_historyScores.length >= 2) ...[
+              const SizedBox(height: 12),
+              Text('7-day risk trend',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500)),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _CaregiverSparklinePainter(
+                    points:  _historyScores,
+                    color:   color,
+                    bgColor: color.withOpacity(0.08),
+                  ),
+                ),
+              ),
+            ],
+
             // ── signals ──────────────────────────────────────────────────────
             if (signals.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -456,4 +524,89 @@ class _CaregiverEarlyWarningPanelState
           child: CircularProgressIndicator(strokeWidth: 2)),
     );
   }
+
+  Widget _buildTrendBadge() {
+    if (_historyScores.length < 2) return const SizedBox.shrink();
+    final delta = _historyScores.last - _historyScores[_historyScores.length - 2];
+    String label; IconData icon; Color color;
+    if (delta > 0.05) {
+      label = 'Getting worse'; icon = Icons.trending_up_rounded;
+      color = const Color(0xFFE53935);
+    } else if (delta < -0.05) {
+      label = 'Improving'; icon = Icons.trending_down_rounded;
+      color = const Color(0xFF2E7D32);
+    } else {
+      label = 'Stable'; icon = Icons.trending_flat_rounded;
+      color = const Color(0xFFF57C00);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPARKLINE PAINTER (caregiver panel version)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CaregiverSparklinePainter extends CustomPainter {
+  final List<double> points;
+  final Color        color;
+  final Color        bgColor;
+
+  const _CaregiverSparklinePainter({
+    required this.points,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final n      = points.length;
+    final maxVal = points.reduce((a, b) => a > b ? a : b).clamp(0.01, 1.0);
+    final minVal = points.reduce((a, b) => a < b ? a : b);
+    final range  = (maxVal - minVal).clamp(0.05, 1.0);
+
+    double xOf(int i) => n == 1 ? size.width / 2 : i * size.width / (n - 1);
+    double yOf(double v) =>
+        size.height - ((v - minVal) / range) * size.height * 0.8 - size.height * 0.1;
+
+    final line = Path()..moveTo(xOf(0), yOf(points[0]));
+    final fill = Path()
+      ..moveTo(xOf(0), size.height)
+      ..lineTo(xOf(0), yOf(points[0]));
+
+    for (int i = 1; i < n; i++) {
+      final cx = (xOf(i - 1) + xOf(i)) / 2;
+      line.cubicTo(cx, yOf(points[i-1]), cx, yOf(points[i]), xOf(i), yOf(points[i]));
+      fill.cubicTo(cx, yOf(points[i-1]), cx, yOf(points[i]), xOf(i), yOf(points[i]));
+    }
+    fill..lineTo(xOf(n - 1), size.height)..close();
+
+    canvas.drawPath(fill, Paint()..color = bgColor..style = PaintingStyle.fill);
+    canvas.drawPath(line, Paint()
+      ..color = color..strokeWidth = 2..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
+
+    for (int i = 0; i < n; i++) {
+      canvas.drawCircle(Offset(xOf(i), yOf(points[i])), 3, Paint()..color = color);
+      canvas.drawCircle(Offset(xOf(i), yOf(points[i])), 1.5, Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CaregiverSparklinePainter old) => old.points != points;
 }

@@ -99,6 +99,40 @@ class SignalService {
     _cachedAt        = null;
     _cachedPatientId = null;
   }
+
+  // ── Fetch forecast history (for trend chart) ─────────────────────────────
+  Future<List<ForecastHistoryPoint>> getForecastHistory() async {
+    try {
+      final prefs     = await SharedPreferences.getInstance();
+      final token     = prefs.getString('auth_token');
+      final patientId = prefs.getInt('user_id')
+          ?? prefs.getInt('patient_id')
+          ?? int.tryParse(prefs.getString('user_id') ?? '')
+          ?? int.tryParse(prefs.getString('patient_id') ?? '');
+      if (token == null || patientId == null) return [];
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/signals/patient/$patientId/history?limit=7'),
+        headers: ApiConfig.getAuthHeaders(token),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] is List) {
+          final list = body['data'] as List;
+          return list
+              .map((e) => ForecastHistoryPoint.fromJson(e as Map<String, dynamic>))
+              .toList()
+              .reversed
+              .toList(); // oldest first for chart
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[SignalService] History error: $e');
+      return [];
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -262,4 +296,48 @@ class SignalDetails {
     postIllnessRecovery:     (json['postIllnessRecovery']?['score']     ?? 0.0).toDouble(),
     specificMedDrift:        (json['specificMedDrift']?['score']        ?? 0.0).toDouble(),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORECAST HISTORY POINT — used for trend chart
+// ─────────────────────────────────────────────────────────────────────────────
+
+class ForecastHistoryPoint {
+  final double   score;
+  final String   riskLevel;
+  final DateTime createdAt;
+
+  const ForecastHistoryPoint({
+    required this.score,
+    required this.riskLevel,
+    required this.createdAt,
+  });
+
+  factory ForecastHistoryPoint.fromJson(Map<String, dynamic> json) =>
+      ForecastHistoryPoint(
+        score:     (json['forecastScore'] ?? json['forecast_score'] ?? 0.0).toDouble(),
+        riskLevel: (json['riskLevel']     ?? json['risk_level']     ?? 'low').toString(),
+        createdAt: json['createdAt']   != null
+            ? DateTime.parse(json['createdAt'].toString())
+            : json['created_at'] != null
+                ? DateTime.parse(json['created_at'].toString())
+                : DateTime.now(),
+      );
+
+  Color get color {
+    switch (riskLevel) {
+      case 'critical': return const Color(0xFFB71C1C);
+      case 'high':     return const Color(0xFFE53935);
+      case 'moderate': return const Color(0xFFF57C00);
+      default:         return const Color(0xFF2E7D32);
+    }
+  }
+
+  String get dayLabel {
+    final now  = DateTime.now();
+    final diff = now.difference(createdAt).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${createdAt.day}/${createdAt.month}';
+  }
 }

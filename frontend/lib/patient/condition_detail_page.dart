@@ -86,10 +86,10 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     if (date.day == now.day &&
         date.month == now.month &&
-        date.year == now.year) return "Aujourd'hui";
+        date.year == now.year) return "Today";
     if (date.day == tomorrow.day &&
         date.month == tomorrow.month &&
-        date.year == tomorrow.year) return "Demain";
+        date.year == tomorrow.year) return "Tomorrow";
     return '${date.day}/${date.month}';
   }
 
@@ -136,7 +136,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
         _loadNextDose();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Médicament supprimé avec succès'),
+            content: Text('Medication deleted successfully'),
             backgroundColor: Colors.green,
           ));
         }
@@ -146,7 +146,7 @@ class _ConditionDetailPageState extends State<ConditionDetailPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Erreur lors de la suppression'),
+          content: Text('Error has occurd in the midlle of deletion'),
           backgroundColor: Colors.red,
         ));
       }
@@ -652,13 +652,16 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
 
   final List<String> _mealAnchorsEn = const [
     'Before breakfast',
+    'During breakfast',
     'After breakfast',
     'Before lunch',
+    'During lunch',
     'After lunch',
     'Before dinner',
+    'During dinner',
     'After dinner',
     'Before sleeping',
-    'Empty stomach',   // ← ADDED
+    'Empty stomach',
   ];
 
   @override
@@ -846,10 +849,43 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ANCHOR HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  String? _mealGroupOf(String enAnchor) {
+    if (enAnchor.contains('breakfast')) return 'breakfast';
+    if (enAnchor.contains('lunch'))     return 'lunch';
+    if (enAnchor.contains('dinner'))    return 'dinner';
+    return null;
+  }
+
+  bool _isExclusiveAnchor(String enAnchor) =>
+      enAnchor == 'Empty stomach';
+
+  bool _isAnchorDisabled(String enAnchor, List<String> enSelected, int maxAnchors) {
+    if (enSelected.contains(enAnchor)) return false;
+    if (enSelected.any(_isExclusiveAnchor)) return true;
+    if (_isExclusiveAnchor(enAnchor) && enSelected.isNotEmpty) return true;
+    if (enSelected.length >= maxAnchors) return true;
+    final group = _mealGroupOf(enAnchor);
+    if (group != null && enSelected.any((a) => _mealGroupOf(a) == group)) return true;
+    return false;
+  }
+
+  bool _isFreqDisabled(String freq, List<String> enSelected) {
+    if (!enSelected.any(_isExclusiveAnchor)) return false;
+    return freq != 'Once daily';
+  }
+
+  int _maxFor(String? freq) {
+    if (freq == 'Once daily')        return 1;
+    if (freq == 'Twice daily')       return 2;
+    if (freq == 'Three times daily') return 3;
+    return 0;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // FREQUENCY SELECTOR (edit sheet)
-  //
-  // FIX: Empty stomach is shown and enforced as mutually exclusive with
-  // all other meal anchors. Same logic as the review page.
   // ─────────────────────────────────────────────────────────────────────────
 
   void _showFrequencySelector() {
@@ -860,151 +896,103 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (_) => StatefulBuilder(builder: (ctx, setModal) {
         final isInterval = _mainFrequency != null &&
-            (_mainFrequency!.contains('Every') ||
-                _mainFrequency == 'As needed');
-
-        int maxAnchors = 99;
-        if (_mainFrequency == 'Once daily')             maxAnchors = 1;
-        else if (_mainFrequency == 'Twice daily')       maxAnchors = 2;
-        else if (_mainFrequency == 'Three times daily') maxAnchors = 3;
-
-        final hasEmptyStomach =
-            _mealAnchors.contains('Empty stomach');
+            (_mainFrequency!.contains('Every') || _mainFrequency == 'As needed');
+        final maxAnchors = _maxFor(_mainFrequency);
+        final enSelected = _mealAnchors.toList(); // already EN in condition_detail
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.85,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(children: [
             const SizedBox(height: 12),
-            Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2))),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Text('Select Frequency',
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('Select Frequency', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Divider(),
             Expanded(
               child: ListView(children: [
+
+                // ── Base frequency ──────────────────────────────────────
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  child: Text('Frequency',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue)),
+                  child: Text('Frequency', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue)),
                 ),
-                ..._frequenciesEn.map((f) => RadioListTile<String>(
-                  title: Text(f),
-                  value: f,
-                  groupValue: _mainFrequency,
-                  activeColor: Colors.blue,
-                  onChanged: (val) {
-                    if (val == null) return;
-                    setModal(() {
-                      _mainFrequency = val;
-                      if (val.contains('Every') ||
-                          val == 'As needed') {
-                        _mealAnchors = [];
-                      } else {
-                        int nm = 99;
-                        if (val == 'Once daily') nm = 1;
-                        else if (val == 'Twice daily') nm = 2;
-                        else if (val == 'Three times daily') nm = 3;
-                        if (_mealAnchors.length > nm) {
-                          _mealAnchors =
-                              _mealAnchors.sublist(0, nm);
+                ..._frequenciesEn.map((f) {
+                  final disabled = _isFreqDisabled(f, enSelected);
+                  return RadioListTile<String>(
+                    title: Text(f, style: TextStyle(color: disabled ? Colors.grey.shade400 : Colors.black)),
+                    value: f,
+                    groupValue: disabled ? null : _mainFrequency,
+                    activeColor: Colors.blue,
+                    onChanged: disabled ? null : (val) {
+                      if (val == null) return;
+                      setModal(() {
+                        _mainFrequency = val;
+                        if (val.contains('Every') || val == 'As needed') {
+                          _mealAnchors = [];
+                        } else {
+                          final nm = _maxFor(val);
+                          if (_mealAnchors.length > nm) _mealAnchors = _mealAnchors.sublist(0, nm);
                         }
-                      }
-                    });
-                    setState(() {});
-                  },
-                )),
+                      });
+                      setState(() {});
+                    },
+                  );
+                }),
+
+                // ── Meal anchors ────────────────────────────────────────
                 const SizedBox(height: 12),
                 const Padding(
-                  padding: EdgeInsets.symmetric(
-                      vertical: 8, horizontal: 4),
-                  child: Text('Timing (Meals)',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue)),
+                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  child: Text('Timing (Meals)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue)),
                 ),
                 if (isInterval)
                   Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(
-                        'Not available for this frequency',
-                        style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontStyle: FontStyle.italic)),
-                  )
+                    child: Text('Not available for this frequency', style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic)))
                 else
                   ..._mealAnchorsEn.map((a) {
-                    final isEmptyStomach = a == 'Empty stomach';
-                    final isSel = _mealAnchors.contains(a);
-                    final isDisabled = (!isSel &&
-                            _mealAnchors.length >= maxAnchors) ||
-                        (!isSel &&
-                            hasEmptyStomach &&
-                            !isEmptyStomach) ||
-                        (!isSel &&
-                            isEmptyStomach &&
-                            _mealAnchors.isNotEmpty);
+                    final isSel     = _mealAnchors.contains(a);
+                    final disabled  = _isAnchorDisabled(a, enSelected, maxAnchors);
+                    final group     = _mealGroupOf(a);
+                    final exclusive = _isExclusiveAnchor(a);
+
+                    String? subtitle;
+                    if (exclusive) {
+                      subtitle = 'Cannot be combined with other timings';
+                    } else if (!isSel && group != null && enSelected.any((s) => _mealGroupOf(s) == group)) {
+                      subtitle = 'This meal is already covered';
+                    }
 
                     return CheckboxListTile(
                       title: Row(children: [
-                        Expanded(
-                            child: Text(a,
-                                style: TextStyle(
-                                    color: isDisabled
-                                        ? Colors.grey
-                                        : Colors.black))),
-                        if (isEmptyStomach)
+                        Expanded(child: Text(a, style: TextStyle(color: disabled ? Colors.grey.shade400 : Colors.black))),
+                        if (exclusive)
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius:
-                                  BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: Colors.teal.shade200),
-                            ),
-                            child: Text('Exclusive',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.teal.shade700)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.teal.shade200)),
+                            child: Text('Exclusive', style: TextStyle(fontSize: 10, color: Colors.teal.shade700)),
                           ),
                       ]),
-                      subtitle: isEmptyStomach
-                          ? Text(
-                              'Cannot be combined with other meal anchors',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500))
-                          : null,
+                      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)) : null,
                       value: isSel,
                       activeColor: Colors.blue,
-                      onChanged: isDisabled
-                          ? null
-                          : (val) {
-                              setModal(() {
-                                if (val == true) {
-                                  if (isEmptyStomach) {
-                                    _mealAnchors = [a];
-                                  } else {
-                                    _mealAnchors.add(a);
-                                  }
-                                } else {
-                                  _mealAnchors.remove(a);
-                                }
-                              });
-                              setState(() {});
-                            },
+                      onChanged: disabled ? null : (val) {
+                        setModal(() {
+                          if (val == true) {
+                            if (exclusive) {
+                              // Exclusive: clear all, force once daily
+                              _mealAnchors   = [a];
+                              _mainFrequency = 'Once daily';
+                            } else {
+                              _mealAnchors.add(a);
+                            }
+                          } else {
+                            _mealAnchors.remove(a);
+                          }
+                        });
+                        setState(() {});
+                      },
                     );
                   }),
               ]),
@@ -1012,18 +1000,11 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: SizedBox(
-                width: double.infinity,
-                height: 50,
+                width: double.infinity, height: 50,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Confirm',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('Confirm', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ),

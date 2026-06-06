@@ -105,30 +105,51 @@ exports.removeCondition = async (req, res) => {
     try {
         const patientId = req.user.id;
         const conditionId = req.params.conditionId;
-        
-        // Check if there are active treatments for this condition
-        const [treatments] = await db.execute(
-            'SELECT id FROM treatments WHERE patient_id = ? AND condition_id = ? AND is_active = 1 AND deleted_at IS NULL',
+
+        // 1. Soft-delete all active treatments for this condition
+        //    (mirrors exactly what deleteTreatment does individually)
+        const [activeTreatments] = await db.execute(
+            `SELECT id FROM treatments 
+             WHERE patient_id = ? AND condition_id = ? AND deleted_at IS NULL`,
             [patientId, conditionId]
         );
-        
-        if (treatments.length > 0) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Cannot remove condition with active treatments' 
-            });
+
+        for (const treatment of activeTreatments) {
+            const treatmentId = treatment.id;
+
+            // Delete only future SCHEDULED doses — keep TAKEN/MISSED/SKIPPED history
+            await db.execute(
+                `DELETE FROM medication_schedules
+                 WHERE treatment_id = ?
+                 AND status = 'SCHEDULED'
+                 AND scheduled_date_time > NOW()`,
+                [treatmentId]
+            );
+
+            // Clear notifications for this treatment
+            const NotificationService = require('../services/notificationService');
+            await NotificationService.clearNotificationsByTreatment(treatmentId);
+
+            // Soft-delete the treatment row
+            await db.execute(
+                `UPDATE treatments
+                 SET is_active = 0, deleted_at = NOW()
+                 WHERE id = ? AND patient_id = ?`,
+                [treatmentId, patientId]
+            );
         }
-        
+
+        // 2. Now remove the condition link
         await db.execute(
             'DELETE FROM patient_conditions WHERE patient_id = ? AND condition_id = ?',
             [patientId, conditionId]
         );
-        
+
         res.json({ 
             success: true, 
-            message: 'Condition removed successfully' 
+            message: 'Condition and associated medications removed successfully' 
         });
-        
+
     } catch (error) {
         console.error('Error removing condition:', error);
         res.status(500).json({ success: false, message: 'Server error' });

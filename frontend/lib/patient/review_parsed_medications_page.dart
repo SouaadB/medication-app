@@ -31,11 +31,6 @@ class ReviewParsedMedicationsPage extends StatefulWidget {
 class _ReviewParsedMedicationsPageState
     extends State<ReviewParsedMedicationsPage> {
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FREQUENCY & MEAL ANCHOR LISTS
-  // FIX: Added 'Empty stomach' to both EN and FR lists and to the FR→EN map.
-  // ─────────────────────────────────────────────────────────────────────────
-
   final List<String> _frequenciesEn = const [
     'Once daily',
     'Twice daily',
@@ -58,7 +53,6 @@ class _ReviewParsedMedicationsPageState
     'Au besoin',
   ];
 
-  // FIX: 'Empty stomach' added as a meal anchor (it controls timing, not count)
   final List<String> _mealAnchorsEn = const [
     'Before breakfast',
     'During breakfast',
@@ -70,7 +64,7 @@ class _ReviewParsedMedicationsPageState
     'During dinner',
     'After dinner',
     'Before sleeping',
-    'Empty stomach',   // ← ADDED
+    'Empty stomach',
   ];
 
   final List<String> _mealAnchorsFr = const [
@@ -84,7 +78,7 @@ class _ReviewParsedMedicationsPageState
     'Pendant le dîner',
     'Après le dîner',
     'Avant de dormir',
-    'Estomac vide',    // ← ADDED
+    'Estomac vide',
   ];
 
   final Map<String, String> _frToEnMap = const {
@@ -106,8 +100,38 @@ class _ReviewParsedMedicationsPageState
     'Pendant le dîner':           'During dinner',
     'Après le dîner':             'After dinner',
     'Avant de dormir':            'Before sleeping',
-    'Estomac vide':               'Empty stomach',   // ← ADDED
+    'Estomac vide':               'Empty stomach',
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ANCHOR HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  String? _mealGroupOf(String enAnchor) {
+    if (enAnchor.contains('breakfast')) return 'breakfast';
+    if (enAnchor.contains('lunch'))     return 'lunch';
+    if (enAnchor.contains('dinner'))    return 'dinner';
+    return null;
+  }
+
+  bool _isExclusive(String enAnchor) => enAnchor == 'Empty stomach';
+
+  bool _isAnchorDisabled(String enAnchor, List<String> enSelected, int maxAnchors) {
+    if (enSelected.contains(enAnchor)) return false;
+    if (enSelected.any(_isExclusive)) return true;
+    if (_isExclusive(enAnchor) && enSelected.isNotEmpty) return true;
+    if (enSelected.length >= maxAnchors) return true;
+    final group = _mealGroupOf(enAnchor);
+    if (group != null && enSelected.any((a) => _mealGroupOf(a) == group)) return true;
+    return false;
+  }
+
+  int _maxAnchorsFor(String? enFreq) {
+    if (enFreq == 'Once daily')        return 1;
+    if (enFreq == 'Twice daily')       return 2;
+    if (enFreq == 'Three times daily') return 3;
+    return 0;
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // STATE
@@ -124,10 +148,6 @@ class _ReviewParsedMedicationsPageState
   Map<int, List<String>> _mealAnchorsPerItem    = {};
   Map<int, String> _priorityPerItem             = {};
   Map<int, BarcodeResult?> _scannedBarcodes     = {};
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // INIT
-  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -150,14 +170,12 @@ class _ReviewParsedMedicationsPageState
       _priorityPerItem[i]      = 'MEDIUM';
       _scannedBarcodes[i]      = null;
 
-      // Parse combined frequency string from OCR (e.g. "Once daily + After breakfast")
       final rawFreq = widget.medications[i]['frequency']?.toString() ?? '';
       final parts   = rawFreq.split(' + ');
       final base    = parts.isNotEmpty ? parts[0].trim() : 'Once daily';
       _mainFrequencies[i] =
           _frequenciesEn.contains(base) ? base : 'Once daily';
 
-      // FIX: include 'Empty stomach' in anchor recognition
       final anchors = parts.length > 1
           ? parts
               .sublist(1)
@@ -184,10 +202,6 @@ class _ReviewParsedMedicationsPageState
       setState(() => _loadingConditions = false);
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────────────────────────────────────
 
   List<String> _getCurrentFrequencyBase(LanguageService lang) =>
       lang.getCurrentLanguage() == 'fr' ? _frequenciesFr : _frequenciesEn;
@@ -219,10 +233,6 @@ class _ReviewParsedMedicationsPageState
       default: return Icons.access_time;
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // BARCODE
-  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _openScannerForItem(int index) async {
     final medName = _items[index].nameController.text.trim();
@@ -272,7 +282,6 @@ class _ReviewParsedMedicationsPageState
                       fontFamily: 'monospace')),
             ]),
           ),
-          // re-scan
           GestureDetector(
             onTap: () => _openScannerForItem(index),
             child: Container(
@@ -285,7 +294,6 @@ class _ReviewParsedMedicationsPageState
             ),
           ),
           const SizedBox(width: 4),
-          // remove
           GestureDetector(
             onTap: () => setState(() => _scannedBarcodes[index] = null),
             child: Container(
@@ -293,8 +301,7 @@ class _ReviewParsedMedicationsPageState
               decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(8)),
-              child:
-                  Icon(Icons.close, color: Colors.red.shade400, size: 18),
+              child: Icon(Icons.close, color: Colors.red.shade400, size: 18),
             ),
           ),
         ]),
@@ -347,12 +354,6 @@ class _ReviewParsedMedicationsPageState
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // SAVE
-  // FIX: 'Empty stomach' frequency is sent correctly as a meal anchor in
-  // the backend frequency string (e.g. "Once daily + Empty stomach").
-  // ─────────────────────────────────────────────────────────────────────────
-
   Future<void> _saveSelected() async {
     final lang = Provider.of<LanguageService>(context, listen: false);
     final selected = _items
@@ -377,7 +378,6 @@ class _ReviewParsedMedicationsPageState
       }
     }
 
-    // Require meal anchor for daily frequencies
     final isFr = lang.getCurrentLanguage() == 'fr';
     for (int i = 0; i < _items.length; i++) {
       if (!_items[i].include) continue;
@@ -462,10 +462,6 @@ class _ReviewParsedMedicationsPageState
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DATE
-  // ─────────────────────────────────────────────────────────────────────────
-
   Future<void> _pickStartDate() async {
     final lang = Provider.of<LanguageService>(context, listen: false);
     final picked = await showDatePicker(
@@ -482,10 +478,6 @@ class _ReviewParsedMedicationsPageState
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CONDITION SELECTOR
-  // ─────────────────────────────────────────────────────────────────────────
 
   void _showConditionSelector(int index) {
     if (_isConditionPreSelected) {
@@ -540,17 +532,10 @@ class _ReviewParsedMedicationsPageState
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FREQUENCY SELECTOR
-  //
-  // FIX: 'Empty stomach' is shown in the meal anchors section.
-  // It is mutually exclusive with other meal anchors because you cannot
-  // take a medication "on an empty stomach" AND "after breakfast" —
-  // those contradict each other. When the patient selects 'Empty stomach',
-  // all other anchors are cleared.
+  // FREQUENCY SELECTOR — full anchor logic
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _showSmartFrequencySelector(
-      int itemIndex, LanguageService lang) {
+  void _showSmartFrequencySelector(int itemIndex, LanguageService lang) {
     final baseFreqs = _getCurrentFrequencyBase(lang);
     final anchors   = _getCurrentMealAnchors(lang);
     final isFr      = lang.getCurrentLanguage() == 'fr';
@@ -567,18 +552,12 @@ class _ReviewParsedMedicationsPageState
             ? (_frToEnMap[mainFreq] ?? mainFreq)
             : null;
         final isInterval = mainFreqEn != null &&
-            (mainFreqEn.contains('Every') ||
-                mainFreqEn == 'As needed');
-
-        int maxAnchors = 99;
-        if (mainFreqEn == 'Once daily') maxAnchors = 1;
-        else if (mainFreqEn == 'Twice daily') maxAnchors = 2;
-        else if (mainFreqEn == 'Three times daily') maxAnchors = 3;
-
-        // Empty stomach is always a single-anchor selection
+            (mainFreqEn.contains('Every') || mainFreqEn == 'As needed');
+        final maxAnchors = _maxAnchorsFor(mainFreqEn);
         final currentAnchors = _mealAnchorsPerItem[itemIndex] ?? [];
-        final hasEmptyStomach = currentAnchors.contains(
-            isFr ? 'Estomac vide' : 'Empty stomach');
+        final enSelected = currentAnchors
+            .map((a) => _frToEnMap[a] ?? a)
+            .toList();
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.88,
@@ -586,8 +565,7 @@ class _ReviewParsedMedicationsPageState
           child: Column(children: [
             const SizedBox(height: 12),
             Container(
-                width: 40,
-                height: 4,
+                width: 40, height: 4,
                 decoration: BoxDecoration(
                     color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2))),
@@ -598,7 +576,8 @@ class _ReviewParsedMedicationsPageState
             const Divider(),
             Expanded(
               child: ListView(children: [
-                // ── Base frequency ─────────────────────────────────────
+
+                // ── Base frequency ────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       vertical: 8, horizontal: 16),
@@ -613,16 +592,27 @@ class _ReviewParsedMedicationsPageState
                 ...baseFreqs.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final f   = entry.value;
+                  final enF = _frToEnMap[f] ?? f;
+                  final freqDisabled = enSelected.any(_isExclusive) &&
+                      enF != 'Once daily';
                   return RadioListTile<String>(
                     secondary: Icon(_getFrequencyIcon(idx),
-                        color: _mainFrequencies[itemIndex] == f
-                            ? Colors.blue
-                            : Colors.grey),
-                    title: Text(f),
+                        color: freqDisabled
+                            ? Colors.grey.shade300
+                            : (_mainFrequencies[itemIndex] == f
+                                ? Colors.blue
+                                : Colors.grey)),
+                    title: Text(f,
+                        style: TextStyle(
+                            color: freqDisabled
+                                ? Colors.grey.shade400
+                                : Colors.black)),
                     value: f,
-                    groupValue: _mainFrequencies[itemIndex],
+                    groupValue: freqDisabled
+                        ? null
+                        : _mainFrequencies[itemIndex],
                     activeColor: Colors.blue,
-                    onChanged: (val) {
+                    onChanged: freqDisabled ? null : (val) {
                       if (val == null) return;
                       setModalState(() {
                         _mainFrequencies[itemIndex] = val;
@@ -631,11 +621,9 @@ class _ReviewParsedMedicationsPageState
                             valEn == 'As needed') {
                           _mealAnchorsPerItem[itemIndex] = [];
                         } else {
-                          int newMax = 99;
-                          if (valEn == 'Once daily') newMax = 1;
-                          else if (valEn == 'Twice daily') newMax = 2;
-                          else if (valEn == 'Three times daily') newMax = 3;
-                          final cur = _mealAnchorsPerItem[itemIndex] ?? [];
+                          final newMax = _maxAnchorsFor(valEn);
+                          final cur =
+                              _mealAnchorsPerItem[itemIndex] ?? [];
                           if (cur.length > newMax) {
                             _mealAnchorsPerItem[itemIndex] =
                                 cur.sublist(0, newMax);
@@ -647,7 +635,7 @@ class _ReviewParsedMedicationsPageState
                   );
                 }),
 
-                // ── Meal anchors ────────────────────────────────────────
+                // ── Meal anchors ──────────────────────────────────────
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -675,17 +663,34 @@ class _ReviewParsedMedicationsPageState
                   )
                 else
                   ...anchors.map((a) {
-                    final enAnchor = _frToEnMap[a] ?? a;
+                    final enAnchor     = _frToEnMap[a] ?? a;
                     final isEmptyStomach = enAnchor == 'Empty stomach';
-                    final isSel = currentAnchors.contains(a);
+                    final isSel        = currentAnchors.contains(a);
+                    final isDisabled   = _isAnchorDisabled(
+                        enAnchor, enSelected, maxAnchors);
+                    final group        = _mealGroupOf(enAnchor);
 
-                    // Empty stomach is disabled if any other anchor is
-                    // selected; other anchors are disabled if empty
-                    // stomach is selected.
-                    final isDisabled = (!isSel &&
-                            currentAnchors.length >= maxAnchors) ||
-                        (!isSel && hasEmptyStomach && !isEmptyStomach) ||
-                        (!isSel && isEmptyStomach && currentAnchors.isNotEmpty);
+                    Widget? subtitleWidget;
+                    if (isEmptyStomach) {
+                      subtitleWidget = Text(
+                        isFr
+                            ? 'Ne peut pas être combiné avec d\'autres repas'
+                            : 'Cannot be combined with other meal anchors',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                      );
+                    } else if (!isSel &&
+                        group != null &&
+                        enSelected.any(
+                            (s) => _mealGroupOf(s) == group)) {
+                      subtitleWidget = Text(
+                        isFr
+                            ? 'Ce repas est déjà couvert'
+                            : 'This meal is already covered',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                      );
+                    }
 
                     return CheckboxListTile(
                       title: Row(children: [
@@ -695,7 +700,6 @@ class _ReviewParsedMedicationsPageState
                                     color: isDisabled
                                         ? Colors.grey
                                         : Colors.black))),
-                        // Show a special badge for Empty stomach
                         if (isEmptyStomach)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -714,16 +718,7 @@ class _ReviewParsedMedicationsPageState
                             ),
                           ),
                       ]),
-                      subtitle: isEmptyStomach
-                          ? Text(
-                              isFr
-                                  ? 'Ne peut pas être combiné avec d\'autres repas'
-                                  : 'Cannot be combined with other meal anchors',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500),
-                            )
-                          : null,
+                      subtitle: subtitleWidget,
                       value: isSel,
                       activeColor: Colors.blue,
                       onChanged: isDisabled
@@ -731,14 +726,16 @@ class _ReviewParsedMedicationsPageState
                           : (val) {
                               setModalState(() {
                                 if (val == true) {
-                                  // Selecting Empty stomach clears all others
                                   if (isEmptyStomach) {
-                                    _mealAnchorsPerItem[itemIndex] = [a];
+                                    _mealAnchorsPerItem[itemIndex] =
+                                        [a];
+                                    _mainFrequencies[itemIndex] =
+                                        isFr
+                                            ? 'Une fois par jour'
+                                            : 'Once daily';
                                   } else {
-                                    _mealAnchorsPerItem[itemIndex] = [
-                                      ...(currentAnchors),
-                                      a
-                                    ];
+                                    _mealAnchorsPerItem[itemIndex] =
+                                        [...currentAnchors, a];
                                   }
                                 } else {
                                   _mealAnchorsPerItem[itemIndex] =
@@ -768,8 +765,8 @@ class _ReviewParsedMedicationsPageState
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(lang.translate('confirm'),
-                      style:
-                          const TextStyle(fontWeight: FontWeight.bold)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -794,10 +791,6 @@ class _ReviewParsedMedicationsPageState
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageService>(context);
@@ -818,7 +811,6 @@ class _ReviewParsedMedicationsPageState
       ),
       body: Column(children: [
 
-        // locked condition banner
         if (_isConditionPreSelected)
           Container(
             margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
@@ -838,7 +830,6 @@ class _ReviewParsedMedicationsPageState
             ]),
           ),
 
-        // start date row
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
           child: Row(children: [
@@ -855,7 +846,6 @@ class _ReviewParsedMedicationsPageState
           ]),
         ),
 
-        // medication cards
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
@@ -868,6 +858,13 @@ class _ReviewParsedMedicationsPageState
                   'name': widget.conditionName ?? 'No condition selected'
                 },
               );
+              final mainFreqEn = _frToEnMap[_mainFrequencies[index] ?? ''] ??
+                  _mainFrequencies[index] ?? '';
+              final needsAnchor = mainFreqEn == 'Once daily' ||
+                  mainFreqEn == 'Twice daily' ||
+                  mainFreqEn == 'Three times daily';
+              final missingAnchor = needsAnchor &&
+                  (_mealAnchorsPerItem[index] ?? []).isEmpty;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -886,7 +883,6 @@ class _ReviewParsedMedicationsPageState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
 
-                  // include switch
                   Row(children: [
                     Switch(
                         value: item.include,
@@ -906,7 +902,6 @@ class _ReviewParsedMedicationsPageState
                   ]),
                   const SizedBox(height: 12),
 
-                  // name
                   TextField(
                     controller: item.nameController,
                     decoration: InputDecoration(
@@ -915,7 +910,6 @@ class _ReviewParsedMedicationsPageState
                   ),
                   const SizedBox(height: 12),
 
-                  // dosage
                   TextField(
                     controller: item.dosageController,
                     decoration: InputDecoration(
@@ -924,11 +918,9 @@ class _ReviewParsedMedicationsPageState
                   ),
                   const SizedBox(height: 12),
 
-                  // barcode
                   _buildBarcodeCard(index, isFr),
                   const SizedBox(height: 12),
 
-                  // frequency
                   Text(lang.translate('frequency'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
@@ -941,24 +933,28 @@ class _ReviewParsedMedicationsPageState
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(
+                            color: missingAnchor
+                                ? Colors.red.shade300
+                                : Colors.grey.shade300,
+                            width: missingAnchor ? 1.5 : 1),
                         borderRadius: BorderRadius.circular(8),
                         color: Colors.white,
                       ),
                       child: Row(children: [
                         Icon(Icons.access_time,
-                            color: Colors.blue.shade300),
+                            color: missingAnchor
+                                ? Colors.red.shade300
+                                : Colors.blue.shade300),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             () {
-                              final main =
-                                  _mainFrequencies[index];
+                              final main = _mainFrequencies[index];
                               final anch =
                                   _mealAnchorsPerItem[index] ?? [];
                               if (main == null && anch.isEmpty) {
-                                return lang
-                                    .translate('selectFrequency');
+                                return lang.translate('selectFrequency');
                               }
                               return [
                                 if (main != null) main,
@@ -968,10 +964,9 @@ class _ReviewParsedMedicationsPageState
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color:
-                                    _mainFrequencies[index] == null
-                                        ? Colors.grey.shade400
-                                        : Colors.black),
+                                color: _mainFrequencies[index] == null
+                                    ? Colors.grey.shade400
+                                    : Colors.black),
                           ),
                         ),
                         const Icon(Icons.arrow_drop_down,
@@ -979,7 +974,38 @@ class _ReviewParsedMedicationsPageState
                       ]),
                     ),
                   ),
-                  // ── As needed info banner ───────────────────────────────
+
+                  if (missingAnchor) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              color: Colors.red.shade600, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isFr
+                                  ? 'Sélectionnez le moment de prise'
+                                  : 'Please select when to take this medication',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade700,
+                                  height: 1.4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   if ((_frToEnMap[_mainFrequencies[index]] ??
                           _mainFrequencies[index]) ==
                       'As needed') ...[
@@ -989,8 +1015,8 @@ class _ReviewParsedMedicationsPageState
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(10),
-                        border:
-                            Border.all(color: Colors.orange.shade200),
+                        border: Border.all(
+                            color: Colors.orange.shade200),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1004,10 +1030,9 @@ class _ReviewParsedMedicationsPageState
                                   ? 'Aucun rappel ne sera envoyé. Ce médicament n\'apparaîtra pas dans le planning quotidien. Prenez-le uniquement si nécessaire.'
                                   : 'No reminders will be sent. This medication will not appear in the daily schedule. Take it only when needed.',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange.shade800,
-                                height: 1.4,
-                              ),
+                                  fontSize: 12,
+                                  color: Colors.orange.shade800,
+                                  height: 1.4),
                             ),
                           ),
                         ],
@@ -1016,7 +1041,6 @@ class _ReviewParsedMedicationsPageState
                   ],
                   const SizedBox(height: 12),
 
-                  // priority
                   Text(isFr ? 'Priorité' : 'Priority',
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
@@ -1059,14 +1083,16 @@ class _ReviewParsedMedicationsPageState
                                 color: isSelected
                                     ? color
                                     : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius:
+                                    BorderRadius.circular(10),
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
                                             color:
                                                 color.withOpacity(0.3),
                                             blurRadius: 4,
-                                            offset: const Offset(0, 2))
+                                            offset:
+                                                const Offset(0, 2))
                                       ]
                                     : null,
                               ),
@@ -1087,7 +1113,6 @@ class _ReviewParsedMedicationsPageState
                   ),
                   const SizedBox(height: 12),
 
-                  // duration
                   TextField(
                     controller: item.durationController,
                     keyboardType: TextInputType.number,
@@ -1136,7 +1161,6 @@ class _ReviewParsedMedicationsPageState
                     ),
                   const SizedBox(height: 12),
 
-                  // condition
                   Container(
                     decoration: BoxDecoration(
                       border: Border.all(
@@ -1215,7 +1239,6 @@ class _ReviewParsedMedicationsPageState
           ),
         ),
 
-        // save button
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: SizedBox(
@@ -1246,10 +1269,6 @@ class _ReviewParsedMedicationsPageState
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DATA CLASS
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _EditableMedication {
   final TextEditingController nameController;
