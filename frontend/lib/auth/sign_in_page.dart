@@ -31,6 +31,11 @@ class _SignInPageState extends State<SignInPage>
   static const Color accent    = Color(0xFF64B5F6);
   static const Color darkText  = Color(0xFF0F172A);
 
+  // ✅ NEW: Cache keys (same as in DailyPlanningPage)
+  static const String CACHE_PLANNING_KEY = 'cached_planning_data';
+  static const String CACHE_DATE_KEY = 'cached_planning_date';
+  static const String CACHE_TIMESTAMP_KEY = 'cached_planning_timestamp';
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +52,42 @@ class _SignInPageState extends State<SignInPage>
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // ✅ NEW: Cache planning data after successful login
+  Future<void> _cachePlanningData(String token) async {
+    try {
+      final today = DateTime.now();
+      final formattedDate = '${today.year.toString().padLeft(4,'0')}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+      
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/schedule?date=$formattedDate'),
+        headers: ApiConfig.getAuthHeaders(token),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        
+        final cacheData = {
+          'date': formattedDate,
+          'medications': data['medications'],
+          'stats': data['stats'],
+          'cached_at': DateTime.now().toIso8601String(),
+        };
+        
+        await prefs.setString(CACHE_PLANNING_KEY, jsonEncode(cacheData));
+        await prefs.setString(CACHE_DATE_KEY, formattedDate);
+        await prefs.setString(CACHE_TIMESTAMP_KEY, DateTime.now().toIso8601String());
+        
+        debugPrint('✅ Planning cached for offline use: $formattedDate');
+      } else {
+        debugPrint('⚠️ Failed to cache planning: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Could not cache planning (network may be slow): $e');
+      // Don't block login if caching fails
+    }
   }
 
   Future<void> _login() async {
@@ -69,11 +110,16 @@ class _SignInPageState extends State<SignInPage>
 
       if (response.statusCode == 200 && data['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token',  data['token']);
+        final token = data['token'];
+        
+        await prefs.setString('auth_token',  token);
         await prefs.setString('user_name',   data['user']['name']  ?? '');
         await prefs.setString('user_email',  data['user']['email'] ?? '');
         await prefs.setString('user_role',   data['user']['role']  ?? '');
         await prefs.setString('api_url',     ApiConfig.baseUrl);
+
+        // ✅ NEW: Cache planning data for offline use (AFTER successful login)
+        await _cachePlanningData(token);
 
         try {
           if (data['user']['role'] == 'patient') {
@@ -84,14 +130,14 @@ class _SignInPageState extends State<SignInPage>
         if (mounted) {
           final role = data['user']['role'];
           if (role == 'admin') {
-  Navigator.pushReplacementNamed(context, '/admin');
-} else if (role == 'caregiver') {
-  setState(() => _errorMessage = 'This is the patient portal. Please use the Caregiver Login button below.');
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('auth_token'); // clear the token
-  setState(() => _isLoading = false);
-  return;
-} else {
+            Navigator.pushReplacementNamed(context, '/admin');
+          } else if (role == 'caregiver') {
+            setState(() => _errorMessage = 'This is the patient portal. Please use the Caregiver Login button below.');
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('auth_token');
+            setState(() => _isLoading = false);
+            return;
+          } else {
             try {
               final profileResponse = await http.get(
                 Uri.parse('${ApiConfig.baseUrl}/profile/me'),
