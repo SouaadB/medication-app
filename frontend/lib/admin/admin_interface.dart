@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:provider/provider.dart';
 import '../config/api_config.dart';
-import '../services/language_service.dart';
-import '../services/settings_service.dart';
 
 class AdminInterface extends StatefulWidget {
   const AdminInterface({super.key});
@@ -24,7 +21,6 @@ class _AdminInterfaceState extends State<AdminInterface> {
   final TextEditingController _searchController = TextEditingController();
 
   static const Color primaryBlue = Color(0xFF3498DB);
-   
   static const Color bgColor = Color(0xFFF5F7FB);
   static const Color darkText = Color(0xFF0F172A);
 
@@ -33,12 +29,6 @@ class _AdminInterfaceState extends State<AdminInterface> {
     super.initState();
     _loadUserData();
     _loadAdminData();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -112,7 +102,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
     setState(() => _filteredPatients = filtered);
   }
 
-  Future<void> _removePatient(int patientId, String patientName, LanguageService lang) async {
+  Future<void> _removePatient(int patientId, String patientName) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -122,18 +112,18 @@ class _AdminInterfaceState extends State<AdminInterface> {
             decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.delete_outline, color: Colors.red, size: 18)),
           const SizedBox(width: 12),
-          Text(lang.translate('deletePatient'), style: const TextStyle(fontSize: 17, color: Colors.red)),
+          const Text('Delete Patient', style: TextStyle(fontSize: 17, color: Colors.red)),
         ]),
-        content: Text('${lang.translate('confirmDeletePatient')} "$patientName"?',
+        content: Text('Are you sure you want to delete "$patientName"?',
             style: TextStyle(color: Colors.grey.shade600)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(lang.translate('cancel'))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red,
                 foregroundColor: Colors.white, elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            child: Text(lang.translate('delete')),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -158,16 +148,16 @@ class _AdminInterfaceState extends State<AdminInterface> {
           _filteredPatients.removeWhere((p) => p['id'] == patientId);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(lang.translate('patientDeleted')), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Patient deleted successfully'), backgroundColor: Colors.green),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(lang.translate('deleteError')), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Failed to delete patient'), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(lang.translate('deleteError')), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Connection error'), backgroundColor: Colors.red),
       );
     }
   }
@@ -185,19 +175,14 @@ class _AdminInterfaceState extends State<AdminInterface> {
     return name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
   }
 
-  void _snack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+  // Reload user name when returning from profile
+  Future<void> _navigateToProfile() async {
+    await Navigator.pushNamed(context, '/profile');
+    _loadUserData(); // Refresh name after returning
   }
 
   @override
   Widget build(BuildContext context) {
-    final languageService = Provider.of<LanguageService>(context);
-    
     return Scaffold(
       backgroundColor: bgColor,
       body: _isLoading
@@ -205,7 +190,6 @@ class _AdminInterfaceState extends State<AdminInterface> {
           : SafeArea(
               child: CustomScrollView(
                 slivers: [
-                  // ── SliverAppBar ──────────────────────────────────────────
                   SliverAppBar(
                     expandedHeight: 180,
                     pinned: true,
@@ -273,8 +257,8 @@ class _AdminInterfaceState extends State<AdminInterface> {
                                     style: const TextStyle(color: Colors.white,
                                         fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
                                 const SizedBox(height: 4),
-                                Text('System Administrator',
-                                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                                const Text('System Administrator',
+                                    style: TextStyle(color: Colors.white, fontSize: 13)),
                                 const SizedBox(height: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -293,23 +277,28 @@ class _AdminInterfaceState extends State<AdminInterface> {
                     ),
                   ),
 
-                  // ── Stats Grid ───────────────────────────────────────────
+                  // Stats Grid (responsive)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Expanded(child: _buildStatCard(languageService.translate('patients'), _stats?['totalPatients']?.toString() ?? '0', Icons.people_alt_rounded, Colors.blue)),
-                          const SizedBox(width: 12),
-                          Expanded(child: _buildStatCard(languageService.translate('caregivers'), _stats?['totalCaregivers']?.toString() ?? '0', Icons.people_outline, Colors.green)),
-                          const SizedBox(width: 12),
-                          Expanded(child: _buildStatCard(languageService.translate('admins'), _stats?['totalAdmins']?.toString() ?? '1', Icons.admin_panel_settings_rounded, Colors.orange)),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isSmall = constraints.maxWidth < 500;
+                          return Row(
+                            children: [
+                              Expanded(child: _buildStatCard('Patients', _stats?['totalPatients']?.toString() ?? '0', Icons.people_alt_rounded, Colors.blue)),
+                              SizedBox(width: isSmall ? 8 : 12),
+                              Expanded(child: _buildStatCard('Caregivers', _stats?['totalCaregivers']?.toString() ?? '0', Icons.people_outline, Colors.green)),
+                              SizedBox(width: isSmall ? 8 : 12),
+                              Expanded(child: _buildStatCard('Admins', _stats?['totalAdmins']?.toString() ?? '1', Icons.admin_panel_settings_rounded, Colors.orange)),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
 
-                  // ── Search Bar ───────────────────────────────────────────
+                  // Search Bar
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -322,34 +311,25 @@ class _AdminInterfaceState extends State<AdminInterface> {
                         child: TextField(
                           controller: _searchController,
                           onChanged: _filterPatients,
-                          decoration: InputDecoration(
-                            hintText: languageService.translate('searchPatients'),
-                            prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                            suffixIcon: _searchController.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _filterPatients('');
-                                    },
-                                    icon: const Icon(Icons.close, color: Colors.grey),
-                                  ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search patients...',
+                            prefixIcon: Icon(Icons.search, color: Colors.grey),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                         ),
                       ),
                     ),
                   ),
 
-                  // ── Patient List ─────────────────────────────────────────
+                  // Patient List
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     sliver: _filteredPatients.isEmpty
-                        ? SliverToBoxAdapter(child: _buildEmptyState(languageService))
+                        ? SliverToBoxAdapter(child: _buildEmptyState())
                         : SliverList(
                             delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildPatientCard(_filteredPatients[index], languageService),
+                              (context, index) => _buildPatientCard(_filteredPatients[index]),
                               childCount: _filteredPatients.length,
                             ),
                           ),
@@ -358,13 +338,13 @@ class _AdminInterfaceState extends State<AdminInterface> {
                 ],
               ),
             ),
-      drawer: _buildDrawer(context, languageService),
+      drawer: _buildDrawer(),
     );
   }
 
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -375,18 +355,18 @@ class _AdminInterfaceState extends State<AdminInterface> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(height: 12),
-          Text(value, style: TextStyle(color: color, fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(label, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
         ],
       ),
     );
   }
 
-  Widget _buildPatientCard(Map<String, dynamic> patient, LanguageService lang) {
+  Widget _buildPatientCard(Map<String, dynamic> patient) {
     final bool isActive = (patient['is_active'] == 1 || patient['is_active'] == true);
     final String name = patient['name']?.toString() ?? 'Unknown';
     final String email = patient['email']?.toString() ?? '';
@@ -420,6 +400,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 50, height: 50,
@@ -447,13 +428,13 @@ class _AdminInterfaceState extends State<AdminInterface> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: (isActive ? Colors.green : Colors.red).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isActive ? lang.translate('active') : lang.translate('inactive'),
+                    isActive ? 'Active' : 'Inactive',
                     style: TextStyle(
                       color: isActive ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,
@@ -473,7 +454,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(lang.translate('adherenceRate'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  const Text('Adherence Rate', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                   Row(
                     children: [
                       Text(
@@ -513,7 +494,7 @@ class _AdminInterfaceState extends State<AdminInterface> {
                         Icon(Icons.people_outline, size: 14, color: Colors.green.shade700),
                         const SizedBox(width: 6),
                         Text(
-                          '${lang.translate('caregivers')} (${caregivers.length})',
+                          'Caregivers (${caregivers.length})',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -553,23 +534,10 @@ class _AdminInterfaceState extends State<AdminInterface> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.visibility, size: 18),
-                    label: Text(lang.translate('view')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryBlue,
-                      side: BorderSide(color: primaryBlue.withOpacity(0.3)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _removePatient(patient['id'] as int, name, lang),
+                    onPressed: () => _removePatient(patient['id'] as int, name),
                     icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(lang.translate('delete')),
+                    label: const Text('Delete'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -585,22 +553,20 @@ class _AdminInterfaceState extends State<AdminInterface> {
     );
   }
 
-  Widget _buildEmptyState(LanguageService lang) {
-    return Center(
+  Widget _buildEmptyState() {
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.people_outline, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text(lang.translate('noPatients'), style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+          Icon(Icons.people_outline, size: 80, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('No patients found', style: TextStyle(color: Colors.grey, fontSize: 16)),
         ],
       ),
     );
   }
 
-  Widget _buildDrawer(BuildContext context, LanguageService lang) {
-    final settingsService = Provider.of<SettingsService>(context);
-    
+  Widget _buildDrawer() {
     return Drawer(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topRight: Radius.circular(28), bottomRight: Radius.circular(28))),
@@ -641,24 +607,18 @@ class _AdminInterfaceState extends State<AdminInterface> {
           ]),
         ),
         const SizedBox(height: 8),
-        _drawerItem(Icons.dashboard, lang.translate('dashboard'), true, () => Navigator.pop(context)),
+        _drawerItem(Icons.dashboard, 'Dashboard', false, () => Navigator.pop(context)),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Divider(height: 1),
         ),
-        _drawerItem(Icons.person_outline, lang.translate('profile'), false, () {
-          Navigator.pop(context);
-          Navigator.pushNamed(context, '/profile');
-        }),
-        _drawerItem(Icons.language, lang.translate('language'), false, () {
-          _showLanguageDialog(context, settingsService, lang);
-        }),
+        _drawerItem(Icons.person_outline, 'My Profile', false, _navigateToProfile), // Use custom navigation
         const Spacer(),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Divider(height: 1),
         ),
-        _drawerItem(Icons.logout, lang.translate('logout'), true, _logout),
+        _drawerItem(Icons.logout, 'Logout', true, _logout),
         const SizedBox(height: 20),
       ]),
     );
@@ -679,53 +639,6 @@ class _AdminInterfaceState extends State<AdminInterface> {
       title: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-    );
-  }
-
-  void _showLanguageDialog(BuildContext context, SettingsService settings, LanguageService lang) async {
-    final currentLang = lang.getCurrentLanguage();
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: [
-            Container(width: 36, height: 36,
-              decoration: BoxDecoration(color: primaryBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.language, color: primaryBlue, size: 18)),
-            const SizedBox(width: 12),
-            Text(lang.translate('language'), style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 17)),
-          ]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('English'),
-                leading: Radio<String>(
-                  value: 'en',
-                  groupValue: currentLang,
-                  onChanged: (String? value) {
-                    Navigator.pop(context);
-                    settings.setLanguage('en');
-                  },
-                ),
-              ),
-              ListTile(
-                title: const Text('Français'),
-                leading: Radio<String>(
-                  value: 'fr',
-                  groupValue: currentLang,
-                  onChanged: (String? value) {
-                    Navigator.pop(context);
-                    settings.setLanguage('fr');
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
