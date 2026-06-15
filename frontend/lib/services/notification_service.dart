@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'accessibility_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NAVIGATION KEY
@@ -150,6 +151,8 @@ class NotificationService {
   // ── FOREGROUND MESSAGE HANDLER ─────────────────────────────────────────────
   // Shows a local notification banner when app is open.
   // Tapping that banner also routes to /notifications.
+  // For patients in an accessibility mode, the content is also spoken aloud
+  // the moment the notification arrives (see _speakNotificationAloud below).
 
   static void _handleForegroundMessage(RemoteMessage message) {
     print('📨 Foreground message: ${message.notification?.title}');
@@ -176,8 +179,41 @@ class NotificationService {
         // payload carries navigate_to so the tap handler can use it
         payload: jsonEncode(message.data),
       );
+
+      // ── ACCESSIBILITY: speak the notification aloud on arrival ──
+      _speakNotificationAloud(message);
     } catch (e) {
       print('⚠️ Error showing notification: $e');
+    }
+  }
+
+  // ── SPEAK ON ARRIVAL ───────────────────────────────────────────────────────
+  // Reads the notification content out loud when it arrives, for patients in
+  // Easy Read or Visual Impairment mode. Reuses the same TTS path (per-stage
+  // speed + text cleaning) used when a card is tapped, so it sounds identical.
+  //
+  // Foreground only: AccessibilityService.instance.load() is awaited in main()
+  // before notifications can arrive, so ttsEnabled is already correct here.
+  // When the app is backgrounded/killed, driving TTS from the background
+  // isolate is unreliable on Android — the existing tap-to-open + tap-card-to-
+  // read flow covers that case instead.
+
+  static Future<void> _speakNotificationAloud(RemoteMessage message) async {
+    try {
+      final a11y = AccessibilityService.instance;
+      if (!a11y.ttsEnabled) return; // no accessibility mode on → stay silent
+
+      final stage = (message.data['stage'] ?? 'MAIN').toString();
+      final body  = message.notification?.body
+                 ?? message.data['message']
+                 ?? message.data['body']
+                 ?? '';
+      if (body.isEmpty) return;
+
+      await a11y.vibrateForStage(stage);
+      await a11y.speakNotification(body, stage: stage, lang: 'en');
+    } catch (e) {
+      print('⚠️ Error speaking notification: $e');
     }
   }
 

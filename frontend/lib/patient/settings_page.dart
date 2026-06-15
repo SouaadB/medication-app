@@ -199,14 +199,7 @@ Future<void> _exportPdf() async {
 // ── MEDICATION ──────────────────────────────────────────────────
           _section('Medication', Icons.medication_outlined, Colors.purple, isDark),
           _card(isDark, [
-            _switchTile(
-              icon: Icons.autorenew_outlined, iconColor: Colors.purple,
-              title: 'Auto-Refill Reminders', subtitle: 'Remind when supply is low',
-              value: settings.autoRefillReminders,
-              onChanged: (v) => settings.setAutoRefillReminders(v),
-              isDark: isDark,
-            ),
-            _divider(isDark),
+
             _navTile(
               icon: Icons.schedule_outlined, iconColor: Colors.purple,
               title: 'Daily Schedule',

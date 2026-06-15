@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHAKE CONFIRM SERVICE  v2
+// SHAKE CONFIRM SERVICE  v3
 //
 // Fix 1 — Sensitivity: uses a GRAVITY-REMOVED magnitude so that resting on a
 //   table (gravity ~9.8) no longer triggers. We track the low-pass filtered
@@ -12,14 +12,14 @@ import 'package:sensors_plus/sensors_plus.dart';
 //   Threshold is applied to that dynamic magnitude only.
 //
 // Fix 2 — Single target: the service is a SINGLETON with one active callback
-//   at a time. Each card registers itself with a notificationId. When shake
-//   fires, only the registered card's callback runs — never multiple at once.
+//   at a time. The card the user TAPPED registers itself (register-on-tap).
+//   When shake fires, only that card's callback runs — never multiple cards.
 //
 // Fix 3 — Gesture pattern: requires 3 back-and-forth peaks (direction
 //   changes) not just 3 magnitude spikes. This filters out a single slam
 //   or placing the phone down, while still recognising a real shake.
 //
-// Usage (in card initState):
+// Usage (in card _speak / on tap):
 //   ShakeConfirmService.instance.register(
 //     notificationId: widget.notification['id'],
 //     onConfirmed: _handleTaken,
@@ -73,12 +73,19 @@ class ShakeConfirmService {
   ValueChanged<int>? _onProgress;
 
   // ── Register ─────────────────────────────────────────────────────────────────
-  // Call from card initState. Replaces any previous registration.
+  // Call when the user TAPS a card. Replaces any previous registration so the
+  // shake always confirms the card the patient is currently looking at.
   void register({
     required int notificationId,
     required VoidCallback onConfirmed,
     ValueChanged<int>? onProgress,
   }) {
+    // If a DIFFERENT card was active before, reset its shake dots back to 0
+    // so a stale "2/3" indicator doesn't linger on the previous card.
+    if (_activeId != notificationId) {
+      _onProgress?.call(0);
+    }
+
     _activeId    = notificationId;
     _onConfirmed = onConfirmed;
     _onProgress  = onProgress;
@@ -95,7 +102,7 @@ class ShakeConfirmService {
   }
 
   // ── Unregister ───────────────────────────────────────────────────────────────
-  // Call from card dispose. If no other card registered, stops the sensor.
+  // Call from card dispose. If this card was the active one, stops the sensor.
   void unregister(int notificationId) {
     if (_activeId == notificationId) {
       _activeId    = null;

@@ -5,10 +5,13 @@ import '../services/shake_confirm_service.dart';
 import '../services/voice_confirm_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCESSIBLE NOTIFICATION CARDS  v4
+// ACCESSIBLE NOTIFICATION CARDS  v5
 //
-// Shake fix: ShakeConfirmService is now a singleton — only the card the user
-// is currently viewing registers itself. One shake → one confirmation.
+// Shake fix: the card REGISTERS FOR SHAKE WHEN TAPPED (inside _speak), not in
+// initState. Because every card in the list builds at once, registering in
+// initState meant the last-built card became the shake target — so a shake
+// confirmed the wrong card. Now: tap a card → it reads aloud AND becomes the
+// active shake target → shake confirms exactly that card.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StageCfg {
@@ -137,7 +140,7 @@ class _IlliteracyNotificationCardState
   String _heardText   = '';
 
   final _a11y  = AccessibilityService.instance;
-  // ── FIX: no local _shake instance — use singleton ─────────────────────────
+  // ── no local _shake instance — use singleton, registered on tap ───────────
   final _voice = VoiceConfirmService();
 
   int get _notifId => widget.notification['id'] as int;
@@ -163,24 +166,16 @@ class _IlliteracyNotificationCardState
         CurvedAnimation(parent: _successCtrl,
             curve: const Interval(0.0, 0.5, curve: Curves.easeIn)));
 
-    // ── FIX: register with singleton — only THIS card will receive the shake
-    final style = widget.getStyle(widget.notification);
-    if (style.showTaken) {
-      ShakeConfirmService.instance.register(
-        notificationId: _notifId,
-        onConfirmed: _handleTaken,
-        onProgress: (count) {
-          if (mounted) setState(() => _shakeCount = count);
-        },
-      );
-    }
+    // ── NOTE: shake registration happens in _speak() (on tap), NOT here.
+    //    Registering here would make every card register on build and the
+    //    last one would win — confirming the wrong card on shake.
   }
 
   @override
   void dispose() {
     _pulse.dispose();
     _successCtrl.dispose();
-    // ── FIX: unregister by id — stops sensor only if no other card registered
+    // Unregister by id — only stops the sensor if THIS card was the active one
     ShakeConfirmService.instance.unregister(_notifId);
     _voice.dispose();
     super.dispose();
@@ -211,6 +206,22 @@ class _IlliteracyNotificationCardState
     final data    = _parseNotifData(widget.notification['data']);
     final stage   = (data['stage'] ?? 'MAIN').toString();
     final message = (widget.notification['message'] ?? '').toString();
+
+    // ── Make THIS card the active shake target ──────────────────────────────
+    // Only the card the patient just tapped will receive the shake confirmation.
+    final style  = widget.getStyle(widget.notification);
+    final isRead = widget.notification['is_read'] == 1 ||
+                   widget.notification['is_read'] == true;
+    if (style.showTaken && !isRead && !_showSuccess) {
+      ShakeConfirmService.instance.register(
+        notificationId: _notifId,
+        onConfirmed: _handleTaken,
+        onProgress: (count) {
+          if (mounted) setState(() => _shakeCount = count);
+        },
+      );
+    }
+
     await _a11y.vibrateForStage(stage);
     await _a11y.speakNotification(message, stage: stage, lang: 'en');
   }
@@ -642,7 +653,7 @@ class _VisualImpairmentNotificationCardState
   String _heardText   = '';
 
   final _a11y  = AccessibilityService.instance;
-  // ── FIX: no local _shake instance — use singleton ─────────────────────────
+  // ── no local _shake instance — use singleton, registered on tap ───────────
   final _voice = VoiceConfirmService();
 
   int get _notifId => widget.notification['id'] as int;
@@ -655,23 +666,13 @@ class _VisualImpairmentNotificationCardState
     _successScale = Tween<double>(begin: 0.5, end: 1.0).animate(
         CurvedAnimation(parent: _successCtrl, curve: Curves.elasticOut));
 
-    // ── FIX: register with singleton
-    final style = widget.getStyle(widget.notification);
-    if (style.showTaken) {
-      ShakeConfirmService.instance.register(
-        notificationId: _notifId,
-        onConfirmed: _handleTaken,
-        onProgress: (count) {
-          if (mounted) setState(() => _shakeCount = count);
-        },
-      );
-    }
+    // ── NOTE: shake registration happens in _speak() (on tap), NOT here.
   }
 
   @override
   void dispose() {
     _successCtrl.dispose();
-    // ── FIX: unregister by id
+    // Unregister by id — only stops the sensor if THIS card was the active one
     ShakeConfirmService.instance.unregister(_notifId);
     _voice.dispose();
     super.dispose();
@@ -681,6 +682,21 @@ class _VisualImpairmentNotificationCardState
     final data    = _parseNotifData(widget.notification['data']);
     final stage   = (data['stage'] ?? 'MAIN').toString();
     final message = (widget.notification['message'] ?? '').toString();
+
+    // ── Make THIS card the active shake target ──────────────────────────────
+    final style  = widget.getStyle(widget.notification);
+    final isRead = widget.notification['is_read'] == 1 ||
+                   widget.notification['is_read'] == true;
+    if (style.showTaken && !isRead && !_showSuccess) {
+      ShakeConfirmService.instance.register(
+        notificationId: _notifId,
+        onConfirmed: _handleTaken,
+        onProgress: (count) {
+          if (mounted) setState(() => _shakeCount = count);
+        },
+      );
+    }
+
     await _a11y.vibrateForStage(stage);
     await _a11y.speakNotification(message, stage: stage, lang: 'en');
   }
