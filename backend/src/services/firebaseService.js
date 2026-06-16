@@ -3,7 +3,11 @@ const path  = require('path');
 const fs    = require('fs');
 
 const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json');
-// Add right after:
+
+if (!fs.existsSync(serviceAccountPath) && process.env.FIREBASE_SERVICE_ACCOUNT) {
+    fs.writeFileSync(serviceAccountPath, process.env.FIREBASE_SERVICE_ACCOUNT);
+}
+
 console.log('Firebase path:', serviceAccountPath);
 console.log('File exists:', fs.existsSync(serviceAccountPath));
 
