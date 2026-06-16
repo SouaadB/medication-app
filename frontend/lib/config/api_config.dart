@@ -2,34 +2,27 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // Pour Windows (PC)
-  static const String baseUrlWindows = 'http://localhost:5000/api';
-  
-  // Pour Android (émulateur)
-  static const String baseUrlAndroidEmulator = 'http://10.0.2.2:5000/api';
-  
-  // Pour Android (vrai téléphone) - MIS À JOUR AVEC TON IP ACTUELLE
-   static const String baseUrlAndroidPhone = 'http://192.168.1.5:5000/api';
-  
+  // Production backend (Render)
+  static const String _prodUrl = 'https://medicare-backend-7kkp.onrender.com/api';
+
+  // Local development (Windows only)
+  static const String _localUrl = 'http://localhost:5000/api';
+
   // Détection automatique de la plateforme
   static String get baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:5000/api';
+      return _prodUrl;
     }
-    
+
     if (Platform.isAndroid) {
-      // Pour les émulateurs, l'adresse standard est 10.0.2.2
-      // Mais Flutter ne peut pas facilement détecter si c'est un émulateur sans package additionnel
-      // On utilise donc l'IP du réseau par défaut
-      return baseUrlAndroidPhone;
+      return _prodUrl;
     }
-    
+
     if (Platform.isWindows) {
-      return baseUrlWindows;
+      return _localUrl;
     }
-    
-    // Par défaut
-    return 'http://localhost:5000/api';
+
+    return _prodUrl;
   }
   
   // Headers par défaut
