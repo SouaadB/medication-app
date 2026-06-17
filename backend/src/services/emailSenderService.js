@@ -91,7 +91,6 @@ class EmailSenderService {
 
             await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
             console.log(`✅ Caregiver invitation sent to ${email}`);
-            console.log(`🔗 Accept link: ${acceptLink}`);
             return true;
         } catch (error) {
             console.error('❌ Error sending caregiver invitation:', error);
