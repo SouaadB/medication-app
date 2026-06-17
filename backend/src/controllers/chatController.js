@@ -6,7 +6,7 @@ exports.sendMessage = async (req, res) => {
     try {
         const senderId   = req.user.id;
         const senderRole = req.user.role; // 'patient' or 'caregiver'
-        const { receiver_id, message } = req.body;
+        let { receiver_id, message } = req.body;
 
         if (!receiver_id || !message?.trim()) {
             return res.status(400).json({ success: false, message: 'receiver_id and message are required' });
