@@ -58,8 +58,6 @@ class EmailSenderService {
 
     async sendCaregiverInvitation(email, caregiverName, tempPassword) {
         try {
-            const acceptLink = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/#/accept-invitation?email=${encodeURIComponent(email)}`;
-            
             const mailOptions = {
                 from: `"MediCare" <${process.env.EMAIL_USER}>`,
                 to: email,
@@ -72,27 +70,17 @@ class EmailSenderService {
                             <h2 style="color: #333;">Hello ${caregiverName},</h2>
                             <p style="font-size: 16px; color: #666; line-height: 1.6;">
                                 You have been invited to become a caregiver on <strong>MediCare</strong>.
-                                As a caregiver, you will be able to monitor medication adherence and health progress.
+                                Download the MediCare app, open it, and use the credentials below to log in as a caregiver.
                             </p>
                             <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #22C55E;">
-                                <p style="margin: 10px 0; font-size: 15px;"><strong>Your temporary login credentials:</strong></p>
+                                <p style="margin: 10px 0; font-size: 15px;"><strong>Your login credentials:</strong></p>
                                 <p style="margin: 5px 0;">📧 Email: <strong>${email}</strong></p>
                                 <p style="margin: 5px 0;">🔑 Temporary Password: <strong style="background: #e8e8e8; padding: 4px 8px; border-radius: 4px;">${tempPassword}</strong></p>
                             </div>
                             <p style="font-size: 14px; color: #ff0000; margin-top: 10px;">
                                 ⚠️ Please change your password after your first login for security.
                             </p>
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="${acceptLink}" 
-                                   style="display: inline-block; background-color: #22C55E; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
-                                    Accept Invitation →
-                                </a>
-                            </div>
                             <p style="font-size: 12px; color: #999; margin-top: 30px;">
-                                If the button doesn't work, copy and paste this link into your browser:<br>
-                                <a href="${acceptLink}" style="color: #22C55E;">${acceptLink}</a>
-                            </p>
-                            <p style="font-size: 12px; color: #999;">
                                 This invitation will expire in 7 days.<br>
                                 If you did not expect this invitation, please ignore this email.
                             </p>

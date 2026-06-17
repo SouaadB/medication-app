@@ -67,22 +67,28 @@ exports.addCaregiver = async (req, res) => {
             if (existingRecord.status === 'REVOKED') {
                 const tempPassword = generateTempPassword();
                 const hashedPassword = await bcrypt.hash(tempPassword, 10);
-                
+
                 await db.execute(
-                    `UPDATE caregivers 
-                     SET name = ?, 
-                         relationship = ?, 
-                         view_location = ?, 
-                         view_medications = ?, 
+                    `UPDATE caregivers
+                     SET name = ?,
+                         relationship = ?,
+                         view_location = ?,
+                         view_medications = ?,
                          receive_alerts = ?,
                          status = 'PENDING',
                          temp_password = ?,
                          expires_at = DATE_ADD(NOW(), INTERVAL 7 DAY)
                      WHERE id = ?`,
-                    [name, relationship, view_location || 0, view_medications || 1, receive_alerts || 1, 
+                    [name, relationship, view_location || 0, view_medications || 1, receive_alerts || 1,
                      hashedPassword, existingRecord.id]
                 );
-                
+
+                // Sync caregiver_users password so login works with emailed password
+                await db.execute(
+                    'UPDATE caregiver_users SET password = ? WHERE email = ?',
+                    [hashedPassword, email]
+                );
+
                 const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
                 
                 return res.status(201).json({
@@ -115,31 +121,33 @@ exports.addCaregiver = async (req, res) => {
             [email]
         );
         
+        // ONE password for both tables — this is what gets emailed and what login checks
+        const tempPassword = generateTempPassword();
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
         if (existingCaregiverUser.length === 0) {
-            // Create new caregiver user account
-            const tempPassword = generateTempPassword();
-            const hashedPassword = await bcrypt.hash(tempPassword, 10);
-            
             await db.execute(
                 'INSERT INTO caregiver_users (email, name, password) VALUES (?, ?, ?)',
                 [email, name, hashedPassword]
             );
             console.log('✅ New caregiver user created for:', email);
         } else {
-            console.log('✅ Reusing existing caregiver account for:', email);
+            // Always sync the password so login works with the emailed password
+            await db.execute(
+                'UPDATE caregiver_users SET password = ? WHERE email = ?',
+                [hashedPassword, email]
+            );
+            console.log('✅ Updated caregiver password for:', email);
         }
-        
+
         // Create new caregiver relationship
-        const tempPassword = generateTempPassword();
-        const hashedTempPassword = await bcrypt.hash(tempPassword, 10);
-        
         const [result] = await db.execute(
-            `INSERT INTO caregivers 
-             (patient_id, name, relationship, email, view_location, view_medications, receive_alerts, 
-              status, temp_password, expires_at) 
+            `INSERT INTO caregivers
+             (patient_id, name, relationship, email, view_location, view_medications, receive_alerts,
+              status, temp_password, expires_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
-            [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1, 
-             hashedTempPassword]
+            [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1,
+             hashedPassword]
         );
 
         const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
