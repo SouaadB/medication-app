@@ -26,7 +26,7 @@ exports.protect = async (req, res, next) => {
         // If not found in users, check caregiver_users table
         if (!user) {
             const [caregivers] = await db.execute(
-                'SELECT id, name, email, "caregiver" as role FROM caregiver_users WHERE id = ?',
+                'SELECT id, name, email, \'caregiver\' as role FROM caregiver_users WHERE id = ?',
                 [decoded.id]
             );
             
