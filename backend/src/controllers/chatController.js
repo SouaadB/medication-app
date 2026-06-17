@@ -97,8 +97,20 @@ exports.getMessages = async (req, res) => {
         const partnerId  = req.params.partner_id;
         const limit     = parseInt(req.query.limit) || 50;
         const before    = req.query.before ? parseInt(req.query.before) : null;
-        const partnerIdInt = parseInt(partnerId);
         const userIdInt    = parseInt(userId);
+
+        // Patient sends partner_id = caregivers.id (relationship record).
+        // Messages are stored using caregiver_users.id, so translate before querying.
+        let partnerIdInt = parseInt(partnerId);
+        if (userRole === 'patient') {
+            const [mapping] = await db.execute(
+                `SELECT cu.id FROM caregivers cg
+                 JOIN caregiver_users cu ON cg.email = cu.email
+                 WHERE cg.id = ? AND cg.patient_id = ?`,
+                [partnerIdInt, userIdInt]
+            );
+            if (mapping.length > 0) partnerIdInt = mapping[0].id;
+        }
 
         const query = `
             SELECT
