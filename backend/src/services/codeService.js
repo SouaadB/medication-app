@@ -1,19 +1,6 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 class CodeService {
-  constructor() {
-    // Configuration email
-    this.emailTransporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      family: 4,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  }
 
   /**
    * Génère un code à 6 chiffres
@@ -53,8 +40,18 @@ class CodeService {
             `
         };
 
-        const info = await this.emailTransporter.sendMail(mailOptions);
-        console.log(`✅ Email envoyé: ${info.messageId}`);
+        await axios.post('https://api.brevo.com/v3/smtp/email', {
+            sender: { name: 'MediCare', email: process.env.EMAIL_USER },
+            to: [{ email: email }],
+            subject: mailOptions.subject,
+            htmlContent: mailOptions.html,
+        }, {
+            headers: {
+                'api-key': process.env.BREVO_API_KEY,
+                'content-type': 'application/json',
+            }
+        });
+        console.log(`✅ Email envoyé via Brevo`);
         return { success: true };
     } catch (error) {
         console.error('❌ Erreur envoi email:', error);

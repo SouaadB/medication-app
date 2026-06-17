@@ -1,15 +1,16 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 class EmailSenderService {
-    constructor() {
-        this.transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            family: 4,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
+    async _send(to, subject, html) {
+        await axios.post('https://api.brevo.com/v3/smtp/email', {
+            sender: { name: 'MediCare', email: process.env.EMAIL_USER },
+            to: [{ email: to }],
+            subject,
+            htmlContent: html,
+        }, {
+            headers: {
+                'api-key': process.env.BREVO_API_KEY,
+                'content-type': 'application/json',
             }
         });
     }
@@ -46,7 +47,7 @@ class EmailSenderService {
                 `
             };
 
-            await this.transporter.sendMail(mailOptions);
+            await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
             console.log(`✅ Email de bienvenue envoyé à ${userEmail}`);
             return { success: true };
         } catch (error) {
@@ -100,7 +101,7 @@ class EmailSenderService {
                 `
             };
 
-            await this.transporter.sendMail(mailOptions);
+            await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
             console.log(`✅ Caregiver invitation sent to ${email}`);
             console.log(`🔗 Accept link: ${acceptLink}`);
             return true;
@@ -136,7 +137,7 @@ class EmailSenderService {
                 `
             };
 
-            await this.transporter.sendMail(mailOptions);
+            await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
             console.log(`✅ Email de vérification envoyé à ${email}`);
             return { success: true };
         } catch (error) {
