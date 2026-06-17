@@ -265,7 +265,7 @@ router.delete('/caregivers/:id', protect, authorize('admin'), async (req, res) =
         
         // Update caregivers table to revoke access
         await db.execute(
-            'UPDATE caregivers SET status = "REVOKED" WHERE email = ?',
+            'UPDATE caregivers SET status = \'REVOKED\' WHERE email = ?',
             [caregiver[0].email]
         );
         

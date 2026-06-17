@@ -52,7 +52,7 @@ class Caregiver {
     }
 
     static async delete(id, patientId) {
-        const query = 'UPDATE caregivers SET status = "REVOKED" WHERE id = ? AND patient_id = ?';
+        const query = 'UPDATE caregivers SET status = \'REVOKED\' WHERE id = ? AND patient_id = ?';
         const [result] = await db.execute(query, [id, patientId]);
         return result;
     }
@@ -85,7 +85,7 @@ class Caregiver {
         }
         
         // Update invitation status
-        await db.execute('UPDATE caregivers SET status = "ACTIVE" WHERE id = ?', [id]);
+        await db.execute('UPDATE caregivers SET status = \'ACTIVE\' WHERE id = ?', [id]);
         
         return caregiverUserId;
     }

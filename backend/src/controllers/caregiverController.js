@@ -12,7 +12,7 @@ exports.getCaregivers = async (req, res) => {
     try {
         // Get all caregivers excluding REVOKED ones
         const [caregivers] = await db.execute(
-            'SELECT * FROM caregivers WHERE patient_id = ? AND status != "REVOKED"',
+            'SELECT * FROM caregivers WHERE patient_id = ? AND status != \'REVOKED\'',
             [req.user.id]
         );
         res.json({
@@ -172,7 +172,7 @@ exports.removeCaregiver = async (req, res) => {
         
         // Soft delete - just update status to REVOKED instead of actual DELETE
         const [result] = await db.execute(
-            'UPDATE caregivers SET status = "REVOKED" WHERE id = ? AND patient_id = ?',
+            'UPDATE caregivers SET status = \'REVOKED\' WHERE id = ? AND patient_id = ?',
             [id, req.user.id]
         );
 
@@ -231,7 +231,7 @@ exports.acceptInvitation = async (req, res) => {
         
         // Get ALL pending invitations for this email (including reactivated ones)
         const [invitations] = await db.execute(
-            'SELECT * FROM caregivers WHERE email = ? AND status = "PENDING" AND expires_at > NOW()',
+            'SELECT * FROM caregivers WHERE email = ? AND status = \'PENDING\' AND expires_at > NOW()',
             [email]
         );
         
@@ -283,7 +283,7 @@ exports.acceptInvitation = async (req, res) => {
         
         // Update ALL invitations for this email to ACTIVE
         await db.execute(
-            'UPDATE caregivers SET status = "ACTIVE" WHERE email = ? AND status = "PENDING"',
+            'UPDATE caregivers SET status = \'ACTIVE\' WHERE email = ? AND status = \'PENDING\'',
             [email]
         );
         
@@ -521,7 +521,7 @@ exports.getPatientDetails = async (req, res) => {
         console.log('🔍 Getting patient details for ID:', patientId);
         
         const [accessCheck] = await db.execute(
-            'SELECT * FROM caregivers WHERE email = ? AND patient_id = ? AND status = "ACTIVE"',
+            'SELECT * FROM caregivers WHERE email = ? AND patient_id = ? AND status = \'ACTIVE\'',
             [caregiverEmail, patientId]
         );
         
