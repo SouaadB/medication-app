@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import 'caregiver_dashboard.dart';
-import 'accept_invitation_page.dart';
 import '../auth/sign_in_page.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'caregiver_forgot_password_page.dart';
@@ -298,36 +297,6 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                     ),
                     const SizedBox(height: 24),
 
-                    // divider
-                    Row(children: [
-                      Expanded(child: Divider(color: Colors.grey.shade200)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('or', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey.shade200)),
-                    ]),
-                    const SizedBox(height: 24),
-
-                    // accept invitation
-                    SizedBox(
-                      width: double.infinity, height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const AcceptInvitationPage())),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade200),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.mark_email_read_outlined, size: 18, color: Colors.grey.shade600),
-                          const SizedBox(width: 10),
-                          Text('Accept an Invitation',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700)),
-                        ]),
-                      ),
-                    ),
                     const SizedBox(height: 20),
 
                     Row(children: [
