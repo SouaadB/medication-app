@@ -181,7 +181,8 @@ exports.getAllChronicConditions = async (req, res) => {
 exports.changePassword = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { currentPassword, newPassword } = req.body;
+        const currentPassword = req.body.currentPassword || req.body.current_password;
+        const newPassword     = req.body.newPassword     || req.body.new_password;
 
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ success: false, message: 'Mot de passe actuel et nouveau mot de passe requis' });
