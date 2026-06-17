@@ -602,9 +602,9 @@ async function getLatestForecastForCaregiver(caregiverEmail) {
      ) latest_per_patient
        ON af.patient_id = latest_per_patient.patient_id
       AND af.created_at = latest_per_patient.latest
-     JOIN caregivers cg ON cg.email = ?
-     JOIN caregiver_users cu ON cu.caregiver_id = cg.id
-                             AND cu.patient_id  = af.patient_id
+     JOIN caregivers cg ON cg.patient_id = af.patient_id
+                        AND cg.email = ?
+                        AND cg.status = 'ACTIVE'
      JOIN users u ON u.id = af.patient_id
      WHERE af.risk_level IN ('moderate', 'high', 'critical')
      ORDER BY af.forecast_score DESC`,
