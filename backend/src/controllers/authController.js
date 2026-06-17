@@ -589,7 +589,7 @@ exports.verifyResetCode = async (req, res) => {
 
         // Vérifier le code (seulement les codes de type 'email')
         const [codes] = await db.execute(
-            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = "email" AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = \'email\' AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
             [user.id, code]
         );
 
@@ -786,7 +786,7 @@ exports.verifyCaregiverResetCode = async (req, res) => {
 
         // Verify the code
         const [codes] = await db.execute(
-            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = "email" AND is_caregiver = 1 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = \'email\' AND is_caregiver = 1 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
             [caregiverId, code]
         );
 

@@ -214,7 +214,7 @@ router.delete('/patients/:id', protect, authorize('admin'), async (req, res) => 
     try {
         // Check if patient exists
         const [patient] = await db.execute(
-            'SELECT id, name FROM users WHERE id = ? AND role = "patient"',
+            'SELECT id, name FROM users WHERE id = ? AND role = \'patient\'',
             [id]
         );
         
@@ -226,7 +226,7 @@ router.delete('/patients/:id', protect, authorize('admin'), async (req, res) => 
         }
         
         // Delete user (cascades to patient, treatments, schedules, etc.)
-        await db.execute('DELETE FROM users WHERE id = ? AND role = "patient"', [id]);
+        await db.execute('DELETE FROM users WHERE id = ? AND role = \'patient\'', [id]);
         
         res.json({
             success: true,
