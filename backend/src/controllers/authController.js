@@ -290,6 +290,13 @@ exports.login = async (req, res) => {
                 
                 if (isValidCaregiver) {
                     console.log('✅ Caregiver login successful for:', caregiverUser.email);
+
+                    // First login = accept all pending invitations automatically
+                    await db.execute(
+                        'UPDATE caregivers SET status = \'ACTIVE\' WHERE email = ? AND status = \'PENDING\'',
+                        [caregiverUser.email]
+                    );
+
                     const caregiverToken = jwt.sign(
                         { id: caregiverUser.id, email: caregiverUser.email, role: 'caregiver', name: caregiverUser.name },
                         process.env.JWT_SECRET,
