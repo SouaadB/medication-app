@@ -17,32 +17,33 @@ exports.sendMessage = async (req, res) => {
         let senderName = req.user.name;
 
         if (senderRole === 'caregiver') {
-            // caregiver sending to patient
-            // caregivers.id is caregiver_users.id, caregivers.patient_id is patients.id
+            // caregiver → patient: identify caregiver by email, receiver_id = patients.id
             const [rel] = await db.execute(
-                `SELECT cg.id, p.fcm_token
+                `SELECT p.fcm_token
                  FROM caregivers cg
                  JOIN patients p ON cg.patient_id = p.id
-                 WHERE cg.id = ? AND cg.patient_id = ? AND cg.status = 'ACTIVE'`,
-                [senderId, receiver_id]
+                 WHERE cg.email = ? AND cg.patient_id = ? AND cg.status = 'ACTIVE'`,
+                [req.user.email, receiver_id]
             );
             if (rel.length === 0)
                 return res.status(403).json({ success: false, message: 'No active relationship found' });
             fcmToken = rel[0].fcm_token;
 
         } else {
-            // patient sending to caregiver
-            // req.user.id = patients.id, receiver_id = caregiver_users.id
+            // patient → caregiver: receiver_id = caregivers.id from patient's list
+            // look up caregiver_users.id so messages are stored with the correct caregiver ID
             const [rel] = await db.execute(
-                `SELECT cg.id, cu.fcm_token
+                `SELECT cu.id AS caregiver_user_id, cu.fcm_token
                  FROM caregivers cg
-                 JOIN caregiver_users cu ON cg.id = cu.id
+                 JOIN caregiver_users cu ON cg.email = cu.email
                  WHERE cg.patient_id = ? AND cg.id = ? AND cg.status = 'ACTIVE'`,
                 [senderId, receiver_id]
             );
             if (rel.length === 0)
                 return res.status(403).json({ success: false, message: 'No active relationship found' });
             fcmToken = rel[0].fcm_token;
+            // Override so stored receiver_id = caregiver_users.id (matches caregiver JWT)
+            receiver_id = rel[0].caregiver_user_id;
         }
 
         const receiverRole = senderRole === 'caregiver' ? 'patient' : 'caregiver';
