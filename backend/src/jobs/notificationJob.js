@@ -39,8 +39,8 @@ function startNotificationJobs() {
         } catch (e) { console.error('[Job 3] ❌', e.message); }
     });
 
-    // Job 4: Daily summary — every day at 20:00
-    cron.schedule('0 20 * * *', async () => {
+    // Job 4: Daily summary — every day at 21:00
+    cron.schedule('0 21 * * *', async () => {
         try {
             const sent = await generateDailySummary();
             console.log(`[Job 4] ✅ ran at ${new Date().toLocaleTimeString()} — daily summary sent to ${sent} patients`);
@@ -55,8 +55,8 @@ function startNotificationJobs() {
         } catch (e) { console.error('[Job 5] ❌', e.message); }
     });
 
-    // Job 6: Caregiver daily summary — every day at 20:30
-    cron.schedule('30 20 * * *', async () => {
+    // Job 6: Caregiver daily summary — every day at 21:30
+    cron.schedule('30 21 * * *', async () => {
         try {
             await CaregiverNotificationService.sendDailySummary();
             console.log(`[Job 6] ✅ ran at ${new Date().toLocaleTimeString()} — caregiver daily summaries sent`);
