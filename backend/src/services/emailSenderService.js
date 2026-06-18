@@ -98,6 +98,39 @@ class EmailSenderService {
         }
     }
 
+    async sendCaregiverAddedNotification(email, caregiverName, patientName) {
+        try {
+            const mailOptions = {
+                from: `"MediCare" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: '📋 A new patient has added you as caregiver on MediCare',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #22C55E; border-radius: 10px;">
+                        <div style="text-align: center;">
+                            <h1 style="color: #22C55E;">New Patient Added</h1>
+                            <div style="font-size: 48px; margin: 20px 0;">👨‍⚕️</div>
+                            <h2 style="color: #333;">Hello ${caregiverName},</h2>
+                            <p style="font-size: 16px; color: #666; line-height: 1.6;">
+                                <strong>${patientName}</strong> has added you as their caregiver on <strong>MediCare</strong>.
+                                You can now monitor their medication adherence from your existing caregiver account.
+                            </p>
+                            <p style="font-size: 14px; color: #999; margin-top: 30px;">
+                                Simply log in with your existing credentials to see your updated patient list.<br>
+                                If you did not expect this, please ignore this email.
+                            </p>
+                        </div>
+                    </div>
+                `
+            };
+            await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
+            console.log(`✅ Caregiver added notification sent to ${email}`);
+            return true;
+        } catch (error) {
+            console.error('❌ Error sending caregiver added notification:', error);
+            return false;
+        }
+    }
+
     async sendVerificationEmail(email, name, token) {
         try {
             const verificationUrl = `${process.env.APP_URL}/api/auth/verify-email?token=${token}`;

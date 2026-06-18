@@ -121,41 +121,55 @@ exports.addCaregiver = async (req, res) => {
             [email]
         );
         
-        // ONE password for both tables — this is what gets emailed and what login checks
-        const tempPassword = generateTempPassword();
-        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        const isNewAccount = existingCaregiverUser.length === 0;
+        let hashedPassword;
 
-        if (existingCaregiverUser.length === 0) {
+        if (isNewAccount) {
+            // First-ever invitation: create account with temp password and send credentials
+            const tempPassword = generateTempPassword();
+            hashedPassword = await bcrypt.hash(tempPassword, 10);
             await db.execute(
                 'INSERT INTO caregiver_users (email, name, password) VALUES (?, ?, ?)',
                 [email, name, hashedPassword]
             );
             console.log('✅ New caregiver user created for:', email);
-        } else {
-            // Always sync the password so login works with the emailed password
+
+            // Create relationship
             await db.execute(
-                'UPDATE caregiver_users SET password = ? WHERE email = ?',
-                [hashedPassword, email]
+                `INSERT INTO caregivers
+                 (patient_id, name, relationship, email, view_location, view_medications, receive_alerts,
+                  status, temp_password, expires_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+                [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1,
+                 hashedPassword]
             );
-            console.log('✅ Updated caregiver password for:', email);
+
+            await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
+        } else {
+            // Caregiver already has an account — do NOT touch their password
+            // Relationship starts ACTIVE immediately since they can already log in
+            console.log('✅ Existing caregiver account reused for:', email);
+
+            await db.execute(
+                `INSERT INTO caregivers
+                 (patient_id, name, relationship, email, view_location, view_medications, receive_alerts,
+                  status, temp_password, expires_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NULL, NULL)`,
+                [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1]
+            );
+
+            // Get patient name for the notification email
+            const [patientRows] = await db.execute('SELECT name FROM users WHERE id = ?', [req.user.id]);
+            const patientName = patientRows[0]?.name || 'A patient';
+            await emailSenderService.sendCaregiverAddedNotification(email, name, patientName);
         }
 
-        // Create new caregiver relationship
-        const [result] = await db.execute(
-            `INSERT INTO caregivers
-             (patient_id, name, relationship, email, view_location, view_medications, receive_alerts,
-              status, temp_password, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, DATE_ADD(NOW(), INTERVAL 7 DAY))`,
-            [req.user.id, name, relationship, email, view_location || 0, view_medications || 1, receive_alerts || 1,
-             hashedPassword]
-        );
-
-        const emailSent = await emailSenderService.sendCaregiverInvitation(email, name, tempPassword);
+        const emailSent = true; // already sent above
 
         res.status(201).json({
             success: true,
-            message: emailSent ? 'Caregiver invitation sent successfully' : 'Caregiver added but email failed to send',
-            caregiverId: result.insertId,
+            message: isNewAccount ? 'Caregiver invitation sent successfully' : 'Caregiver added to your account',
+            caregiverId: null,
             isPatient: isPatient
         });
         
