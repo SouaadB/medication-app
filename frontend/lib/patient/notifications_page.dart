@@ -525,7 +525,7 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
       return _NotifStyle(
         color: Colors.deepOrange, bgColor: const Color(0xFFFFF3E0),
         icon: Icons.error_outline, stage: 'missed',
-        showTaken: true, showSnooze: false, showSkip: true, showDismiss: false,
+        showTaken: false, showSnooze: false, showSkip: true, showDismiss: true,
       );
     }
 

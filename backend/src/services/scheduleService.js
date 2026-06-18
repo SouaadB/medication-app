@@ -97,8 +97,8 @@ class ScheduleService {
             }
             
             const [result] = await db.execute(
-                `UPDATE medication_schedules 
-                 SET status = 'TAKEN', taken_time = ? 
+                `UPDATE medication_schedules
+                 SET status = 'TAKEN', taken_time = ?
                  WHERE id = ? AND status = 'SCHEDULED'`,
                 [now, scheduleId]
             );
