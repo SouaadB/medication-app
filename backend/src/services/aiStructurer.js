@@ -31,28 +31,43 @@ WHAT COUNTS AS A MEDICATION LINE:
 - Dosages: 1000MG, 75MG, 500MG, 25MG, 0.01, 127MG/5ML, 1G, 5MG
 
 FREQUENCY EXTRACTION — extract from instruction lines:
-- "1 fois par jour" / "1 f/j" / "1 cp/j" → frequency: "1 fois par jour"
-- "2 fois par jour" / "2 f/j" / "matin et soir" → frequency: "2 fois par jour"
-- "3 fois par jour" / "matin midi et soir" / "3 f/j" → frequency: "3 fois par jour"
+- "1 fois par jour" / "1 f/j" / "1 cp/j" / "1 fois/jour" → frequency: "1 fois par jour"
+- "2 fois par jour" / "2 f/j" / "matin et soir" / "2 fois/jour" → frequency: "2 fois par jour"
+- "3 fois par jour" / "matin midi et soir" / "3 f/j" / "3 fois/jour" → frequency: "3 fois par jour"
 - "toutes les 8 heures" / "/8h" → frequency: "toutes les 8 heures"
 - "toutes les 12 heures" / "/12h" → frequency: "toutes les 12 heures"
 - "toutes les 6 heures" / "/6h" → frequency: "toutes les 6 heures"
-- "au besoin" / "si besoin" → frequency: "au besoin"
+- "au besoin" / "si besoin" / "si douleur" / "si nécessaire" / "en cas de douleur" → frequency: "au besoin"
 - "soir: 1" alone → frequency: "1 fois par jour", slot: soir
 - "matin: 1" alone → frequency: "1 fois par jour", slot: matin
 - For recovered/reconstructed medications with no instruction → frequency: "1 fois par jour", meal_anchor: null
 - ALWAYS set frequency field — never leave it null if instructions exist
 
+ESIHFA / DIGITAL ALGERIAN PRESCRIPTION FORMAT (arrow notation):
+Many Algerian digital prescriptions (eSiha system) use this arrow notation:
+  "X fois/jour → [time or condition] → [meal context]"
+Parse it as follows:
+- "1 fois/jour → matin → avant repas"       → frequency: "1 fois par jour", instructions include "matin", meal_anchor: "avant les repas"
+- "1 fois/jour → midi → avant repas"        → frequency: "1 fois par jour", instructions include "midi",  meal_anchor: "avant les repas"
+- "1 fois/jour → soir → avant repas"        → frequency: "1 fois par jour", instructions include "soir",  meal_anchor: "avant les repas"
+- "2 fois/jour → matin et midi → avant repas"   → frequency: "2 fois par jour", instructions include "matin et midi", meal_anchor: "avant les repas"
+- "2 fois/jour → matin et soir → avant repas"   → frequency: "2 fois par jour", instructions include "matin et soir", meal_anchor: "avant les repas"
+- "3 fois/jour → matin midi et soir → avant repas" → frequency: "3 fois par jour", meal_anchor: "avant les repas"
+- "1 fois/jour → si douleur → avant repas"  → frequency: "au besoin" (si douleur = take only when in pain, i.e. as needed / PRN)
+- "→ avant repas" anywhere                  → meal_anchor: "avant les repas"
+- "→ après repas" anywhere                  → meal_anchor: "après les repas"
+IMPORTANT: always copy the full instruction text (including the time slots like "matin", "midi", "matin et midi") into the instructions field so the downstream mapping can detect the slots.
+
 MEAL ANCHOR EXTRACTION — extract from instruction lines:
-- "avant les repas" / "avant le repas" / "avant de manger" / "30 min avant les repas" → meal_anchor: "avant les repas"
-- "après les repas" / "après le repas" / "après manger" → meal_anchor: "après les repas"
+- "avant les repas" / "avant le repas" / "avant de manger" / "30 min avant les repas" / "→ avant repas" → meal_anchor: "avant les repas"
+- "après les repas" / "après le repas" / "après manger" / "→ après repas" → meal_anchor: "après les repas"
 - "avant ou après les repas de 30 minutes" / "avant ou après les repas" → meal_anchor: "avant les repas"
 - "à jeun" / "le matin à jeun" → meal_anchor: "à jeun"
 - "au coucher" / "le soir au coucher" → meal_anchor: "au coucher"
 - "au moment des repas" / "pendant le repas" / "au cours du repas" → meal_anchor: "après les repas"
-- "le matin" / "au petit-déjeuner" → meal_anchor: "le matin"
-- "à midi" / "au déjeuner" → meal_anchor: "à midi"
-- "le soir" / "au dîner" → meal_anchor: "le soir"
+- "le matin" / "au petit-déjeuner" / "matin" in slot → meal_anchor: "le matin"
+- "à midi" / "au déjeuner" / "midi" in slot → meal_anchor: "à midi"
+- "le soir" / "au dîner" / "soir" in slot → meal_anchor: "le soir"
 
 DURATION EXTRACTION:
 - "QSP 5 jours" / "pour 5 jours" → duration_days: 5

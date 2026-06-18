@@ -111,9 +111,10 @@ static _mapFrequency(frequency, mealAnchor, instructions) {
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
         // ── Count explicit time slots (matin/midi/soir/nuit) ──
-        const hasMatin = /matin\s*:\s*\d|le\s*matin|\bau\s*matin/.test(raw);
-        const hasMidi  = /midi\s*:\s*\d|\ba\s*midi|au\s*dejeuner/.test(raw);
-        const hasSoir  = /soir\s*:\s*\d|le\s*soir|\bau\s*soir/.test(raw);
+        // Also catches eSiha arrow notation: "→ matin →", "→ matin et midi →"
+        const hasMatin = /matin\s*:\s*\d|le\s*matin|\bau\s*matin|→\s*matin|matin\s+et\s+midi|matin\s+et\s+soir/.test(raw);
+        const hasMidi  = /midi\s*:\s*\d|\ba\s*midi|au\s*dejeuner|→\s*midi|matin\s+et\s+midi|midi\s+et\s+soir/.test(raw);
+        const hasSoir  = /soir\s*:\s*\d|le\s*soir|\bau\s*soir|→\s*soir|matin\s+et\s+soir|midi\s+et\s+soir/.test(raw);
         const hasNuit  = /nuit\s*:\s*\d|au\s*coucher|avant\s*de\s*dormir/.test(raw);
 
         const slotCount = [hasMatin, hasMidi, hasSoir, hasNuit].filter(Boolean).length;
@@ -131,7 +132,7 @@ static _mapFrequency(frequency, mealAnchor, instructions) {
             mainFreq = 'Three times daily';
         else if (slotCount === 2 || /2\s*fois|deux\s*fois|matin\s*et\s*soir/.test(raw))
             mainFreq = 'Twice daily';
-        else if (/au\s*besoin|si\s*besoin/.test(raw))
+        else if (/au\s*besoin|si\s*besoin|si\s*douleur|si\s*necessaire|en\s*cas\s*de\s*douleur|si\s*besoin\s*est/.test(raw))
             mainFreq = 'As needed';
         else
             mainFreq = 'Once daily';
