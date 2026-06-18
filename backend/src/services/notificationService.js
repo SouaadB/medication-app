@@ -204,15 +204,14 @@ class NotificationService {
                 // ── Timing ────────────────────────────────────────────────
                 // diffMinutes > 0  → dose is in the future
                 // diffMinutes < 0  → dose is overdue
-                // The -60 corrects for UTC+1 stored in DB
                 const now           = new Date();
                 const scheduledTime = new Date(
                     (typeof dose.scheduled_date_time === 'string'
                         ? dose.scheduled_date_time
                         : dose.scheduled_date_time.toISOString()
-                    ).replace(' ', 'T')
+                    ).replace(' ', 'T') + 'Z'
                 );
-                const diffMinutes = Math.round((scheduledTime - now) / 60000) - 60;
+                const diffMinutes = Math.round((scheduledTime - now) / 60000);
 
                 // ── Cap non-HIGH at 3 notifications per dose per day ──────
                 const todayCount = await this._countTodayNotificationsForDose(dose.schedule_id);
