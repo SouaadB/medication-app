@@ -2597,7 +2597,7 @@ class _AdminProfileTabState extends State<AdminProfileTab> {
                 () => setState(() => _obscureCurrent = !_obscureCurrent))),
         _label('New password'),
         _field(_newPwCtrl,
-            hint: 'At least 6 characters',
+            hint: 'New password',
             obscure: _obscureNew,
             suffix: _eyeButton(_obscureNew,
                 () => setState(() => _obscureNew = !_obscureNew))),

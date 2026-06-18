@@ -63,7 +63,10 @@ class AboutMediCarePage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)],
                             ),
-                            child: const Icon(Icons.medical_services_rounded, color: _primary, size: 28),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.asset('assets/icon/app_icon.png', fit: BoxFit.cover),
+                            ),
                           ),
                           const SizedBox(width: 14),
                           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -352,13 +355,9 @@ class AboutMediCarePage extends StatelessWidget {
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.medical_services_rounded, color: _primary, size: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset('assets/icon/app_icon.png', width: 36, height: 36, fit: BoxFit.cover),
           ),
           const SizedBox(width: 10),
           const Text('MediCare', style: TextStyle(

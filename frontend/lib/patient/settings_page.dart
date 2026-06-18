@@ -6,10 +6,9 @@ import '../services/background_location_service.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import 'about_medicare_page.dart';
 import '../services/location_service.dart';
-
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import 'accessibility_settings_page.dart';
 
@@ -78,16 +77,22 @@ Future<void> _exportPdf() async {
       final filePath = '/storage/emulated/0/Download/$fileName';
       final file = File(filePath);
       await file.writeAsBytes(response.bodyBytes);
-      debugPrint('PDF saved to: ${file.path}');
-      debugPrint('File exists: ${await file.exists()}');
-      debugPrint('File size: ${await file.length()} bytes');
+
+      // Open the PDF immediately with the device's PDF reader
+      final result = await OpenFile.open(filePath);
+      debugPrint('OpenFile result: ${result.message}');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('✅ Report saved to Downloads: $fileName'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'OPEN',
+            textColor: Colors.white,
+            onPressed: () => OpenFile.open(filePath),
+          ),
         ));
       }
     } else {

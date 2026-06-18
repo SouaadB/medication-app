@@ -35,7 +35,6 @@ import 'services/background_location_service.dart';
 import 'patient/caregiver_access_page.dart';
 import 'caregiver/caregiver_login_page.dart';
 import 'caregiver/caregiver_dashboard.dart';
-import 'caregiver/accept_invitation_page.dart';
 import 'caregiver/caregiver_forgot_password_page.dart';
 import 'caregiver/caregiver_verify_code_page.dart';
 import 'caregiver/caregiver_reset_password_page.dart';
@@ -73,60 +72,52 @@ void main() async {
   );
 }
 
-// This widget checks the URL and navigates to the correct page
-class AppRouter extends StatelessWidget {
+// Checks stored token on startup and routes to the correct home page.
+// The session persists until the user explicitly logs out.
+class AppRouter extends StatefulWidget {
   const AppRouter({super.key});
+  @override
+  State<AppRouter> createState() => _AppRouterState();
+}
+
+class _AppRouterState extends State<AppRouter> {
+  @override
+  void initState() {
+    super.initState();
+    _navigate();
+  }
+
+  Future<void> _navigate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final role  = prefs.getString('user_role');
+
+    if (!mounted) return;
+
+    Widget destination;
+    if (token != null && token.isNotEmpty) {
+      switch (role) {
+        case 'admin':
+          destination = const AdminInterface();
+          break;
+        case 'caregiver':
+          destination = const CaregiverDashboard();
+          break;
+        default:
+          destination = const PatientInterface();
+      }
+    } else {
+      destination = const SignInPage();
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => destination),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Get the full URL
-    final Uri uri = Uri.base;
-    final String fullUrl = uri.toString();
-    
-    // Check if this is an invitation link (contains email parameter)
-    if (fullUrl.contains('email=')) {
-      // Extract email from URL
-      String? email;
-      final startIndex = fullUrl.indexOf('email=') + 6;
-      String remaining = fullUrl.substring(startIndex);
-      email = remaining.split('&')[0];
-      email = Uri.decodeComponent(email);
-      
-      print('📧 Invitation detected! Opening accept page for: $email');
-      
-      // Navigate to Accept Invitation page after a short delay
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AcceptInvitationPage(email: email),
-          ),
-        );
-      });
-      
-      // Show loading screen while redirecting
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading invitation...'),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    // No invitation, go to sign in page after a short delay
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const SignInPage()),
-      );
-    });
-    
     return const Scaffold(
       body: Center(
         child: Column(
