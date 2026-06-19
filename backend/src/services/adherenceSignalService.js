@@ -8,11 +8,12 @@ const FirebaseService = require('./firebaseService');
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SIGNAL_WEIGHTS = {
-  responseTimeDegradation: 0.20,
-  partialDayAdherence:     0.25,
-  weekendCliff:            0.20,
+  responseTimeDegradation: 0.15,
+  partialDayAdherence:     0.20,
+  weekendCliff:            0.15,
   postIllnessRecovery:     0.15,
-  specificMedDrift:        0.20,
+  specificMedDrift:        0.15,
+  consecutiveMissedDoses:  0.20,
 };
 
 const RISK_LEVELS = {
@@ -299,16 +300,91 @@ async function detectSpecificMedDrift(patientId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SIGNAL 6 — Consecutive Missed Doses
+// Detects 2+ consecutive days where a medication was missed entirely.
+// This is the strongest predictor of treatment discontinuation.
+// ─────────────────────────────────────────────────────────────────────────────
+async function detectConsecutiveMissedDoses(patientId) {
+  const [rows] = await db.query(
+    `SELECT t.medication_name, t.priority,
+            DATE(ms.scheduled_date_time) AS dose_date,
+            ms.status
+     FROM medication_schedules ms
+     JOIN treatments t ON ms.treatment_id = t.id
+     WHERE ms.patient_id = ?
+       AND ms.scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       AND ms.scheduled_date_time <= NOW()
+       AND t.is_active = 1
+     ORDER BY t.id, ms.scheduled_date_time ASC`,
+    [patientId]
+  );
+
+  if (rows.length === 0) return { active: false, score: 0, detail: 'Insufficient data', worstMed: null, maxStreak: 0 };
+
+  // Group doses by medication and day
+  const medGroups = {};
+  for (const row of rows) {
+    const key = row.medication_name;
+    if (!medGroups[key]) medGroups[key] = { priority: row.priority, days: {} };
+    const day = String(row.dose_date).split('T')[0];
+    if (!medGroups[key].days[day]) medGroups[key].days[day] = { total: 0, missed: 0 };
+    medGroups[key].days[day].total++;
+    if (row.status === 'MISSED') medGroups[key].days[day].missed++;
+  }
+
+  let maxStreak = 0;
+  let worstMed  = null;
+  let worstPriority = 'LOW';
+
+  for (const [name, med] of Object.entries(medGroups)) {
+    const sortedDays = Object.keys(med.days).sort();
+    let streak = 0;
+    for (const day of sortedDays) {
+      const d = med.days[day];
+      if (d.missed === d.total) {
+        streak++;
+        if (streak > maxStreak || (streak === maxStreak && med.priority === 'HIGH')) {
+          maxStreak     = streak;
+          worstMed      = name;
+          worstPriority = med.priority;
+        }
+      } else {
+        streak = 0;
+      }
+    }
+  }
+
+  if (maxStreak < 2) return { active: false, score: 0, detail: 'No consecutive missed days detected', worstMed: null, maxStreak };
+
+  const base          = Math.min((maxStreak - 1) * 0.35, 1.0);
+  const priorityBoost = worstPriority === 'HIGH' ? 0.25 : (worstPriority === 'MEDIUM' ? 0.10 : 0);
+  const finalScore    = Math.min(base + priorityBoost, 1.0);
+
+  return {
+    active:   finalScore > 0.3,
+    score:    parseFloat(finalScore.toFixed(3)),
+    detail:   `${worstMed} missed ${maxStreak} consecutive day${maxStreak > 1 ? 's' : ''}${worstPriority === 'HIGH' ? ' (HIGH priority)' : ''}`,
+    worstMed,
+    maxStreak,
+    priority: worstPriority,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FORECAST ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
 async function analyzePatientSignals(patientId) {
-  const [signal1, signal2, signal3, signal4, signal5] = await Promise.all([
+  const [signal1, signal2, signal3, signal4, signal5, signal6, streakRows] = await Promise.all([
     detectResponseTimeDegradation(patientId),
     detectPartialDayAdherence(patientId),
     detectWeekendCliff(patientId),
     detectPostIllnessRecovery(patientId),
     detectSpecificMedDrift(patientId),
+    detectConsecutiveMissedDoses(patientId),
+    db.query(`SELECT current_streak FROM patient_streaks WHERE patient_id = ?`, [patientId]),
   ]);
+
+  const currentStreak = streakRows[0]?.[0]?.current_streak || 0;
 
   const signals = {
     responseTimeDegradation: signal1,
@@ -316,14 +392,20 @@ async function analyzePatientSignals(patientId) {
     weekendCliff:            signal3,
     postIllnessRecovery:     signal4,
     specificMedDrift:        signal5,
+    consecutiveMissedDoses:  signal6,
   };
 
-  const forecastScore =
+  const rawScore =
     signal1.score * SIGNAL_WEIGHTS.responseTimeDegradation +
     signal2.score * SIGNAL_WEIGHTS.partialDayAdherence     +
     signal3.score * SIGNAL_WEIGHTS.weekendCliff            +
     signal4.score * SIGNAL_WEIGHTS.postIllnessRecovery     +
-    signal5.score * SIGNAL_WEIGHTS.specificMedDrift;
+    signal5.score * SIGNAL_WEIGHTS.specificMedDrift        +
+    signal6.score * SIGNAL_WEIGHTS.consecutiveMissedDoses;
+
+  // Streak bonus: a long streak reduces the risk score (max 15% reduction at 30+ days)
+  const streakBonus   = Math.min(currentStreak / 30, 1.0) * 0.15;
+  const forecastScore = Math.max(parseFloat((rawScore - streakBonus).toFixed(3)), 0);
 
   let riskLevel = 'low';
   if      (forecastScore >= RISK_LEVELS.CRITICAL.min) riskLevel = 'critical';
@@ -374,13 +456,20 @@ async function analyzePatientSignals(patientId) {
     }
   }
 
+  // Probability of missing a dose: blend of raw adherence gap and signal score
+  const missProbability = parseFloat(
+    Math.min(Math.max((1 - overallRate) * 0.6 + forecastScore * 0.4, 0), 1).toFixed(3)
+  );
+
   return {
     patientId,
-    forecastScore:  parseFloat(forecastScore.toFixed(3)),
+    forecastScore:    parseFloat(forecastScore.toFixed(3)),
+    missProbability,
+    currentStreak,
     riskLevel,
     activeSignals,
     signals,
-    generatedAt:    new Date().toISOString(),
+    generatedAt:      new Date().toISOString(),
   };
 }
 
@@ -496,6 +585,15 @@ function _buildInterventionMessage(signal, signalData, patientName) {
       return {
         title: `⚠️ ${medName} — missed doses detected`,
         body:  `Hi ${patientName}, you've been missing ${medName} more than your other medications this week. This one is important for your condition — please make sure to take it as prescribed.`,
+      };
+    }
+
+    case 'consecutiveMissedDoses': {
+      const med  = signalData.worstMed || 'your medication';
+      const days = signalData.maxStreak || 2;
+      return {
+        title: `⚠️ ${med} — ${days} missed days in a row`,
+        body:  `Hi ${patientName}, you have missed ${med} for ${days} consecutive days. Please take it today and speak with your doctor if you are having difficulties with this medication.`,
       };
     }
 
@@ -646,4 +744,5 @@ module.exports = {
   detectWeekendCliff,
   detectPostIllnessRecovery,
   detectSpecificMedDrift,
+  detectConsecutiveMissedDoses,
 };
