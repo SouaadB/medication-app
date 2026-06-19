@@ -23,14 +23,13 @@ class ScheduleService {
                 FROM medication_schedules ms
                 JOIN treatments t ON ms.treatment_id = t.id
                 LEFT JOIN chronic_conditions c ON t.condition_id = c.id
-                WHERE ms.patient_id = ? 
-                AND DATE(ms.scheduled_date_time) = DATE(?)
+                WHERE ms.patient_id = ?
+                AND ms.scheduled_date_time >= DATE(?)
+                AND ms.scheduled_date_time < DATE_ADD(DATE(?), INTERVAL 1 DAY)
                 ORDER BY ms.scheduled_date_time ASC
             `;
             
-            // Critical: Force the session timezone for this specific query
-            await db.execute("SET time_zone = '+01:00'");
-            const [rows] = await db.execute(query, [patientId, date]);
+            const [rows] = await db.execute(query, [patientId, date, date]);
             
             const total = rows.length;
             const completed = rows.filter(r => r.status === 'TAKEN').length;

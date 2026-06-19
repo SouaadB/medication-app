@@ -48,12 +48,14 @@ class _PatientInterfaceState extends State<PatientInterface> {
   @override
   void initState() {
     super.initState();
-    _loadUserData().then((_) {
-      _loadPatientConditions();
-      _loadAdherenceData();
-      _loadTodayStats();
-      _loadNextMedication();
-      _loadUnreadNotificationsCount();
+    Future.wait([
+      _loadUserData(),
+      _loadPatientConditions(),
+      _loadAdherenceData(),
+      _loadTodayStats(),
+      _loadNextMedication(),
+      _loadUnreadNotificationsCount(),
+    ]).then((_) {
       _startLocationTracking();
       _setupBackgroundTracking();
     });
