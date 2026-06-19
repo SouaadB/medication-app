@@ -160,8 +160,6 @@ class NotificationService {
 
     static async generateSmartReminders() {
         try {
-            await db.execute("SET time_zone = '+01:00'");
-
             const [doses] = await db.execute(`
                 SELECT
                     ms.id                     AS schedule_id,
