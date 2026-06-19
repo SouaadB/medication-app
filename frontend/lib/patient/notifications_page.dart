@@ -521,11 +521,21 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
     // ── MISSED (from Job 2) ───────────────────────────────────────────────
     // Standard/interval doses the patient didn't take.
     // Taken + Skip allowed. No snooze (they're already late).
-    if (type == 'missed' || stage == 'MISSED') {
+    // Job 1 nudge: stage = MISSED but dose is still SCHEDULED in DB — Taken still works
+    if (stage == 'MISSED') {
       return _NotifStyle(
         color: Colors.deepOrange, bgColor: const Color(0xFFFFF3E0),
         icon: Icons.error_outline, stage: 'missed',
-        showTaken: false, showSnooze: false, showSkip: true, showDismiss: true,
+        showTaken: true, showSnooze: false, showSkip: true, showDismiss: false,
+      );
+    }
+
+    // Job 2 flip: type = missed means DB status is now MISSED — too late to mark taken
+    if (type == 'missed') {
+      return _NotifStyle(
+        color: Colors.deepOrange, bgColor: const Color(0xFFFFF3E0),
+        icon: Icons.error_outline, stage: 'missed',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
       );
     }
 
