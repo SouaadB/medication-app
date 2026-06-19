@@ -507,6 +507,15 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
       );
     }
 
+    // ── LATE_TAKEN — informational only, dose already marked taken ───────
+    if (stage == 'LATE_TAKEN') {
+      return _NotifStyle(
+        color: Colors.orange.shade700, bgColor: const Color(0xFFFFF3E0),
+        icon: Icons.schedule_rounded, stage: 'late_taken',
+        showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+      );
+    }
+
     // ── ESCALATION ────────────────────────────────────────────────────────
     // Maximum urgency. Taken only — no escape routes.
     if (stage == 'ESCALATION') {

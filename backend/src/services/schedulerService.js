@@ -340,7 +340,7 @@ class SchedulerService {
                             scheduleInfo[0].patient_id,
                             '⏰ Dose taken late',
                             `You took ${scheduleInfo[0].medication_name}${scheduleInfo[0].dosage ? ' ' + scheduleInfo[0].dosage : ''} ${minutesLate} minutes late.`,
-                            JSON.stringify({ scheduleId, minutesLate }),
+                            JSON.stringify({ schedule_id: scheduleId, minutesLate, stage: 'LATE_TAKEN' }),
                             now,
                         ]
                     );

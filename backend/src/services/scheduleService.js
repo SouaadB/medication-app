@@ -98,7 +98,7 @@ class ScheduleService {
             const [result] = await db.execute(
                 `UPDATE medication_schedules
                  SET status = 'TAKEN', taken_time = ?
-                 WHERE id = ? AND status = 'SCHEDULED'`,
+                 WHERE id = ? AND status IN ('SCHEDULED', 'MISSED')`,
                 [now, scheduleId]
             );
             
@@ -113,9 +113,9 @@ class ScheduleService {
                          VALUES (?, 'reminder', ?, ?, ?, ?)`,
                         [
                             scheduleInfo[0].patient_id,
-                            '⏰ Dose prise en retard',
-                            `Vous avez pris ${scheduleInfo[0].medication_name} ${scheduleInfo[0].dosage || ''} avec ${minutesLate} minutes de retard`,
-                            JSON.stringify({ scheduleId, minutesLate }),
+                            '⏰ Dose taken late',
+                            `Vous have taken ${scheduleInfo[0].medication_name} ${scheduleInfo[0].dosage || ''}  ${minutesLate} minutes late`,
+                            JSON.stringify({ schedule_id: scheduleId, minutesLate, stage: 'LATE_TAKEN' }),
                             now
                         ]
                     );
