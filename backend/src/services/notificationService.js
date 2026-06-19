@@ -207,7 +207,7 @@ class NotificationService {
                     (typeof dose.scheduled_date_time === 'string'
                         ? dose.scheduled_date_time
                         : dose.scheduled_date_time.toISOString()
-                    ).replace(' ', 'T') + 'Z'
+                    ).replace(' ', 'T') + '+01:00'
                 );
                 const diffMinutes = Math.round((scheduledTime - now) / 60000);
 
