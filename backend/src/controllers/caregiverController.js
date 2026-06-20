@@ -40,7 +40,7 @@ exports.addCaregiver = async (req, res) => {
         if (!emailCheck.isValid) {
             return res.status(400).json({
                 success: false,
-                message: emailCheck.message || 'Adresse email invalide. Vérifiez l\'email de l\'aidant avant d\'envoyer l\'invitation.'
+                message: emailCheck.message || 'Email adresse is not valid. Verify that the caregiver email is valid and existing before sending an invitation'
             });
         }
 
