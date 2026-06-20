@@ -1,5 +1,6 @@
 const Caregiver = require('../models/Caregiver');
 const emailSenderService = require('../services/emailSenderService');
+const emailVerificationService = require('../services/emailVerificationService');
 const db = require('../config/database');
 const bcrypt = require('bcryptjs');
 
@@ -33,7 +34,16 @@ exports.addCaregiver = async (req, res) => {
         if (!name || !relationship || !email) {
             return res.status(400).json({ success: false, message: 'Please provide name, relationship and email' });
         }
-        
+
+        // Validate that the email address is real and reachable
+        const emailCheck = await emailVerificationService.verifyEmail(email);
+        if (!emailCheck.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: emailCheck.message || 'Adresse email invalide. Vérifiez l\'email de l\'aidant avant d\'envoyer l\'invitation.'
+            });
+        }
+
         // Check if trying to add self as caregiver
         if (email === req.user.email) {
             return res.status(400).json({ 

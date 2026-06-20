@@ -34,12 +34,31 @@ class EmailVerificationService {
         'test.com', 'example.com', 'fake.com', 'noemail.com',
         'nomail.com', 'temp.com', 'mailinator.com', 'tempmail.com',
         'mil.com', 'emmail.com', 'emmmail.com', 'emal.com',
-    'gmaill.com', 'yahooo.com', 'outloook.com', 'hotmaill.com',
-    'gmailcom.com', 'yahoomail.com', 'fakemail.com', 'mailnull.com',
-    'spamgourmet.com', 'trashmail.com', 'yopmail.com', 'guerrillamail.com'
+        'gmaill.com', 'outloook.com', 'hotmaill.com',
+        'gmailcom.com', 'yahoomail.com', 'fakemail.com', 'mailnull.com',
+        'spamgourmet.com', 'trashmail.com', 'yopmail.com', 'guerrillamail.com'
       ];
       if (fakeDomains.includes(domain)) {
         return { isValid: false, message: `Le domaine "${domain}" n'est pas un domaine email valide` };
+      }
+
+      // 5b. Catch repeated-letter typos in common providers (ggmail, gggmail, gmaiil, yaahoo, etc.)
+      const typoPatterns = [
+        /^g{2,}mail\.com$/,        // ggmail.com, gggmail.com
+        /^gmai{2,}l\.com$/,        // gmaiil.com
+        /^gmail{2,}\.com$/,        // gmaill.com
+        /^go{2,}gle(mail)?\.com$/, // goooogle.com
+        /^ya{2,}hoo\./,            // yaahoo.com
+        /^yahoo{2,}\./,            // yahooo.com
+        /^hot{2,}mail\./,          // hottmail.com
+        /^hotmai{2,}l\./,          // hotmaiil.com
+        /^out{2,}look\./,          // outtlook.com
+        /^outloo{2,}k\./,          // outloook.com
+        /^ic{2,}loud\./,           // iiccloud.com
+        /^iclou{2,}d\./,           // iclould.com
+      ];
+      if (typoPatterns.some(p => p.test(domain))) {
+        return { isValid: false, message: `Le domaine "${domain}" ressemble à une faute de frappe. Vérifiez votre adresse email.` };
       }
 
       // 6. Try DNS MX check
