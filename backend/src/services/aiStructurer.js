@@ -251,6 +251,47 @@ function parseJSON(raw) {
     return JSON.parse(cleaned.slice(start, end + 1));
 }
 
+// Layer 0: Groq Vision (Llama-4-Scout) — reads image directly, skips Tesseract
+async function structureWithGroqVision(imagePath) {
+    const fs    = require('fs');
+    const path  = require('path');
+    const sharp = require('sharp');
+
+    // Resize to 1200px before encoding — keeps the base64 payload manageable
+    const resizedBuffer = await sharp(imagePath)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+    const base64Image = resizedBuffer.toString('base64');
+
+    const response = await groq.chat.completions.create({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            {
+                role: 'user',
+                content: [
+                    {
+                        type: 'image_url',
+                        image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+                    },
+                    {
+                        type: 'text',
+                        text: 'Extract all medications from this prescription image. Return valid JSON only.',
+                    },
+                ],
+            },
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+    });
+
+    const raw = response.choices[0]?.message?.content || '';
+    console.log('[AI-GroqVision] Response preview:', raw.slice(0, 200));
+    return parseJSON(raw);
+}
+
 // MAIN EXPORT — tries all 3 layers in order
 async function structureWithAI(rawOcrText) {
     // Layer 1: Groq
@@ -276,4 +317,4 @@ async function structureWithAI(rawOcrText) {
     return structureWithRegex(rawOcrText);
 }
 
-module.exports = { structureWithAI };
+module.exports = { structureWithAI, structureWithGroqVision };

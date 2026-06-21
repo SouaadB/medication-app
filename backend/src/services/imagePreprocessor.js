@@ -16,7 +16,7 @@ async function preprocessImage(imagePath) {
 
     try {
          await sharp(imagePath)
-            .resize({ width: 2400, withoutEnlargement: false })
+            .resize({ width: 1500, withoutEnlargement: false })
             .grayscale()
             .normalize()
             .median(1)

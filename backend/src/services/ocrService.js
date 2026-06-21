@@ -8,8 +8,8 @@
 // Drop-in replacement for the old OCRService.js
 // ─────────────────────────────────────────────────────────────
 
-const { extractRawText }   = require('./ocrExtractor');
-const { structureWithAI }  = require('./aiStructurer');
+const { extractRawText }                        = require('./ocrExtractor');
+const { structureWithAI, structureWithGroqVision } = require('./aiStructurer');
 
 class OCRService {
 
@@ -30,20 +30,30 @@ class OCRService {
     static async extractMedications(imagePath) {
         console.log('[OCRService] Starting pipeline for:', imagePath);
 
-        // ── Stage 1: OCR ──────────────────────────────────────
-        const rawText = await extractRawText(imagePath);
-        console.log('[OCRService] Raw OCR text length:', rawText.length, 'chars');
+        // ── Stage 1: Groq Vision — direct image read, skips Tesseract ────────
+        let structured;
+        try {
+            console.log('[OCRService] Trying Groq Vision (fast path)...');
+            structured = await structureWithGroqVision(imagePath);
+            console.log('[OCRService] ✅ Groq Vision succeeded — Tesseract skipped');
+        } catch (visionErr) {
+            console.warn('[OCRService] ⚠️ Groq Vision failed:', visionErr.message, '— falling back to Tesseract');
 
-        if (!rawText || rawText.trim().length < 20) {
-            throw new Error(
-                'OCR returned too little text. ' +
-                'Make sure the image is well-lit and not blurry.'
-            );
+            // ── Stage 1b (fallback): Tesseract OCR ──────────────────────────
+            const rawText = await extractRawText(imagePath);
+            console.log('[OCRService] Raw OCR text length:', rawText.length, 'chars');
+
+            if (!rawText || rawText.trim().length < 20) {
+                throw new Error(
+                    'OCR returned too little text. ' +
+                    'Make sure the image is well-lit and not blurry.'
+                );
+            }
+
+            // ── Stage 2: AI structuring from text ───────────────────────────
+            console.log('[OCRService] Sending text to AI structurer...');
+            structured = await structureWithAI(rawText);
         }
-
-        // ── Stage 2: AI structuring (text only — no image sent) ─
-        console.log('[OCRService] Sending text to AI structurer...');
-        const structured = await structureWithAI(rawText);
 
         // ── Stage 3: Post-process / dedup (JS safety net) ────
         const final = this._postProcess(structured);
