@@ -523,8 +523,18 @@ class _CaregiverAccessPageState extends State<CaregiverAccessPage> {
                       }
                     } else {
                       if (mounted) {
+                        String errorMsg = 'Failed to send invitation';
+                        try {
+                          final body = jsonDecode(response.body);
+                          if (body['message'] != null) errorMsg = body['message'];
+                        } catch (_) {}
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Failed to send invitation'), backgroundColor: Colors.red),
+                          SnackBar(
+                            content: Text(errorMsg),
+                            backgroundColor: Colors.red,
+                            duration: const Duration(seconds: 5),
+                            behavior: SnackBarBehavior.floating,
+                          ),
                         );
                       }
                     }

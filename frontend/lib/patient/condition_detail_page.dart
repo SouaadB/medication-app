@@ -1352,13 +1352,11 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
                         Icons.calendar_today_outlined, 'Start Date'),
                     const SizedBox(height: 8),
                     _isEditing
-                        ? GestureDetector(
-                            onTap: () => _pickDate(_startCtrl),
-                            child: _editField(_startCtrl,
-                                'dd/mm/yyyy',
-                                Icons.calendar_today_outlined,
-                                readOnly: true),
-                          )
+                        ? _editField(_startCtrl,
+                            'dd/mm/yyyy',
+                            Icons.calendar_today_outlined,
+                            readOnly: true,
+                            onTap: () => _pickDate(_startCtrl))
                         : _readField(
                             _startCtrl.text.isNotEmpty
                                 ? _startCtrl.text
@@ -1375,14 +1373,11 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
                         Icons.calendar_month_outlined, 'End Date'),
                     const SizedBox(height: 8),
                     _isEditing
-                        ? GestureDetector(
-                            onTap: () => _pickDate(_endCtrl),
-                            child: _editField(
-                                _endCtrl,
-                                'dd/mm/yyyy (optional)',
-                                Icons.calendar_month_outlined,
-                                readOnly: true),
-                          )
+                        ? _editField(_endCtrl,
+                            'dd/mm/yyyy (optional)',
+                            Icons.calendar_month_outlined,
+                            readOnly: true,
+                            onTap: () => _pickDate(_endCtrl))
                         : _readField(
                             _endCtrl.text.isNotEmpty
                                 ? _endCtrl.text
@@ -1722,10 +1717,11 @@ class _MedicationDetailSheetState extends State<_MedicationDetailSheet> {
   }
 
   Widget _editField(TextEditingController ctrl, String hint,
-      IconData icon, {bool readOnly = false}) {
+      IconData icon, {bool readOnly = false, VoidCallback? onTap}) {
     return TextField(
       controller: ctrl,
       readOnly: readOnly,
+      onTap: onTap,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400),

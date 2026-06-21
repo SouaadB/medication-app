@@ -199,6 +199,31 @@ exports.exportPdf = async (req, res) => {
             ORDER BY month DESC
         `, [patientId, months]);
 
+        // ── Fetch individual dose log (what the history UI shows) ──────────
+        const [doseRows] = await db.execute(`
+            SELECT
+                DATE(ms.scheduled_date_time)                       AS dose_date,
+                DATE_FORMAT(ms.scheduled_date_time, '%H:%i')       AS scheduled_time,
+                t.medication_name,
+                t.dosage,
+                ms.status,
+                TIME_FORMAT(ms.taken_time, '%H:%i')                AS taken_time_str
+            FROM medication_schedules ms
+            JOIN treatments t ON ms.treatment_id = t.id
+            WHERE ms.patient_id = ?
+              AND ms.scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+              AND ms.scheduled_date_time <= NOW()
+            ORDER BY ms.scheduled_date_time DESC
+        `, [patientId, months]);
+
+        // Group doses by date for display
+        const dosesByDate = {};
+        doseRows.forEach(row => {
+            const d = String(row.dose_date).split('T')[0];
+            if (!dosesByDate[d]) dosesByDate[d] = [];
+            dosesByDate[d].push(row);
+        });
+
         // ── Build PDF ───────────────────────────────────────────────────────
         const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
 
@@ -362,6 +387,47 @@ exports.exportPdf = async (req, res) => {
                     String(i + 1), name, row.condition_name || '—', String(row.missed_count) + ' times'
                 ], doc.y, i % 2 === 0);
             });
+        }
+
+        // ── Detailed Dose Log (mirrors the history UI) ─────────────────────
+        if (doseRows.length > 0) {
+            doc.addPage();
+            sectionTitle('Detailed Dose Log');
+
+            const dCols = [
+                { label: 'Medication',      width: inner * 0.35 },
+                { label: 'Scheduled',       width: inner * 0.15 },
+                { label: 'Status',          width: inner * 0.18 },
+                { label: 'Taken at',        width: inner * 0.15 },
+                { label: 'Dosage',          width: inner * 0.17 },
+            ];
+
+            const sortedDates = Object.keys(dosesByDate).sort((a, b) => b.localeCompare(a));
+            for (const date of sortedDates) {
+                // Date header row
+                if (doc.y > doc.page.height - 100) doc.addPage();
+                doc.rect(margin, doc.y, inner, 20).fill('#E3F2FD');
+                doc.fillColor(BLUE).fontSize(10).font('Helvetica-Bold')
+                   .text(new Date(date + 'T12:00:00').toLocaleDateString('en-GB', {
+                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                   }), margin + 8, doc.y - 15, { width: inner - 16 });
+                doc.fillColor('#000000').moveDown(0);
+                doc.y += 5;
+
+                tableHeader(dCols, doc.y);
+                doc.moveDown(0);
+
+                dosesByDate[date].forEach((dose, i) => {
+                    tableRow(dCols, [
+                        dose.medication_name || '—',
+                        dose.scheduled_time  || '—',
+                        dose.status          || '—',
+                        dose.taken_time_str  || '—',
+                        dose.dosage          || '—',
+                    ], doc.y, i % 2 === 0);
+                });
+                doc.moveDown(0.4);
+            }
         }
 
         // ── Footer on all pages ─────────────────────────────────────────────
