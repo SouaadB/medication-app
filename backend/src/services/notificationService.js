@@ -817,10 +817,11 @@ class NotificationService {
         const bedtime = parseMin(dose.bedtime,    23 * 60);
 
         // Normal day (wake < bedtime): must be between wake and bedtime
-        if (wake <= bedtime) return nowMinutes >= wake && nowMinutes < bedtime;
+        if (wake <= bedtime)
+    return nowMinutes >= wake && nowMinutes <= bedtime;;
 
         // Overnight (e.g. wake 06:00, bedtime 01:00 next day)
-        return nowMinutes >= wake || nowMinutes < bedtime;
+        return nowMinutes >= wake || nowMinutes <= bedtime;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
