@@ -158,13 +158,14 @@ class NotificationService {
     // JOB 1 — SMART REMINDERS  (runs every minute)
     // ─────────────────────────────────────────────────────────────────────────
 
-    static async generateSmartReminders() {
+static async generateSmartReminders() {
         try {
             const [doses] = await db.execute(`
                 SELECT
                     ms.id                     AS schedule_id,
                     ms.patient_id,
                     ms.scheduled_date_time,
+                    ms.snoozed_until,
                     t.medication_name,
                     t.dosage,
                     t.frequency,
@@ -192,6 +193,7 @@ class NotificationService {
             `);
 
             let sent = 0;
+            const now = new Date();
 
             for (const dose of doses) {
                 // ── Patient-level guards ──────────────────────────────────
@@ -199,10 +201,61 @@ class NotificationService {
                 if (this._shouldSuppress(dose))        continue;
                 if (!this._isWithinWakingHours(dose))  continue;
 
-                // ── Timing ────────────────────────────────────────────────
-                // diffMinutes > 0  → dose is in the future
-                // diffMinutes < 0  → dose is overdue
-                const now           = new Date();
+                // ── SNOOZE handling ──────────────────────────────────────
+                if (dose.snoozed_until) {
+                    const snoozedUntil = new Date(dose.snoozed_until);
+
+                    if (now < snoozedUntil) {
+                        continue; // still snoozed — skip entirely, no normal stages
+                    }
+
+                    // Snooze just expired — fire a re-prompt instead of the
+                    // normal stage ladder.
+                    const minutesSinceExpiry = Math.round((now - snoozedUntil) / 60000);
+                    if (minutesSinceExpiry >= 0 && minutesSinceExpiry < 2) {
+                        if (!(await this._checkNotificationExists(dose.schedule_id, 'SNOOZE_EXPIRED'))) {
+                            const template = this._getTemplate(dose, 'SNOOZE_EXPIRED');
+                            const isHigh   = dose.priority === 'HIGH';
+
+                            await this.createNotification(
+                                dose.patient_id, 'reminder', template.title, template.message,
+                                {
+                                    schedule_id:         dose.schedule_id,
+                                    treatment_id:        dose.treatment_id,
+                                    stage:               'SNOOZE_EXPIRED',
+                                    priority:            dose.priority,
+                                    condition:           dose.condition_name || null,
+                                    scheduled_date_time: dose.scheduled_date_time,
+                                }
+                            );
+
+                            if (dose.fcm_token) {
+                                await FirebaseService.sendPushNotification(
+                                    dose.fcm_token, template.title, template.message,
+                                    {
+                                        schedule_id:  String(dose.schedule_id),
+                                        treatment_id: String(dose.treatment_id),
+                                        type:         'medication_reminder',
+                                        stage:        'SNOOZE_EXPIRED',
+                                        priority:     dose.priority || 'MEDIUM',
+                                    },
+                                    isHigh
+                                );
+                            }
+                            sent++;
+                        }
+
+                        // Clear the flag so future ticks fall back to normal stages
+                        await db.execute(
+                            `UPDATE medication_schedules SET snoozed_until = NULL WHERE id = ?`,
+                            [dose.schedule_id]
+                        );
+                    }
+
+                    continue; // never fall through to normal stages on this tick
+                }
+
+                // ── Timing (normal path) ─────────────────────────────────
                 const scheduledTime = new Date(
                     (typeof dose.scheduled_date_time === 'string'
                         ? dose.scheduled_date_time
@@ -211,20 +264,16 @@ class NotificationService {
                 );
                 const diffMinutes = Math.round((scheduledTime - now) / 60000);
 
-                // ── Cap non-HIGH at 3 notifications per dose per day ──────
                 const todayCount = await this._countTodayNotificationsForDose(dose.schedule_id);
                 if (todayCount >= 3 && dose.priority !== 'HIGH') continue;
 
                 const stages = this._getNotificationStages(dose);
 
                 for (const stage of stages) {
-                    // Each stage fires in a strict 2-minute window to prevent
-                    // repeated firing every minute
                     const withinWindow = diffMinutes <= stage.offset &&
                                          diffMinutes >  stage.offset - 2;
                     if (!withinWindow) continue;
 
-                    // Deduplication: one notification per (schedule_id, stage) per 24h
                     if (await this._checkNotificationExists(dose.schedule_id, stage.type)) continue;
 
                     const template = this._getTemplate(dose, stage.template);
@@ -257,7 +306,7 @@ class NotificationService {
                                 stage:        stage.type,
                                 priority:     dose.priority || 'MEDIUM',
                             },
-                            isHigh  // high-priority flag for FCM (wakes phone)
+                            isHigh
                         );
                     }
 
@@ -540,6 +589,11 @@ class NotificationService {
                 title:   '🍽️ You can eat now',
                 message: `40 minutes have passed since ${name}${dosage}. You can have breakfast now.`,
             },
+                        // ── Snooze ───────────────────────────────────────────────────────
+            SNOOZE_EXPIRED: {
+                title:   '⏰ Snooze ended',
+                message: `Time to take ${name}${dosage}${relStr}${cond} — your snooze period has ended.`,
+            },
         };
 
         const tmpl = T[templateKey];
@@ -568,12 +622,16 @@ class NotificationService {
 
     static async markMissedDoses() {
         try {
-            // Step 1 — flip DB status for all overdue SCHEDULED doses
+// Step 1 — flip DB status for all overdue SCHEDULED doses
+            // (skip doses that are still actively snoozed into the future —
+            // the patient asked to be reminded later, so that's now the
+            // operative deadline, not the original scheduled_date_time)
             const [missedResult] = await db.execute(
                 `UPDATE medication_schedules
                  SET status = 'MISSED'
                  WHERE status = 'SCHEDULED'
-                 AND scheduled_date_time < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
+                 AND scheduled_date_time < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+                 AND (snoozed_until IS NULL OR snoozed_until < NOW())`
             );
 
             if (missedResult.affectedRows === 0) return 0;
@@ -629,7 +687,7 @@ class NotificationService {
                 const title   = '❌ Missed dose';
                 const message = `You missed ${dose.medication_name}${dose.dosage ? ' ' + dose.dosage : ''} scheduled at ${timeStr}.`;
 
-                await this.createNotification(
+await this.createNotification(
                     dose.patient_id,
                     'missed',
                     title,
@@ -654,6 +712,20 @@ class NotificationService {
                         dose.priority === 'HIGH'
                     );
                 }
+
+                // Neutralize earlier reminder notifications for this dose —
+                // they're now obsolete. Marking them read removes their
+                // action buttons in the UI, so a stale "Taken" press on an
+                // old PREP/MAIN/FOLLOW_UP card can no longer reach a dose
+                // that's already been declared missed.
+                await db.execute(
+                    `UPDATE notifications
+                     SET is_read = true
+                     WHERE patient_id = ?
+                     AND type = 'reminder'
+                     AND JSON_UNQUOTE(JSON_EXTRACT(data, '$.schedule_id')) = ?`,
+                    [dose.patient_id, dose.schedule_id.toString()]
+                );
             }
 
             return missedResult.affectedRows;

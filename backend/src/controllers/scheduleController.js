@@ -71,12 +71,32 @@ exports.getStats = async (req, res) => {
 exports.markAsTaken = async (req, res) => {
     try {
         const { scheduleId } = req.params;
-        const success = await ScheduleService.markAsTaken(scheduleId);
-        if (success) {
-            res.json({ success: true, message: '✅ Dose marquée comme prise' });
-        } else {
-            res.status(400).json({ success: false, message: 'Impossible de marquer cette dose' });
+        const result = await ScheduleService.markAsTaken(scheduleId);
+
+        // false → schedule not found at all
+        if (result === false) {
+            return res.status(404).json({ success: false, message: 'Dose introuvable' });
         }
+
+        // Rejected — too far past scheduled time to mark as taken
+        if (result && typeof result === 'object' && result.success === false) {
+            if (result.reason === 'TOO_LATE') {
+                return res.status(409).json({
+                    success: false,
+                    message: `Cette dose est trop en retard pour être marquée comme prise (${result.minutesLate} min). Consultez votre médecin si nécessaire.`,
+                });
+            }
+            return res.status(400).json({ success: false, message: 'Impossible de marquer cette dose' });
+        }
+
+        // true → success
+        if (result === true) {
+            return res.json({ success: true, message: '✅ Dose marquée comme prise' });
+        }
+
+        // Fallback for any unexpected shape
+        res.status(400).json({ success: false, message: 'Impossible de marquer cette dose' });
+
     } catch (error) {
         console.error('Error in markAsTaken:', error);
         res.status(500).json({ success: false, message: 'Erreur lors de la confirmation' });

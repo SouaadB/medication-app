@@ -64,7 +64,7 @@ exports.snoozeNotification = async (req, res) => {
 
         const [rows] = await db.execute(
             `SELECT ms.id, ms.patient_id, ms.scheduled_date_time,
-                    t.medication_name, t.dosage, t.priority, t.id AS treatment_id,
+                    t.medication_name, t.dosage, t.priority, t.frequency, t.id AS treatment_id,
                     p.fcm_token
              FROM medication_schedules ms
              JOIN treatments t ON ms.treatment_id = t.id
@@ -78,14 +78,50 @@ exports.snoozeNotification = async (req, res) => {
         }
 
         const dose = rows[0];
+        const freq = dose.frequency || '';
 
-        // Calculate snooze time in Algeria timezone (UTC+2 in summer)
-        const snoozeTime    = new Date(Date.now() + minutes * 60 * 1000);
-        const algeriaOffset = 2 * 60 * 60 * 1000;
-        const localSnooze   = new Date(snoozeTime.getTime() + algeriaOffset);
-        const snoozeHour    = String(localSnooze.getUTCHours()).padStart(2, '0');
-        const snoozeMin     = String(localSnooze.getUTCMinutes()).padStart(2, '0');
-        const snoozeTimeStr = `${snoozeHour}:${snoozeMin}`;
+        // ── Snooze restrictions ──────────────────────────────────────────
+        // HIGH priority: critical doses must never be deferred — the
+        // escalation ladder exists precisely so these can't be silenced.
+        if (dose.priority === 'HIGH') {
+            return res.status(403).json({
+                success: false,
+                message: 'High-priority medications cannot be snoozed.',
+            });
+        }
+
+        // Empty stomach / before-meal: these have a fixed medical window.
+        // Snoozing risks the re-prompt landing after the window has closed
+        // (post-breakfast / post-meal), which would tell the patient to
+        // take a dose when the timing premise no longer holds.
+        const isWindowRestricted =
+            freq.includes('Empty stomach')   ||
+            freq.includes('Before breakfast') ||
+            freq.includes('Before lunch')     ||
+            freq.includes('Before dinner');
+
+        if (isWindowRestricted) {
+            return res.status(403).json({
+                success: false,
+                message: 'This medication has a fixed timing window and cannot be snoozed.',
+            });
+        }
+
+        // snoozeTime is already a correct absolute instant — Date.now() is
+        // timezone-agnostic. We never shift the instant itself, only format
+        // it for display in Algeria's real timezone.
+        const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+
+        const snoozeTimeStr = snoozeTime.toLocaleTimeString('fr-FR', {
+            timeZone: 'Africa/Algiers',
+            hour:     '2-digit',
+            minute:   '2-digit',
+        });
+
+        await db.execute(
+            `UPDATE medication_schedules SET snoozed_until = ? WHERE id = ?`,
+            [snoozeTime, dose.id]
+        );
 
         await db.execute(
             `INSERT INTO notifications

@@ -261,7 +261,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     );
   }
 
-  Future<void> _markTaken(int scheduleId, int notifId) async {
+Future<void> _markTaken(int scheduleId, int notifId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
@@ -280,6 +280,19 @@ class _NotificationsPageState extends State<NotificationsPage>
               Text('✅ Medication marked as taken!'),
             ]),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        }
+      } else if (response.statusCode == 409) {
+        // Too late to mark as taken — dismiss the stale notification
+        // instead of leaving it stuck with a non-functional button.
+        await _markAsRead(notifId, reload: false);
+        _loadNotifications();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('⏰ This reminder has expired and can no longer be marked as taken.'),
+            backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ));
@@ -614,7 +627,7 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
       return _NotifStyle(
         color: Colors.orange, bgColor: const Color(0xFFFFF3E0),
         icon: Icons.restaurant_menu, stage: 'before_meal_main',
-        showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
       );
     }
     
@@ -691,7 +704,7 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
   return _NotifStyle(
     color: Colors.teal, bgColor: const Color(0xFFE0F2F1),
     icon: Icons.no_meals_outlined, stage: 'empty_stomach_main',
-    showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
+    showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
   );
 }
 
@@ -702,6 +715,15 @@ Future<void> _showSnoozeDialog(Map<String, dynamic> notification) async {
         icon: Icons.restaurant, stage: 'safe_to_eat',
         showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
         isInformational: true,
+      );
+    }
+        // ── SNOOZE_EXPIRED — snooze period over, prompt again ─────────────────
+    // Same affordance as MAIN: patient can take it now or snooze again.
+    if (stage == 'SNOOZE_EXPIRED') {
+      return _NotifStyle(
+        color: Colors.blue, bgColor: const Color(0xFFE6F1FB),
+        icon: Icons.medication, stage: 'snooze_expired',
+        showTaken: true, showSnooze: false, showSkip: false, showDismiss: false,
       );
     }
     // ── AI INSIGHT ────────────────────────────────────────────────────────

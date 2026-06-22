@@ -76,53 +76,65 @@ class ScheduleService {
     }
 
     // Marquer une dose comme prise (avec taken_time)
-    static async markAsTaken(scheduleId) {
+static async markAsTaken(scheduleId) {
         try {
-            // Set timezone for the current connection session
             await db.execute("SET time_zone = '+01:00'");
-            
+
             const now = new Date();
-            
+
             const [scheduleInfo] = await db.execute(
-                `SELECT ms.patient_id, t.medication_name, t.dosage, ms.scheduled_date_time
+                `SELECT ms.patient_id, ms.status, t.medication_name, t.dosage, ms.scheduled_date_time
                  FROM medication_schedules ms
                  JOIN treatments t ON ms.treatment_id = t.id
                  WHERE ms.id = ?`,
                 [scheduleId]
             );
-            
-            if (scheduleInfo.length === 0) {
-                return false;
+
+            if (scheduleInfo.length === 0) return false;
+
+            const dose          = scheduleInfo[0];
+            const scheduledTime = new Date(dose.scheduled_date_time);
+            const minutesLate   = Math.round((now - scheduledTime) / 60000);
+
+            // Beyond 1 hour late, "Taken" no longer reflects a real
+            // adherence event for this dose — reject rather than silently
+            // recording a misleading late-take. This also closes the
+            // stale-notification path: an old MAIN card scrolled past
+            // while the dose was already marked MISSED can no longer
+            // flip it to TAKEN once too much time has passed.
+            const MAX_LATE_MINUTES = 60;
+            if (dose.status !== 'TAKEN' && minutesLate > MAX_LATE_MINUTES) {
+                console.log(`[markAsTaken] Rejected — schedule ${scheduleId} is ${minutesLate}min late (max ${MAX_LATE_MINUTES})`);
+                return { success: false, reason: 'TOO_LATE', minutesLate };
             }
-            
+
             const [result] = await db.execute(
                 `UPDATE medication_schedules
                  SET status = 'TAKEN', taken_time = ?
                  WHERE id = ? AND status IN ('SCHEDULED', 'MISSED')`,
                 [now, scheduleId]
             );
-            
+
             if (result.affectedRows > 0) {
-                const scheduledTime = new Date(scheduleInfo[0].scheduled_date_time);
-                const minutesLate = Math.round((now - scheduledTime) / (1000 * 60));
-                
+                // Insert a late-dose notification if more than 30 min late
                 if (minutesLate > 30) {
                     await db.execute(
-                        `INSERT INTO notifications 
+                        `INSERT INTO notifications
                          (patient_id, type, title, message, data, scheduled_time)
                          VALUES (?, 'reminder', ?, ?, ?, ?)`,
                         [
-                            scheduleInfo[0].patient_id,
+                            dose.patient_id,
                             '⏰ Dose taken late',
-                            `Vous have taken ${scheduleInfo[0].medication_name} ${scheduleInfo[0].dosage || ''}  ${minutesLate} minutes late`,
+                            `You took ${dose.medication_name}${dose.dosage ? ' ' + dose.dosage : ''} ${minutesLate} minutes late.`,
                             JSON.stringify({ schedule_id: scheduleId, minutesLate, stage: 'LATE_TAKEN' }),
-                            now
+                            now,
                         ]
                     );
                 }
             }
-            
+
             return result.affectedRows > 0;
+
         } catch (error) {
             console.error('Error marking as taken:', error);
             throw error;
