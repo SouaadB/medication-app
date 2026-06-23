@@ -141,14 +141,19 @@ static async markAsTaken(scheduleId) {
         }
     }
 
-    // Vérifier la streak actuelle
+  
+// Vérifier la streak actuelle
     static async getCurrentStreak(patientId) {
         try {
             const query = `
                 WITH daily_status AS (
                     SELECT 
                         DATE(scheduled_date_time) as dose_date,
-                        MAX(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) as all_taken
+                        MAX(CASE
+                                WHEN status = 'MISSED' THEN 1
+                                WHEN status = 'SCHEDULED' AND scheduled_date_time < NOW() THEN 1
+                                ELSE 0
+                            END) as has_failure
                     FROM medication_schedules
                     WHERE patient_id = ? 
                     AND scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 60 DAY)
@@ -158,15 +163,15 @@ static async markAsTaken(scheduleId) {
                 streak_calc AS (
                     SELECT 
                         dose_date,
-                        all_taken,
-                        SUM(CASE WHEN all_taken = 0 THEN 1 ELSE 0 END) 
+                        has_failure,
+                        SUM(CASE WHEN has_failure = 1 THEN 1 ELSE 0 END) 
                             OVER (ORDER BY dose_date DESC) as break_group
                     FROM daily_status
                     WHERE dose_date <= CURDATE()
                 )
                 SELECT COUNT(*) as current_streak
                 FROM streak_calc
-                WHERE break_group = 0 AND all_taken = 1
+                WHERE break_group = 0 AND has_failure = 0
             `;
             
             const [rows] = await db.execute(query, [patientId]);

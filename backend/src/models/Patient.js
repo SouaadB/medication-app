@@ -157,33 +157,35 @@ static async setupProfile(userId, profileData) {
         const [rows] = await db.execute(query, [patientId, patientId]);
         return rows;
     }
-
-    // Get patient's current streak (FIXED: using medication_schedules)
+// Get patient's current streak (FIXED: using medication_schedules)
     static async getCurrentStreak(patientId) {
         const query = `
             WITH daily_intakes AS (
                 SELECT 
                     DATE(scheduled_date_time) as intake_date,
                     MAX(CASE 
-                        WHEN status = 'TAKEN' THEN 1 ELSE 0 
-                    END) as taken_on_time
+                        WHEN status = 'MISSED' THEN 1
+                        WHEN status = 'SCHEDULED' AND scheduled_date_time < NOW() THEN 1
+                        ELSE 0
+                    END) as has_failure
                 FROM medication_schedules
                 WHERE patient_id = ?
+                AND scheduled_date_time >= DATE_SUB(NOW(), INTERVAL 60 DAY)
                 GROUP BY DATE(scheduled_date_time)
                 ORDER BY intake_date DESC
             ),
             streak_calc AS (
                 SELECT 
                     intake_date,
-                    taken_on_time,
-                    SUM(CASE WHEN taken_on_time = 0 THEN 1 ELSE 0 END) 
+                    has_failure,
+                    SUM(CASE WHEN has_failure = 1 THEN 1 ELSE 0 END) 
                         OVER (ORDER BY intake_date DESC) as break_group
                 FROM daily_intakes
                 WHERE intake_date <= CURDATE()
             )
             SELECT COUNT(*) as current_streak
             FROM streak_calc
-            WHERE break_group = 0 AND taken_on_time = 1
+            WHERE break_group = 0 AND has_failure = 0
         `;
         const [rows] = await db.execute(query, [patientId]);
         return rows[0]?.current_streak || 0;

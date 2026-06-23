@@ -1,5 +1,8 @@
 // controllers/rewardsController.js
+// controllers/rewardsController.js
 const db = require('../config/database');
+const ScheduleService = require('../services/scheduleService'); // ADD THIS LINE
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -274,7 +277,7 @@ exports.getRewardsStatus = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Guarantee a patient_streaks row exists (safe if already there)
+  // Guarantee a patient_streaks row exists (safe if already there)
     await db.execute(
       `INSERT IGNORE INTO patient_streaks
          (patient_id, current_streak, longest_streak, last_completion_date, total_points)
@@ -283,15 +286,30 @@ exports.getRewardsStatus = async (req, res) => {
     );
 
     // ── 1. Streak & points ────────────────────────────────────────────────────
+    // current_streak is computed live (the patient_streaks column is not
+    // kept in sync by any writer), then persisted back so longest_streak
+    // and other readers (caregiver dashboard, adherence signal service)
+    // see an up-to-date value too.
+    const currentStreak = await ScheduleService.getCurrentStreak(userId);
+
     const [streakRows] = await db.execute(
-      `SELECT current_streak, longest_streak, total_points
+      `SELECT longest_streak, total_points
        FROM patient_streaks WHERE patient_id = ?`,
       [userId]
     );
     const sd             = streakRows[0] || {};
     const points         = parseInt(sd.total_points   || 0);
-    const currentStreak  = parseInt(sd.current_streak || 0);
-    const longestStreak  = parseInt(sd.longest_streak || 0);
+    const storedLongest  = parseInt(sd.longest_streak || 0);
+    const longestStreak  = Math.max(storedLongest, currentStreak);
+
+    // Persist the freshly computed values so other readers
+    // (caregiverController, adherenceSignalService) stay in sync.
+    await db.execute(
+      `UPDATE patient_streaks
+       SET current_streak = ?, longest_streak = ?
+       WHERE patient_id = ?`,
+      [currentStreak, longestStreak, userId]
+    );
 
     // ── 2. All achievements ───────────────────────────────────────────────────
     const [allAchievements] = await db.execute(
