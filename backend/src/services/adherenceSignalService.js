@@ -588,12 +588,24 @@ function _buildInterventionMessage(signal, signalData, patientName) {
       };
     }
 
-    case 'consecutiveMissedDoses': {
+case 'consecutiveMissedDoses': {
       const med  = signalData.worstMed || 'your medication';
       const days = signalData.maxStreak || 2;
       return {
         title: `⚠️ ${med} — ${days} missed days in a row`,
         body:  `Hi ${patientName}, you have missed ${med} for ${days} consecutive days. Please take it today and speak with your doctor if you are having difficulties with this medication.`,
+      };
+    }
+
+    case 'lowOverallAdherence': {
+      const rate = signalData.score !== undefined
+        ? Math.round((1 - signalData.score) * 100)
+        : null;
+      return {
+        title: '📉 Your medication adherence needs attention',
+        body:  rate !== null
+          ? `Hi ${patientName}, your overall adherence this week is around ${rate}%. Let's work on getting back on track — try setting reminders for each dose and reach out to your caregiver if you need support.`
+          : `Hi ${patientName}, your overall medication adherence has been low this week. Let's work on getting back on track — try setting reminders for each dose and reach out to your caregiver if you need support.`,
       };
     }
 
