@@ -508,12 +508,16 @@ async function triggerInterventions(patientId, forecastResult) {
     // Only intervene for moderate risk and above
     if (riskLevel === 'low') return [];
 
-    for (const { signal } of activeSignals) {
+ for (const activeSignal of activeSignals) {
+      const { signal } = activeSignal;
+
       // Dedup: skip if this intervention was sent in the last 24h
       const alreadySent = await _interventionSentRecently(patientId, signal);
       if (alreadySent) continue;
 
-      const message = _buildInterventionMessage(signal, signals[signal], patient.name);
+      // lowOverallAdherence lives only in activeSignals, not in `signals`
+      const signalData = signals[signal] || activeSignal;
+      const message = _buildInterventionMessage(signal, signalData, patient.name);
       if (!message) continue;
 
       // Send FCM push
