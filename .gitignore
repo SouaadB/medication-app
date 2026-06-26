@@ -39,3 +39,6 @@ frontend/.flutter-plugins-dependencies
 # Firebase
 backend/firebase-service-account.json
 backend/.env
+
+# User-uploaded content (voice messages, OCR scan temp files) — never belongs in git
+backend/uploads/
