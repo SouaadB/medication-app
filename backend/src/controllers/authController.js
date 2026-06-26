@@ -10,6 +10,35 @@ const codeService = require('../services/codeService');
 const db = require('../config/database');
 const emailSenderService = require('../services/emailSenderService'); // ← NOUVEAU
 const crypto = require('crypto');
+const fs = require('fs');
+const chifaScanService = require('../services/chifaScanService');
+
+// Scan a Carte Chifa photo and extract the 12-digit SCRN — PUBLIC route,
+// used during registration before the patient has an account.
+exports.scanChifaCard = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image uploaded' });
+        }
+
+        const scrnNumber = await chifaScanService.extractScrnFromImage(req.file.path);
+        fs.unlink(req.file.path, () => {});
+
+        if (!scrnNumber) {
+            return res.status(422).json({
+                success: false,
+                message: 'Could not read a clear 12-digit number from this card. Please try again with better lighting and make sure the top of the card is visible.'
+            });
+        }
+
+        return res.json({ success: true, scrnNumber });
+    } catch (error) {
+        if (req.file) fs.unlink(req.file.path, () => {});
+        console.error('scanChifaCard error:', error);
+        res.status(500).json({ success: false, message: 'Error scanning card. Please try again.' });
+    }
+};
+
 // Register new patient
 exports.register = async (req, res) => {
     try {
@@ -78,12 +107,12 @@ exports.register = async (req, res) => {
             });
         }
 
-        // 7. Validate CHIFA number (exactly 9 digits)
+        // 7. Validate SCRN (exactly 12 digits, read from the scanned Chifa card)
         if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
-            console.log('❌ Registration failed: Invalid CHIFA number', chifaCardRegistrationNumber);
-            return res.status(400).json({ 
-                success: false, 
-                message: 'CHIFA registration number must be exactly 9 digits' 
+            console.log('❌ Registration failed: Invalid SCRN', chifaCardRegistrationNumber);
+            return res.status(400).json({
+                success: false,
+                message: 'SCRN (Social Security Registration Number) must be exactly 12 digits — please scan your Chifa card again'
             });
         }
 
@@ -105,8 +134,9 @@ exports.register = async (req, res) => {
             });
         }
 
-        // 10. Check if user already exists by email
-        const existingUserByEmail = await User.findByEmail(email);
+        // 10. Check if user already exists by email (scoped to 'patient' — the
+        // same email may already exist under a different role, e.g. caregiver)
+        const existingUserByEmail = await User.findByEmailAndRole(email, 'patient');
         if (existingUserByEmail) {
             return res.status(400).json({ 
                 success: false, 
@@ -168,10 +198,16 @@ exports.register = async (req, res) => {
             [verificationToken, userId]
         );
 
-        // Send verification email
+        // Send verification email — sendVerificationEmail catches its own
+        // errors and returns {success: false} rather than throwing, so check
+        // the result explicitly instead of assuming the try block succeeded.
         try {
-            await emailSenderService.sendVerificationEmail(email, name, verificationToken);
-            console.log(`📧 Email de vérification envoyé à ${email}`);
+            const emailResult = await emailSenderService.sendVerificationEmail(email, name, verificationToken);
+            if (emailResult.success) {
+                console.log(`📧 Email de vérification envoyé à ${email}`);
+            } else {
+                console.error(`❌ Échec envoi email de vérification à ${email} (non bloquant):`, emailResult.error);
+            }
         } catch (emailError) {
             console.error('❌ Erreur envoi email (non bloquante):', emailError);
         }
@@ -216,11 +252,14 @@ exports.login = async (req, res) => {
         }
 
         // Vérifier si c'est un email ou un téléphone
+        // Email is unique per role now, so the patient/admin portal must look
+        // up scoped to those roles — never email alone — to avoid resolving
+        // the wrong account when the same email also has a caregiver identity.
         const isEmail = identifier.includes('@');
         let user;
 
         if (isEmail) {
-            user = await User.findByEmail(identifier);
+            user = await User.findByEmailAndRoles(identifier, ['patient', 'admin']);
         } else {
             const cleanPhone = identifier.replace(/\D/g, '');
             user = await User.findByPhone(cleanPhone);
@@ -275,27 +314,37 @@ exports.login = async (req, res) => {
         }
 
         // ✅ 2. Ensuite vérifier les caregivers (si pas trouvé parmi les patients)
+        // Caregiver-portal login: scoped to role='caregiver' so it never resolves
+        // a patient/admin row sharing the same email.
         try {
-            console.log('🔍 Checking caregiver_users for email:', identifier);
-            const [caregiverUsers] = await db.execute(
-                'SELECT * FROM caregiver_users WHERE email = ?',
-                [identifier]
-            );
+            const caregiverUser = await User.findByEmailAndRole(identifier, 'caregiver');
 
-            if (caregiverUsers.length > 0) {
-                console.log('👤 Caregiver found:', caregiverUsers[0].email);
-                const caregiverUser = caregiverUsers[0];
+            if (caregiverUser) {
                 const isValidCaregiver = await bcrypt.compare(password, caregiverUser.password);
-                console.log('🔐 Password valid:', isValidCaregiver);
-                
+
                 if (isValidCaregiver) {
                     console.log('✅ Caregiver login successful for:', caregiverUser.email);
 
-                    // First login = accept all pending invitations automatically
-                    await db.execute(
-                        'UPDATE caregivers SET status = \'ACTIVE\' WHERE email = ? AND status = \'PENDING\'',
-                        [caregiverUser.email]
+                    // Only a caregiver's very first login ever auto-activates a
+                    // PENDING assignment (that's how a brand-new caregiver account
+                    // accepts the invitation that created it — no separate signup
+                    // step). Any later invitation from a different patient must be
+                    // accepted explicitly via the emailed Accept Invitation link,
+                    // never silently activated just by logging in again.
+                    const [[caregiverRow]] = await db.execute(
+                        'SELECT first_login_at FROM caregivers WHERE id = ?',
+                        [caregiverUser.id]
                     );
+                    if (!caregiverRow.first_login_at) {
+                        await db.execute(
+                            'UPDATE caregiver_assignment SET status = \'ACTIVE\' WHERE caregiver_id = ? AND status = \'PENDING\'',
+                            [caregiverUser.id]
+                        );
+                        await db.execute(
+                            'UPDATE caregivers SET first_login_at = NOW() WHERE id = ?',
+                            [caregiverUser.id]
+                        );
+                    }
 
                     const caregiverToken = jwt.sign(
                         { id: caregiverUser.id, email: caregiverUser.email, role: 'caregiver', name: caregiverUser.name },
@@ -303,14 +352,14 @@ exports.login = async (req, res) => {
                         { expiresIn: process.env.JWT_EXPIRE || '7d' }
                     );
                     // Save FCM token if provided
-const fcmToken = req.body.fcmToken || req.body.fcm_token;
-if (fcmToken) {
-    await db.execute(
-        'UPDATE caregiver_users SET fcm_token = ? WHERE email = ?',
-        [fcmToken, caregiverUser.email]
-    );
-    console.log('🔔 Caregiver FCM token saved for:', caregiverUser.email);
-}
+                    const fcmToken = req.body.fcmToken || req.body.fcm_token;
+                    if (fcmToken) {
+                        await db.execute(
+                            'UPDATE caregivers SET fcm_token = ? WHERE id = ?',
+                            [fcmToken, caregiverUser.id]
+                        );
+                        console.log('🔔 Caregiver FCM token saved for:', caregiverUser.email);
+                    }
                     return res.json({
                         success: true,
                         message: 'Login successful',
@@ -325,10 +374,7 @@ if (fcmToken) {
                 }
             }
         } catch (caregiverError) {
-            // Si la table n'existe pas, on ignore simplement l'erreur
-            if (caregiverError.code !== 'ER_NO_SUCH_TABLE') {
-                console.error('Caregiver check error:', caregiverError);
-            }
+            console.error('Caregiver check error:', caregiverError);
         }
 
         // ✅ 3. Si aucun des deux n'a fonctionné, erreur
@@ -400,9 +446,10 @@ exports.forgotPassword = async (req, res) => {
             });
         }
 
-        // Vérifier si l'utilisateur existe
-        const user = await User.findByEmail(email);
-        
+        // Vérifier si l'utilisateur existe (patient/admin portal only — caregiver
+        // password reset has its own dedicated flow further down)
+        const user = await User.findByEmailAndRoles(email, ['patient', 'admin']);
+
         if (!user) {
             // Pour des raisons de sécurité, on ne dit pas si l'email existe ou pas
             return res.json({
@@ -518,9 +565,9 @@ exports.requestResetCode = async (req, res) => {
             });
         }
 
-        // Vérifier si l'utilisateur existe par email
-        const user = await User.findByEmail(email);
-        
+        // Vérifier si l'utilisateur existe par email (patient/admin portal only)
+        const user = await User.findByEmailAndRoles(email, ['patient', 'admin']);
+
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -581,7 +628,7 @@ exports.verifyResetCode = async (req, res) => {
         let user;
 
         if (isEmail) {
-            user = await User.findByEmail(identifier);
+            user = await User.findByEmailAndRoles(identifier, ['patient', 'admin']);
         } else {
             const cleanPhone = identifier.replace(/\D/g, '');
             user = await User.findByPhone(cleanPhone);
@@ -713,20 +760,16 @@ exports.requestCaregiverResetCode = async (req, res) => {
             });
         }
 
-        // Check if caregiver exists
-        const [caregivers] = await db.execute(
-            'SELECT * FROM caregiver_users WHERE email = ?',
-            [email]
-        );
-        
-        if (caregivers.length === 0) {
+        // Check if caregiver exists — scoped to role='caregiver' so this never
+        // resolves a patient/admin account sharing the same email
+        const caregiver = await User.findByEmailAndRole(email, 'caregiver');
+
+        if (!caregiver) {
             return res.status(404).json({
                 success: false,
                 message: 'Aucun compte caregiver trouvé avec cet email'
             });
         }
-
-        const caregiver = caregivers[0];
 
         // Generate a 6-digit code
         const code = codeService.generateCode();
@@ -735,8 +778,8 @@ exports.requestCaregiverResetCode = async (req, res) => {
 
         // Save code to reset_codes table
         await db.execute(
-            'INSERT INTO reset_codes (user_id, code, type, expires_at, is_caregiver) VALUES (?, ?, ?, ?, ?)',
-            [caregiver.id, code, 'email', expiresAt, 1]
+            'INSERT INTO reset_codes (user_id, code, type, expires_at) VALUES (?, ?, ?, ?)',
+            [caregiver.id, code, 'email', expiresAt]
         );
 
         // Send code by email
@@ -776,24 +819,21 @@ exports.verifyCaregiverResetCode = async (req, res) => {
             });
         }
 
-        // Find caregiver by email
-        const [caregivers] = await db.execute(
-            'SELECT id FROM caregiver_users WHERE email = ?',
-            [email]
-        );
+        // Find caregiver by email — scoped to role='caregiver'
+        const caregiver = await User.findByEmailAndRole(email, 'caregiver');
 
-        if (caregivers.length === 0) {
+        if (!caregiver) {
             return res.status(404).json({
                 success: false,
                 message: 'Utilisateur non trouvé'
             });
         }
 
-        const caregiverId = caregivers[0].id;
+        const caregiverId = caregiver.id;
 
         // Verify the code
         const [codes] = await db.execute(
-            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = \'email\' AND is_caregiver = 1 AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+            'SELECT * FROM reset_codes WHERE user_id = ? AND code = ? AND type = \'email\' AND used = FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
             [caregiverId, code]
         );
 
@@ -877,7 +917,7 @@ exports.resetCaregiverPassword = async (req, res) => {
 
         // Update password
         await db.execute(
-            'UPDATE caregiver_users SET password = ? WHERE id = ?',
+            'UPDATE users SET password = ? WHERE id = ?',
             [hashedPassword, decoded.id]
         );
 

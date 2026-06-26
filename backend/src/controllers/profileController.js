@@ -106,8 +106,12 @@ exports.updateProfile = async (req, res) => {
             const pValues = [];
 
             if (chifaCardRegistrationNumber) {
-                if (!RegisterRequest.isValidChifaNumber(chifaCardRegistrationNumber)) {
-                    return res.status(400).json({ success: false, message: 'Le numéro CHIFA doit contenir exactement 9 chiffres' });
+                // Existing patients may still have a legacy 9-digit number;
+                // new registrations always produce a 12-digit SCRN (scanned
+                // from the Chifa card). Accept either here so editing other
+                // profile fields never breaks on an unchanged legacy value.
+                if (!/^[0-9]{9}$|^[0-9]{12}$/.test(chifaCardRegistrationNumber)) {
+                    return res.status(400).json({ success: false, message: 'Le SCRN doit contenir 9 ou 12 chiffres' });
                 }
                 pFields.push('chifa_card_registration_number = ?');
                 pValues.push(chifaCardRegistrationNumber);
@@ -216,8 +220,7 @@ exports.updateSettings = async (req, res) => {
 
         const allowedFields = [
             'all_notifications', 'medication_reminders', 'adherence_alerts',
-            'smart_insights', 'sound_enabled', 'vibration_enabled',
-            'dark_mode', 'auto_refill_reminders',
+            'smart_insights', 'auto_refill_reminders',
             'quiet_hours_enabled', 'quiet_hours_start', 'quiet_hours_end',
             'quiet_hours_days', 'critical_alerts_enabled',
         ];
@@ -412,18 +415,15 @@ exports.updateQuietHours = async (req, res) => {
 // Get caregiver profile
 exports.getCaregiverProfile = async (req, res) => {
     try {
-        const caregiverEmail = req.user.email;
-        console.log('📋 Getting caregiver profile for:', caregiverEmail);
-        
         const [caregivers] = await db.execute(
-            `SELECT id, name, email, created_at FROM caregiver_users WHERE email = ?`,
-            [caregiverEmail]
+            `SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'caregiver'`,
+            [req.user.id]
         );
-        
+
         if (caregivers.length === 0) {
             return res.status(404).json({ success: false, message: 'Caregiver not found' });
         }
-        
+
         const caregiver = caregivers[0];
         res.json({
             success: true,
@@ -444,15 +444,14 @@ exports.getCaregiverProfile = async (req, res) => {
 // Update caregiver profile
 exports.updateCaregiverProfile = async (req, res) => {
     try {
-        const caregiverEmail = req.user.email;
         const { name } = req.body;
-        
+
         if (!name) {
             return res.status(400).json({ success: false, message: 'Name is required' });
         }
-        
-        await db.execute('UPDATE caregiver_users SET name = ? WHERE email = ?', [name, caregiverEmail]);
-        
+
+        await db.execute("UPDATE users SET name = ? WHERE id = ? AND role = 'caregiver'", [name, req.user.id]);
+
         res.json({ success: true, message: 'Profile updated successfully' });
     } catch (error) {
         console.error('Update caregiver profile error:', error);
@@ -463,30 +462,30 @@ exports.updateCaregiverProfile = async (req, res) => {
 // Change caregiver password
 exports.changeCaregiverPassword = async (req, res) => {
     try {
-        const caregiverEmail = req.user.email;
         const { current_password, new_password } = req.body;
-        
+
         if (!current_password || !new_password) {
             return res.status(400).json({ success: false, message: 'Current password and new password are required' });
         }
-        
-        if (new_password.length < 6) {
-            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+
+        const passwordValidation = RegisterRequest.isValidPassword(new_password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ success: false, message: passwordValidation.message });
         }
-        
-        const [caregivers] = await db.execute('SELECT password FROM caregiver_users WHERE email = ?', [caregiverEmail]);
+
+        const [caregivers] = await db.execute("SELECT password FROM users WHERE id = ? AND role = 'caregiver'", [req.user.id]);
         if (caregivers.length === 0) {
             return res.status(404).json({ success: false, message: 'Caregiver not found' });
         }
-        
+
         const isValid = await bcrypt.compare(current_password, caregivers[0].password);
         if (!isValid) {
             return res.status(401).json({ success: false, message: 'Current password is incorrect' });
         }
-        
+
         const hashedPassword = await bcrypt.hash(new_password, 10);
-        await db.execute('UPDATE caregiver_users SET password = ? WHERE email = ?', [hashedPassword, caregiverEmail]);
-        
+        await db.execute("UPDATE users SET password = ? WHERE id = ? AND role = 'caregiver'", [hashedPassword, req.user.id]);
+
         res.json({ success: true, message: 'Password changed successfully' });
     } catch (error) {
         console.error('Change caregiver password error:', error);

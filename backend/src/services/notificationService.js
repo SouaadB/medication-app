@@ -155,6 +155,71 @@ class NotificationService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // JOB 8 — AUTO REFILL REMINDERS  (runs once daily)
+    // Uses each active treatment's end_date as the refill horizon — once a
+    // treatment is within REFILL_WINDOW_DAYS of ending, the patient gets a
+    // one-time heads-up to refill so they don't run out and miss doses.
+    // Gated by patients.auto_refill_reminders (per-patient toggle) and
+    // all_notifications (master toggle).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    static async generateRefillReminders() {
+        const REFILL_WINDOW_DAYS = 3;
+        try {
+            const [treatments] = await db.execute(
+                `SELECT t.id AS treatment_id, t.patient_id, t.medication_name, t.end_date,
+                        p.fcm_token,
+                        DATEDIFF(t.end_date, CURDATE()) AS days_left
+                 FROM treatments t
+                 JOIN patients p ON p.id = t.patient_id
+                 WHERE t.is_active = 1
+                   AND t.deleted_at IS NULL
+                   AND t.end_date IS NOT NULL
+                   AND t.end_date >= CURDATE()
+                   AND DATEDIFF(t.end_date, CURDATE()) <= ?
+                   AND p.is_active = 1
+                   AND p.auto_refill_reminders = 1
+                   AND p.all_notifications = 1`,
+                [REFILL_WINDOW_DAYS]
+            );
+
+            let sent = 0;
+            for (const t of treatments) {
+                const key = `refill_treatment_${t.treatment_id}`;
+                const exists = await this._notificationExists(t.patient_id, 'refill_reminder', key);
+                if (exists) continue;
+
+                const daysLeft = t.days_left;
+                const whenLabel = daysLeft <= 0 ? 'today' : daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`;
+                const title   = `💊 Refill reminder: ${t.medication_name}`;
+                const message = `Your ${t.medication_name} treatment ends ${whenLabel}. Refill your prescription soon so you don't miss any doses.`;
+
+                await this.createNotification(
+                    t.patient_id, 'refill_reminder', title, message,
+                    { treatment_id: t.treatment_id, [key]: true, days_left: daysLeft }
+                );
+
+                if (t.fcm_token) {
+                    try {
+                        await FirebaseService.sendPushNotification(
+                            t.fcm_token, title, message,
+                            { type: 'refill_reminder', treatment_id: String(t.treatment_id) }
+                        );
+                    } catch (fcmErr) {
+                        console.warn('[generateRefillReminders] FCM failed (non-fatal):', fcmErr.message);
+                    }
+                }
+
+                sent++;
+            }
+            return sent;
+        } catch (error) {
+            console.error('Error in generateRefillReminders:', error);
+            return 0;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // JOB 1 — SMART REMINDERS  (runs every minute)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -179,7 +244,6 @@ static async generateSmartReminders() {
                     p.critical_alerts_enabled,
                     p.medication_reminders,
                     p.all_notifications,
-                    p.sound_enabled,
                     p.wake_time,
                     p.bedtime,
                     c.name                    AS condition_name

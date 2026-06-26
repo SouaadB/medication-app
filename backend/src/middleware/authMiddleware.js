@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const db = require('../config/database');
 
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
@@ -19,20 +18,11 @@ exports.protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        let user;
 
-        if (decoded.role === 'caregiver') {
-            // Caregiver tokens must only look up caregiver_users to avoid ID collisions with users table
-            const [caregivers] = await db.execute(
-                'SELECT id, name, email, \'caregiver\' as role FROM caregiver_users WHERE id = ?',
-                [decoded.id]
-            );
-            if (caregivers.length > 0) user = caregivers[0];
-        } else {
-            user = await User.findById(decoded.id);
-        }
-        
+        // Caregivers are now real users rows (role='caregiver'), so a single
+        // lookup by id works for every role — no more separate identity table.
+        const user = await User.findById(decoded.id);
+
         if (!user) {
             return res.status(401).json({ 
                 success: false, 

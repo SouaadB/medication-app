@@ -1,76 +1,94 @@
 const db = require('../config/database');
+const adherenceSignalService = require('./adherenceSignalService');
 
 /**
  * ==============================================
  * DAY 2: PATIENT SITUATION ANALYZER (SQL) - FIXED
  * ==============================================
+ * Narrative/contextual data only — NOT the risk-level decision itself.
+ * Risk level is computed by adherenceSignalService and shared with the
+ * patient app's early-warning system (see classifyRisk below) so the two
+ * sides of the app can never contradict each other for the same patient.
  */
 
 async function getPatientSituation(patientId) {
     try {
         // 1. Get adherence this week (last 7 days excluding today)
         const [thisWeek] = await db.execute(`
-            SELECT 
+            SELECT
                 COUNT(*) as total_doses,
                 SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) as taken_doses,
                 ROUND(SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as adherence
             FROM medication_schedules
-            WHERE patient_id = ? 
+            WHERE patient_id = ?
             AND scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
             AND scheduled_date_time < CURDATE()
         `, [patientId]);
 
         // 2. Get adherence last week (days 7-14 days ago)
         const [lastWeek] = await db.execute(`
-            SELECT 
+            SELECT
                 COUNT(*) as total_doses,
                 SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) as taken_doses,
                 ROUND(SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as adherence
             FROM medication_schedules
-            WHERE patient_id = ? 
+            WHERE patient_id = ?
             AND scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
             AND scheduled_date_time < DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         `, [patientId]);
 
+        // total_doses here is the RAW count (may be 0) — used only for the
+        // data-sufficiency check. Display math below still needs a safe
+        // divisor, kept separate so "no data" is never confused with "0%".
+        const totalThisWeekRaw = thisWeek[0]?.total_doses || 0;
+        const dataSufficient   = totalThisWeekRaw >= 3;
+
         const thisWeekAdherence = thisWeek[0]?.adherence || 0;
         const lastWeekAdherence = lastWeek[0]?.adherence || 0;
-        const totalThisWeek = thisWeek[0]?.total_doses || 1;
+        const totalThisWeek = totalThisWeekRaw || 1;
         const takenThisWeek = thisWeek[0]?.taken_doses || 0;
 
-        // 3. Get missed critical medications
+        // 3. Get missed critical (HIGH-priority) medications, with their
+        // medical category resolved from real data (medication_info /
+        // chronic_conditions) instead of a hardcoded drug-name keyword list.
         const [criticalMissed] = await db.execute(`
-            SELECT 
+            SELECT
                 t.medication_name,
                 COUNT(*) as missed_count,
-                GROUP_CONCAT(DATE_FORMAT(ms.scheduled_date_time, '%Y-%m-%d')) as missed_dates
+                GROUP_CONCAT(DATE_FORMAT(ms.scheduled_date_time, '%Y-%m-%d')) as missed_dates,
+                COALESCE(mi.category, cc.name) as category
             FROM medication_schedules ms
             JOIN treatments t ON ms.treatment_id = t.id
-            WHERE ms.patient_id = ? 
+            LEFT JOIN medication_info mi ON mi.name = t.medication_name
+            LEFT JOIN chronic_conditions cc ON cc.id = t.condition_id
+            WHERE ms.patient_id = ?
             AND ms.status = 'MISSED'
             AND t.priority = 'HIGH'
             AND ms.scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY t.medication_name
+            AND ms.scheduled_date_time < CURDATE()
+            GROUP BY t.medication_name, mi.category, cc.name
         `, [patientId]);
 
         // 4. Get all missed medications
         const [allMissed] = await db.execute(`
-            SELECT 
+            SELECT
                 t.medication_name,
                 t.priority,
                 COUNT(*) as missed_count
             FROM medication_schedules ms
             JOIN treatments t ON ms.treatment_id = t.id
-            WHERE ms.patient_id = ? 
+            WHERE ms.patient_id = ?
             AND ms.status = 'MISSED'
             AND ms.scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND ms.scheduled_date_time < CURDATE()
             GROUP BY t.medication_name, t.priority
             ORDER BY missed_count DESC
         `, [patientId]);
 
         // 5. Get most missed time slot
         const [missedTimeSlot] = await db.execute(`
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN HOUR(scheduled_date_time) BETWEEN 5 AND 11 THEN 'Morning'
                     WHEN HOUR(scheduled_date_time) BETWEEN 12 AND 16 THEN 'Afternoon'
                     WHEN HOUR(scheduled_date_time) BETWEEN 17 AND 21 THEN 'Evening'
@@ -78,9 +96,10 @@ async function getPatientSituation(patientId) {
                 END as time_slot,
                 COUNT(*) as missed_count
             FROM medication_schedules
-            WHERE patient_id = ? 
+            WHERE patient_id = ?
             AND status = 'MISSED'
             AND scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND scheduled_date_time < CURDATE()
             GROUP BY time_slot
             ORDER BY missed_count DESC
             LIMIT 1
@@ -88,11 +107,11 @@ async function getPatientSituation(patientId) {
 
         // 6. Calculate weekly trend using daily averages
         const [weeklyTrend] = await db.execute(`
-            SELECT 
+            SELECT
                 DATE(scheduled_date_time) as day,
                 ROUND(SUM(CASE WHEN status = 'TAKEN' THEN 1 ELSE 0 END) / COUNT(*) * 100, 1) as adherence
             FROM medication_schedules
-            WHERE patient_id = ? 
+            WHERE patient_id = ?
             AND scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 28 DAY)
             AND scheduled_date_time < CURDATE()
             GROUP BY DATE(scheduled_date_time)
@@ -104,10 +123,10 @@ async function getPatientSituation(patientId) {
         if (weeklyTrend.length >= 14) {
             const firstWeekDays = weeklyTrend.slice(0, 7);
             const lastWeekDays = weeklyTrend.slice(-7);
-            
+
             const firstWeekAvg = firstWeekDays.reduce((sum, d) => sum + d.adherence, 0) / firstWeekDays.length;
             const lastWeekAvg = lastWeekDays.reduce((sum, d) => sum + d.adherence, 0) / lastWeekDays.length;
-            
+
             if (lastWeekAvg < firstWeekAvg - 10) trend = 'declining';
             else if (lastWeekAvg > firstWeekAvg + 10) trend = 'improving';
         } else if (weeklyTrend.length >= 2) {
@@ -116,7 +135,7 @@ async function getPatientSituation(patientId) {
             const secondHalf = weeklyTrend.slice(Math.floor(weeklyTrend.length / 2));
             const firstAvg = firstHalf.reduce((sum, d) => sum + d.adherence, 0) / firstHalf.length;
             const secondAvg = secondHalf.reduce((sum, d) => sum + d.adherence, 0) / secondHalf.length;
-            
+
             if (secondAvg < firstAvg - 10) trend = 'declining';
             else if (secondAvg > firstAvg + 10) trend = 'improving';
         }
@@ -125,6 +144,7 @@ async function getPatientSituation(patientId) {
 
         return {
             patient_id: patientId,
+            data_sufficient: dataSufficient,
             this_week_adherence: thisWeekAdherence,
             last_week_adherence: lastWeekAdherence,
             adherence_change: thisWeekAdherence - lastWeekAdherence,
@@ -146,77 +166,70 @@ async function getPatientSituation(patientId) {
  * ==============================================
  * DAY 3: MEDICAL RISK CLASSIFIER
  * ==============================================
+ * Risk level is derived directly from adherenceSignalService's unified
+ * forecast score — the SAME score and signals that drive the patient app's
+ * early-warning system. The 5-level caregiver scale (good/low/moderate/
+ * high/critical) is a strict refinement of the patient app's 4-level scale
+ * (low/moderate/high/critical): 'good' and 'low' together exactly cover what
+ * the patient app calls 'low'. This guarantees the two views can never
+ * disagree — the caregiver app is never "more worried" or "less worried"
+ * than the patient app's own signals say, just sometimes more specific.
  */
 
-function classifyRisk(situation) {
-    let riskLevel = 'good';
+function classifyRisk(situation, signalResult) {
     const contributingFactors = [];
-    let criticalMeds = false;
 
-    if (situation.missed_critical_meds && situation.missed_critical_meds.length > 0) {
-        criticalMeds = true;
+    // Skip straight to "not enough data" ONLY if the engine also found
+    // nothing actionable. A handful of scheduled doses can still contain a
+    // genuine missed critical-medication event — that must still surface
+    // here exactly as it does on the patient side, never get silently
+    // dropped just because the overall weekly volume was too low to trust
+    // an adherence-rate calculation.
+    if (!situation.data_sufficient && signalResult.activeSignals.length === 0) {
+        return {
+            riskLevel: 'good',
+            contributingFactors: ['Not enough medication history yet this week to assess adherence'],
+            criticalMeds: false,
+            dataSufficient: false,
+        };
+    }
+
+    const criticalMeds = situation.missed_critical_meds && situation.missed_critical_meds.length > 0;
+    if (criticalMeds) {
         const criticalNames = situation.missed_critical_meds.map(m => m.medication_name).join(', ');
         contributingFactors.push(`Missed critical medication: ${criticalNames}`);
-        
-        if (situation.missed_critical_meds.some(m => m.missed_count >= 3)) {
-            riskLevel = 'critical';
-        } else if (situation.missed_critical_meds.some(m => m.missed_count >= 2)) {
-            riskLevel = 'high';
-        } else if (situation.missed_critical_meds.some(m => m.missed_count >= 1)) {
-            if (riskLevel !== 'critical') riskLevel = 'moderate';
-        }
     }
 
-    if (situation.this_week_adherence < 50) {
-        riskLevel = riskLevel === 'critical' ? 'critical' : 'high';
-        contributingFactors.push(`Very low adherence: ${situation.this_week_adherence}%`);
-    } else if (situation.this_week_adherence >= 50 && situation.this_week_adherence < 70) {
-        if (riskLevel !== 'critical' && riskLevel !== 'high') {
-            riskLevel = 'moderate';
-        }
-        contributingFactors.push(`Low adherence: ${situation.this_week_adherence}%`);
-    } else if (situation.this_week_adherence >= 70 && situation.this_week_adherence < 85) {
-        if (riskLevel === 'good') {
-            riskLevel = 'low';
-        }
-        contributingFactors.push(`Moderate adherence: ${situation.this_week_adherence}%`);
-    } else if (situation.this_week_adherence >= 85) {
-        contributingFactors.push(`Good adherence: ${situation.this_week_adherence}%`);
-    }
+    const score = signalResult.forecastScore;
+    let riskLevel;
+    if      (score >= 0.75) riskLevel = 'critical';
+    else if (score >= 0.50) riskLevel = 'high';
+    else if (score >= 0.25) riskLevel = 'moderate';
+    else if (score >= 0.10) riskLevel = 'low';
+    else                     riskLevel = 'good';
 
-    if (situation.weekly_trend === 'declining') {
-        if (riskLevel === 'good') riskLevel = 'low';
-        else if (riskLevel === 'low') riskLevel = 'moderate';
-        else if (riskLevel === 'moderate') riskLevel = 'high';
-        contributingFactors.push('Declining adherence trend over past 4 weeks');
+    // Narrative factors are sourced from the engine's own explanations, so
+    // every factor listed here is something that actually contributed to the
+    // risk level above — never a disconnected observation.
+    for (const s of signalResult.activeSignals) {
+        if (s.signal === 'criticalMedicationMissed') continue; // already added above with full med names
+        contributingFactors.push(s.detail);
     }
 
     if (situation.weekly_trend === 'improving' && riskLevel !== 'good') {
         contributingFactors.push('Showing improving trend - encouraging!');
     }
 
-    if (situation.most_missed_time_slot !== 'None') {
-        contributingFactors.push(`Most frequently misses ${situation.most_missed_time_slot.toLowerCase()} doses`);
+    if (contributingFactors.length === 0) {
+        contributingFactors.push(`Good adherence: ${situation.this_week_adherence}%`);
     }
 
-    if (situation.total_missed_this_week >= 10) {
-        if (riskLevel !== 'critical') riskLevel = 'high';
-        contributingFactors.push(`Missed ${situation.total_missed_this_week} doses this week`);
-    } else if (situation.total_missed_this_week >= 5) {
-        if (riskLevel === 'good') riskLevel = 'moderate';
-        contributingFactors.push(`Missed ${situation.total_missed_this_week} doses this week`);
-    } else if (situation.total_missed_this_week >= 2) {
-        if (riskLevel === 'good') riskLevel = 'low';
-        contributingFactors.push(`Missed ${situation.total_missed_this_week} doses this week`);
-    }
-
-    if (situation.adherence_change < -15) {
-        if (riskLevel === 'good') riskLevel = 'moderate';
-        else if (riskLevel === 'low') riskLevel = 'moderate';
-        contributingFactors.push(`Significant drop of ${Math.abs(situation.adherence_change)}% from last week`);
-    }
-
-    return { riskLevel, contributingFactors: contributingFactors.slice(0, 6), criticalMeds };
+    return {
+        riskLevel,
+        contributingFactors: contributingFactors.slice(0, 6),
+        criticalMeds,
+        dataSufficient: true,
+    };
 }
 
 /**
@@ -224,6 +237,12 @@ function classifyRisk(situation) {
  * DAY 4: ACTION RECOMMENDER ENGINE
  * ==============================================
  */
+
+function _missedMatchesCategory(situation, keywords) {
+    return situation.missed_critical_meds?.some(m =>
+        keywords.some(k => (m.category || '').toLowerCase().includes(k))
+    ) === true;
+}
 
 const ACTION_LIBRARY = {
     critical_meds_missed: {
@@ -236,14 +255,14 @@ const ACTION_LIBRARY = {
         priority: 1,
         action: '🚨 Emergency contact recommended',
         reason: 'Multiple critical medication doses missed in the past week. Immediate intervention needed.',
-        applicable: (risk, situation) => situation.missed_critical_meds && 
+        applicable: (risk, situation) => situation.missed_critical_meds &&
             situation.missed_critical_meds.some(m => m.missed_count >= 2)
     },
     very_low_adherence: {
         priority: 2,
         action: '🏥 Schedule urgent check-in call',
         reason: 'Adherence is below 50%. Patient needs immediate intervention.',
-        applicable: (risk, situation) => situation.this_week_adherence < 50
+        applicable: (risk, situation) => situation.data_sufficient && situation.this_week_adherence < 50
     },
     declining_trend: {
         priority: 3,
@@ -255,7 +274,7 @@ const ACTION_LIBRARY = {
         priority: 4,
         action: '💬 Send reminder message via app',
         reason: 'Adherence is below target. A gentle reminder may help.',
-        applicable: (risk, situation) => situation.this_week_adherence >= 50 && situation.this_week_adherence < 70
+        applicable: (risk, situation) => situation.data_sufficient && situation.this_week_adherence >= 50 && situation.this_week_adherence < 70
     },
     missed_time_slot: {
         priority: 5,
@@ -267,7 +286,7 @@ const ACTION_LIBRARY = {
         priority: 6,
         action: '📱 Check if patient needs refill assistance',
         reason: 'Moderate adherence may indicate medication access issues.',
-        applicable: (risk, situation) => situation.this_week_adherence >= 70 && situation.this_week_adherence < 85
+        applicable: (risk, situation) => situation.data_sufficient && situation.this_week_adherence >= 70 && situation.this_week_adherence < 85
     },
     improving_trend: {
         priority: 7,
@@ -285,39 +304,25 @@ const ACTION_LIBRARY = {
         priority: 9,
         action: '✨ Acknowledge good adherence with positive message',
         reason: 'Patient is doing well. Recognition encourages continued compliance.',
-        applicable: (risk, situation) => situation.this_week_adherence >= 85
+        applicable: (risk, situation) => situation.data_sufficient && situation.this_week_adherence >= 85
     },
     weekend_check: {
         priority: 10,
         action: '📅 Weekend routine check-in',
         reason: 'Some patients struggle with weekend medication routines.',
-        applicable: (risk, situation) => new Date().getDay() === 5 && situation.this_week_adherence < 80
+        applicable: (risk, situation) => new Date().getDay() === 5 && situation.data_sufficient && situation.this_week_adherence < 80
     },
     diabetes_miss: {
         priority: 11,
         action: '🩸 Check blood sugar log',
         reason: 'Diabetes medication missed. Monitor for symptoms of hyperglycemia.',
-        applicable: (risk, situation) => {
-            const hasDiabetesMed = situation.missed_critical_meds?.some(m => 
-                m.medication_name.toLowerCase().includes('insulin') ||
-                m.medication_name.toLowerCase().includes('metformin') ||
-                m.medication_name.toLowerCase().includes('glucophage')
-            );
-            return hasDiabetesMed === true;
-        }
+        applicable: (risk, situation) => _missedMatchesCategory(situation, ['diabet'])
     },
     heart_meds_missed: {
         priority: 11,
         action: '❤️ Monitor blood pressure',
         reason: 'Heart/cardiovascular medication missed. Watch for dizziness or chest discomfort.',
-        applicable: (risk, situation) => {
-            const hasHeartMed = situation.missed_critical_meds?.some(m =>
-                m.medication_name.toLowerCase().includes('amlodipine') ||
-                m.medication_name.toLowerCase().includes('metoprolol') ||
-                m.medication_name.toLowerCase().includes('lisinopril')
-            );
-            return hasHeartMed === true;
-        }
+        applicable: (risk, situation) => _missedMatchesCategory(situation, ['heart', 'cardio', 'hypertension', 'cholesterol', 'coronary'])
     },
     significant_drop: {
         priority: 12,
@@ -341,7 +346,13 @@ const ACTION_LIBRARY = {
         priority: 14,
         action: '✅ Continue current support level',
         reason: 'Patient maintaining good adherence. Keep up the good work!',
-        applicable: (risk, situation) => situation.this_week_adherence >= 85 && situation.weekly_trend === 'stable'
+        applicable: (risk, situation) => situation.data_sufficient && situation.this_week_adherence >= 85 && situation.weekly_trend === 'stable'
+    },
+    insufficient_data: {
+        priority: 1,
+        action: '👀 Check in once treatments are active',
+        reason: 'Not enough medication history yet this week to make a reliable assessment.',
+        applicable: (risk) => risk.dataSufficient === false
     }
 };
 
@@ -397,12 +408,16 @@ function generateAssessmentText(risk, situation, patientName = 'Patient') {
         critical: 'CRITICAL - Immediate Action Required'
     };
 
+    if (risk.dataSufficient === false) {
+        return `📋 **Not enough data yet**\n\nThis patient doesn't have enough scheduled medication history in the past week to generate a reliable assessment. Check back once their treatment schedule is active.`;
+    }
+
     let text = `${riskEmojis[risk.riskLevel]} **${riskTitles[risk.riskLevel]}**\n\n`;
-    
+
     const adherencePercent = Math.round(situation.this_week_adherence);
     text += `**📊 Adherence Overview**\n`;
     text += `• This week: ${adherencePercent}% (${situation.taken_this_week}/${situation.total_scheduled_this_week} doses taken)\n`;
-    
+
     if (situation.last_week_adherence > 0) {
         const change = situation.adherence_change;
         const trendIcon = change > 0 ? '📈' : change < 0 ? '📉' : '➡️';
@@ -414,7 +429,7 @@ function generateAssessmentText(risk, situation, patientName = 'Patient') {
     if (situation.missed_critical_meds && situation.missed_critical_meds.length > 0) {
         text += `**⚠️ Critical Medication Alert**\n`;
         const criticalList = situation.missed_critical_meds
-            .map(m => `• ${m.medication_name}: missed ${m.missed_count} time${m.missed_count > 1 ? 's' : ''}`)
+            .map(m => `• ${m.medication_name}${m.category ? ` (${m.category})` : ''}: missed ${m.missed_count} time${m.missed_count > 1 ? 's' : ''}`)
             .join('\n');
         text += `${criticalList}\n\n`;
     }
@@ -471,42 +486,46 @@ function needsRegeneration(createdAt) {
     return (new Date() - new Date(createdAt)) > sixHoursInMs;
 }
 
-async function getOrGenerateAssessment(patientId, caregiverEmail) {
+async function getOrGenerateAssessment(patientId, caregiverId) {
     try {
         const [existing] = await db.execute(
-            `SELECT * FROM caregiver_assessments 
-             WHERE patient_id = ? AND caregiver_email = ?
-             ORDER BY created_at DESC 
+            `SELECT * FROM caregiver_assessments
+             WHERE patient_id = ? AND caregiver_id = ?
+             ORDER BY created_at DESC
              LIMIT 1`,
-            [patientId, caregiverEmail]
+            [patientId, caregiverId]
         );
 
         const shouldGenerate = existing.length === 0 || needsRegeneration(existing[0].created_at);
 
         if (shouldGenerate) {
             console.log(`🔄 Auto-generating assessment for patient ${patientId}`);
-            
+
             const situation = await getPatientSituation(patientId);
-            const risk = classifyRisk(situation);
+            const signalResult = await adherenceSignalService.analyzePatientSignals(patientId);
+            const risk = classifyRisk(situation, signalResult);
             const actions = recommendActions(risk, situation);
-            
+
             const [patient] = await db.execute('SELECT name FROM users WHERE id = ?', [patientId]);
             const assessmentText = generateAssessmentText(risk, situation, patient[0]?.name || 'Patient');
 
             const [result] = await db.execute(
-                `INSERT INTO caregiver_assessments 
-                 (patient_id, caregiver_email, risk_level, situation_data, assessment_text, recommended_actions) 
+                `INSERT INTO caregiver_assessments
+                 (patient_id, caregiver_id, risk_level, situation_data, assessment_text, recommended_actions)
                  VALUES (?, ?, ?, ?, ?, ?)`,
                 [
                     patientId,
-                    caregiverEmail,
+                    caregiverId,
                     risk.riskLevel,
                     JSON.stringify({
                         adherence: situation.this_week_adherence,
                         trend: situation.weekly_trend,
                         missed_critical: situation.missed_critical_meds?.length || 0,
                         factors: risk.contributingFactors,
-                        total_missed: situation.total_missed_this_week
+                        total_missed: situation.total_missed_this_week,
+                        data_sufficient: situation.data_sufficient,
+                        unified_forecast_score: signalResult.forecastScore,
+                        unified_risk_level: signalResult.riskLevel,
                     }),
                     assessmentText,
                     JSON.stringify(actions)
@@ -525,29 +544,29 @@ async function getOrGenerateAssessment(patientId, caregiverEmail) {
         }
 
         const assessment = existing[0];
-        
+
         // SAFE JSON PARSING - Fixed!
         let recommendedActions = [];
         let situationData = {};
-        
+
         try {
-            recommendedActions = assessment.recommended_actions 
-                ? JSON.parse(assessment.recommended_actions) 
+            recommendedActions = assessment.recommended_actions
+                ? JSON.parse(assessment.recommended_actions)
                 : [];
         } catch (e) {
             console.error('Error parsing recommended_actions:', e.message);
             recommendedActions = [];
         }
-        
+
         try {
-            situationData = assessment.situation_data 
-                ? JSON.parse(assessment.situation_data) 
+            situationData = assessment.situation_data
+                ? JSON.parse(assessment.situation_data)
                 : {};
         } catch (e) {
             console.error('Error parsing situation_data:', e.message);
             situationData = {};
         }
-        
+
         return {
             id: assessment.id,
             risk_level: assessment.risk_level,

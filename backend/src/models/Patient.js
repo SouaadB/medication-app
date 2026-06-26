@@ -11,10 +11,10 @@ class Patient {
 
     static async findByUserId(userId) {
         const query = `
-            SELECT 
-                id, chifa_card_registration_number, date_of_birth, smartphone_skill_level, is_active, age,
-                all_notifications, medication_reminders, adherence_alerts, smart_insights,
-                sound_enabled, vibration_enabled, dark_mode, auto_refill_reminders,
+            SELECT
+                id, chifa_card_registration_number, date_of_birth, smartphone_skill_level, is_active,
+                profile_setup_completed,
+                all_notifications, medication_reminders, adherence_alerts, smart_insights, auto_refill_reminders,
                 smart_scheduling_enabled, bedtime, wake_time, breakfast_time, lunch_time, dinner_time
             FROM patients 
             WHERE id = ?
@@ -28,8 +28,7 @@ class Patient {
         const values = [];
 
         const allowedSettings = [
-            'all_notifications', 'medication_reminders', 'adherence_alerts', 'smart_insights',
-            'sound_enabled', 'vibration_enabled', 'dark_mode', 'auto_refill_reminders'
+            'all_notifications', 'medication_reminders', 'adherence_alerts', 'smart_insights', 'auto_refill_reminders'
         ];
 
         for (const key of allowedSettings) {
@@ -85,7 +84,7 @@ static async setupProfile(userId, profileData) {
 
         // 2. Insert new conditions
         if (conditions && conditions.length > 0) {
-            const conditionQueries = conditions.map(conditionId => 
+            const conditionQueries = conditions.map(conditionId =>
                 connection.execute(
                     'INSERT INTO patient_conditions (patient_id, condition_id) VALUES (?, ?)',
                     [userId, conditionId]
@@ -93,6 +92,12 @@ static async setupProfile(userId, profileData) {
             );
             await Promise.all(conditionQueries);
         }
+
+        // 3. Mark profile setup as completed so the app never asks again
+        await connection.execute(
+            'UPDATE patients SET profile_setup_completed = 1 WHERE id = ?',
+            [userId]
+        );
 
         await connection.commit();
         return { success: true };

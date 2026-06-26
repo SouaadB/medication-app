@@ -205,6 +205,15 @@ Future<void> _exportPdf() async {
           _section('Medication', Icons.medication_outlined, Colors.purple, isDark),
           _card(isDark, [
 
+            _switchTile(
+              icon: Icons.autorenew_outlined, iconColor: Colors.purple,
+              title: 'Auto Refill Reminders',
+              subtitle: 'Get notified before a treatment runs out, so you can refill in time',
+              value: settings.autoRefillReminders,
+              onChanged: (v) => settings.setAutoRefillReminders(v),
+              isDark: isDark,
+            ),
+            _divider(isDark),
             _navTile(
               icon: Icons.schedule_outlined, iconColor: Colors.purple,
               title: 'Daily Schedule',

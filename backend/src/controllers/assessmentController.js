@@ -2,6 +2,7 @@
 
 const db = require('../config/database');
 const assessmentService = require('../services/assessmentService');
+const adherenceSignalService = require('../services/adherenceSignalService');
 
 /**
  * Generate and save assessment for a patient
@@ -10,28 +11,32 @@ const assessmentService = require('../services/assessmentService');
 exports.generateAssessment = async (req, res) => {
     try {
         const { patientId } = req.params;
-        const caregiverEmail = req.user.email;
+        const caregiverId = req.user.id;
 
         const [patient] = await db.execute('SELECT name FROM users WHERE id = ?', [patientId]);
-        
+
         const situation = await assessmentService.getPatientSituation(patientId);
-        const risk = assessmentService.classifyRisk(situation);
+        const signalResult = await adherenceSignalService.analyzePatientSignals(patientId);
+        const risk = assessmentService.classifyRisk(situation, signalResult);
         const actions = assessmentService.recommendActions(risk, situation);
         const assessmentText = assessmentService.generateAssessmentText(risk, situation, patient[0]?.name || 'Patient');
 
         const [result] = await db.execute(
-            `INSERT INTO caregiver_assessments 
-             (patient_id, caregiver_email, risk_level, situation_data, assessment_text, recommended_actions) 
+            `INSERT INTO caregiver_assessments
+             (patient_id, caregiver_id, risk_level, situation_data, assessment_text, recommended_actions)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [
                 patientId,
-                caregiverEmail,
+                caregiverId,
                 risk.riskLevel,
                 JSON.stringify({
                     adherence: situation.this_week_adherence,
                     trend: situation.weekly_trend,
                     missed_critical: situation.missed_critical_meds?.length || 0,
-                    factors: risk.contributingFactors
+                    factors: risk.contributingFactors,
+                    data_sufficient: situation.data_sufficient,
+                    unified_forecast_score: signalResult.forecastScore,
+                    unified_risk_level: signalResult.riskLevel,
                 }),
                 assessmentText,
                 JSON.stringify(actions)
@@ -64,9 +69,9 @@ exports.generateAssessment = async (req, res) => {
 exports.getLatestAssessment = async (req, res) => {
     try {
         const { patientId } = req.params;
-        const caregiverEmail = req.user.email;
+        const caregiverId = req.user.id;
 
-        const result = await assessmentService.getOrGenerateAssessment(patientId, caregiverEmail);
+        const result = await assessmentService.getOrGenerateAssessment(patientId, caregiverId);
         
         res.json({
             success: true,

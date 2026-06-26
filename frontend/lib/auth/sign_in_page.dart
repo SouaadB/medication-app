@@ -145,9 +145,10 @@ class _SignInPageState extends State<SignInPage>
               ).timeout(const Duration(seconds: 5));
               if (profileResponse.statusCode == 200) {
                 final profileData = jsonDecode(profileResponse.body);
-                final hasAge = profileData['profile']['age'] != null;
-                await prefs.setBool('profile_completed', hasAge);
-                Navigator.pushReplacementNamed(context, hasAge ? '/patientinterface' : '/setupprofile');
+                final setupDone = profileData['profile']['profile_setup_completed'] == true ||
+                    profileData['profile']['profile_setup_completed'] == 1;
+                await prefs.setBool('profile_completed', setupDone);
+                Navigator.pushReplacementNamed(context, setupDone ? '/patientinterface' : '/setupprofile');
               } else {
                 final profileCompleted = prefs.getBool('profile_completed') ?? false;
                 Navigator.pushReplacementNamed(context, profileCompleted ? '/patientinterface' : '/setupprofile');
@@ -211,7 +212,10 @@ class _SignInPageState extends State<SignInPage>
                         BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 14, offset: const Offset(0, 6)),
                       ],
                     ),
-                    child: const Icon(Icons.favorite_rounded, size: 36, color: primary),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset('assets/icon/app_icon.png', width: 78, height: 78, fit: BoxFit.cover),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const Text('MediCare', style: TextStyle(color: Colors.white, fontSize: 26,

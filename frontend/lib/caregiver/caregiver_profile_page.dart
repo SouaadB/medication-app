@@ -33,12 +33,33 @@ class _CaregiverProfilePageState extends State<CaregiverProfilePage> {
   bool _showNewPw     = false;
   bool _showConfirmPw = false;
 
+  bool _hasMinLength   = false;
+  bool _hasUppercase   = false;
+  bool _hasLowercase   = false;
+  bool _hasNumber      = false;
+  bool _hasSpecialChar = false;
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
     _checkFirstLogin();
+    _newPwCtrl.addListener(_checkStrength);
   }
+
+  void _checkStrength() {
+    final p = _newPwCtrl.text;
+    setState(() {
+      _hasMinLength   = p.length >= 8;
+      _hasUppercase   = RegExp(r'[A-Z]').hasMatch(p);
+      _hasLowercase   = RegExp(r'[a-z]').hasMatch(p);
+      _hasNumber      = RegExp(r'[0-9]').hasMatch(p);
+      _hasSpecialChar = RegExp(r'''[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>/?]''').hasMatch(p);
+    });
+  }
+
+  bool get _isNewPasswordValid =>
+      _hasMinLength && _hasUppercase && _hasLowercase && _hasNumber && _hasSpecialChar;
 
   @override
   void dispose() {
@@ -109,7 +130,7 @@ class _CaregiverProfilePageState extends State<CaregiverProfilePage> {
     if (current.isEmpty || newPw.isEmpty || confirm.isEmpty) {
       _snack('Please fill in all fields', Colors.red); return;
     }
-    if (newPw.length < 6) { _snack('Min 6 characters', Colors.red); return; }
+    if (!_isNewPasswordValid) { _snack('Password does not meet all requirements', Colors.red); return; }
     if (newPw != confirm) { _snack('Passwords do not match', Colors.red); return; }
     if (newPw == current) { _snack('New password must be different', Colors.red); return; }
 
@@ -398,9 +419,29 @@ class _CaregiverProfilePageState extends State<CaregiverProfilePage> {
                         _fieldLabel('New Password'),
                         const SizedBox(height: 8),
                         _field(
-                          controller: _newPwCtrl, hint: 'At least 6 characters',
+                          controller: _newPwCtrl, hint: 'At least 8 characters',
                           icon: Icons.lock_reset_outlined, obscure: !_showNewPw,
                           suffix: _eye(_showNewPw, () => setState(() => _showNewPw = !_showNewPw)),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Password Requirements',
+                                style: TextStyle(fontWeight: FontWeight.bold,
+                                    color: primary, fontSize: 12)),
+                            const SizedBox(height: 10),
+                            _criterion('Minimum 8 characters', _hasMinLength),
+                            _criterion('One uppercase letter', _hasUppercase),
+                            _criterion('One lowercase letter', _hasLowercase),
+                            _criterion('One number', _hasNumber),
+                            _criterion('One special character (!@#\$%^&* etc.)', _hasSpecialChar),
+                          ]),
                         ),
                         const SizedBox(height: 14),
                         _fieldLabel('Confirm New Password'),
@@ -539,6 +580,22 @@ class _CaregiverProfilePageState extends State<CaregiverProfilePage> {
     icon: Icon(visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
         color: Colors.grey.shade400, size: 20),
   );
+
+  Widget _criterion(String text, bool met) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Icon(met ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 15,
+            color: met ? Colors.green.shade500 : Colors.grey.shade400),
+        const SizedBox(width: 8),
+        Text(text, style: TextStyle(
+            fontSize: 12,
+            color: met ? Colors.green.shade700 : Colors.grey.shade600,
+            decoration: met ? TextDecoration.lineThrough : null)),
+      ]),
+    );
+  }
 
   Future<void> _confirmLogout() async {
     final confirm = await showDialog<bool>(

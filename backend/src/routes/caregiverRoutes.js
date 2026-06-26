@@ -1,24 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getCaregivers, 
-    addCaregiver, 
-    removeCaregiver, 
+const {
+    getCaregivers,
+    addCaregiver,
+    removeCaregiver,
     updateCaregiverStatus,
-    acceptInvitation,
+    confirmAssignmentInvite,
     getPatientsForCaregiver,
     getProfile, updateProfile,
     changePassword ,
-    getPatientDetails, 
+    getPatientDetails,
      unfollowPatient,
     getNotifications,
-    getNotificationCount, 
+    getNotificationCount,
     sendReminder ,
      markNotificationRead,
 } = require('../controllers/caregiverController');
 const { protect } = require('../middleware/authMiddleware');
 
-router.post('/accept-invitation', acceptInvitation);
+router.get('/confirm-invite', confirmAssignmentInvite);
 router.get('/test-notifs', async (req, res) => {
     const CaregiverNotificationService = require('../services/caregiverNotificationService');
     await CaregiverNotificationService.sendEmergencyAlerts();

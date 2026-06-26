@@ -1,67 +1,97 @@
 const db = require('../config/database');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
 const FirebaseService = require('../services/firebaseService');
 
-// ── Send a message ─────────────────────────────────────────────────────────
+// ── Voice message upload config ──────────────────────────────────────────────
+const VOICE_UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'chat_voice');
+if (!fs.existsSync(VOICE_UPLOAD_DIR)) fs.mkdirSync(VOICE_UPLOAD_DIR, { recursive: true });
+
+const voiceStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, VOICE_UPLOAD_DIR),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.m4a';
+        cb(null, `${Date.now()}_${crypto.randomBytes(6).toString('hex')}${ext}`);
+    },
+});
+
+exports.uploadVoiceMiddleware = multer({
+    storage: voiceStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — voice notes are short
+    fileFilter: (req, file, cb) => {
+        if (/^audio\//.test(file.mimetype) || file.mimetype === 'application/octet-stream') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only audio files are allowed'));
+        }
+    },
+}).single('audio');
+
+function _audioUrl(audioPath) {
+    if (!audioPath) return null;
+    const base = (process.env.APP_URL || '').replace(/\/$/, '');
+    return `${base}${audioPath}`;
+}
+
+// Shared relationship/permission check — verifies an ACTIVE caregiver
+// assignment exists between the two participants and returns the OTHER
+// side's fcm_token so a push notification can be sent.
+async function _checkRelationshipAndGetFcmToken(senderId, senderRole, receiverId) {
+    if (senderRole === 'caregiver') {
+        const [rel] = await db.execute(
+            `SELECT p.fcm_token
+             FROM caregiver_assignment ca
+             JOIN patients p ON ca.patient_id = p.id
+             WHERE ca.caregiver_id = ? AND ca.patient_id = ? AND ca.status = 'ACTIVE'`,
+            [senderId, receiverId]
+        );
+        return rel.length > 0 ? rel[0].fcm_token : undefined;
+    }
+    const [rel] = await db.execute(
+        `SELECT c.fcm_token
+         FROM caregiver_assignment ca
+         JOIN caregivers c ON c.id = ca.caregiver_id
+         WHERE ca.patient_id = ? AND ca.caregiver_id = ? AND ca.status = 'ACTIVE'`,
+        [senderId, receiverId]
+    );
+    return rel.length > 0 ? rel[0].fcm_token : undefined;
+}
+
+// ── Send a text message ──────────────────────────────────────────────────────
+// Caregivers now live in the same id space as patients (caregivers.id ===
+// users.id), so sender_id/receiver_id are always plain users.id — no more
+// translating between caregivers.id and a separate caregiver_users.id.
 exports.sendMessage = async (req, res) => {
     try {
         const senderId   = req.user.id;
         const senderRole = req.user.role; // 'patient' or 'caregiver'
-        let { receiver_id, message } = req.body;
+        const { receiver_id, message } = req.body;
 
         if (!receiver_id || !message?.trim()) {
             return res.status(400).json({ success: false, message: 'receiver_id and message are required' });
         }
 
-        // Verify the relationship exists and get receiver FCM token
-        let fcmToken = null;
-        let senderName = req.user.name;
-
-        if (senderRole === 'caregiver') {
-            // caregiver → patient: identify caregiver by email, receiver_id = patients.id
-            const [rel] = await db.execute(
-                `SELECT p.fcm_token
-                 FROM caregivers cg
-                 JOIN patients p ON cg.patient_id = p.id
-                 WHERE cg.email = ? AND cg.patient_id = ? AND cg.status = 'ACTIVE'`,
-                [req.user.email, receiver_id]
-            );
-            if (rel.length === 0)
-                return res.status(403).json({ success: false, message: 'No active relationship found' });
-            fcmToken = rel[0].fcm_token;
-
-        } else {
-            // patient → caregiver: receiver_id = caregivers.id from patient's list
-            // look up caregiver_users.id so messages are stored with the correct caregiver ID
-            const [rel] = await db.execute(
-                `SELECT cu.id AS caregiver_user_id, cu.fcm_token
-                 FROM caregivers cg
-                 JOIN caregiver_users cu ON cg.email = cu.email
-                 WHERE cg.patient_id = ? AND cg.id = ? AND cg.status = 'ACTIVE'`,
-                [senderId, receiver_id]
-            );
-            if (rel.length === 0)
-                return res.status(403).json({ success: false, message: 'No active relationship found' });
-            fcmToken = rel[0].fcm_token;
-            // Override so stored receiver_id = caregiver_users.id (matches caregiver JWT)
-            receiver_id = rel[0].caregiver_user_id;
+        const fcmToken = await _checkRelationshipAndGetFcmToken(senderId, senderRole, receiver_id);
+        if (fcmToken === undefined) {
+            return res.status(403).json({ success: false, message: 'No active relationship found' });
         }
 
         const receiverRole = senderRole === 'caregiver' ? 'patient' : 'caregiver';
 
-        // Insert message
         const [result] = await db.execute(
             `INSERT INTO chat_messages
-             (sender_id, sender_role, receiver_id, receiver_role, message)
-             VALUES (?, ?, ?, ?, ?)`,
+             (sender_id, sender_role, receiver_id, receiver_role, message, message_type)
+             VALUES (?, ?, ?, ?, ?, 'text')`,
             [senderId, senderRole, receiver_id, receiverRole, message.trim()]
         );
 
-        // Send push notification
         if (fcmToken) {
             try {
                 await FirebaseService.sendPushNotification(
                     fcmToken,
-                    `💬 ${senderName}`,
+                    `💬 ${req.user.name}`,
                     message.trim().length > 60
                         ? message.trim().substring(0, 60) + '...'
                         : message.trim(),
@@ -89,6 +119,68 @@ exports.sendMessage = async (req, res) => {
     }
 };
 
+// ── Send a voice message ─────────────────────────────────────────────────────
+exports.sendVoiceMessage = async (req, res) => {
+    try {
+        const senderId    = req.user.id;
+        const senderRole  = req.user.role;
+        const receiverId  = parseInt(req.body.receiver_id);
+        const duration    = req.body.duration ? parseInt(req.body.duration) : null;
+
+        if (!receiverId || !req.file) {
+            if (req.file) fs.unlink(req.file.path, () => {});
+            return res.status(400).json({ success: false, message: 'receiver_id and an audio file are required' });
+        }
+
+        const fcmToken = await _checkRelationshipAndGetFcmToken(senderId, senderRole, receiverId);
+        if (fcmToken === undefined) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(403).json({ success: false, message: 'No active relationship found' });
+        }
+
+        const receiverRole = senderRole === 'caregiver' ? 'patient' : 'caregiver';
+        const audioPath = `/uploads/chat_voice/${req.file.filename}`;
+
+        const [result] = await db.execute(
+            `INSERT INTO chat_messages
+             (sender_id, sender_role, receiver_id, receiver_role, message, message_type, audio_path, audio_duration)
+             VALUES (?, ?, ?, ?, ?, 'voice', ?, ?)`,
+            [senderId, senderRole, receiverId, receiverRole, '🎤 Voice message', audioPath, duration]
+        );
+
+        if (fcmToken) {
+            try {
+                await FirebaseService.sendPushNotification(
+                    fcmToken,
+                    `🎤 ${req.user.name}`,
+                    'Sent you a voice message',
+                    {
+                        type:        'chat_message',
+                        sender_id:   String(senderId),
+                        sender_role: senderRole,
+                        message_id:  String(result.insertId),
+                    }
+                );
+            } catch (fcmErr) {
+                console.warn('[chatController] FCM failed (non-fatal):', fcmErr.message);
+            }
+        }
+
+        return res.status(201).json({
+            success:        true,
+            message_id:     result.insertId,
+            audio_url:      _audioUrl(audioPath),
+            audio_duration: duration,
+            created_at:     new Date().toISOString(),
+        });
+
+    } catch (error) {
+        console.error('[chatController] sendVoiceMessage error:', error);
+        if (req.file) fs.unlink(req.file.path, () => {});
+        res.status(500).json({ success: false, message: 'Failed to send voice message' });
+    }
+};
+
 // ── Get conversation messages ──────────────────────────────────────────────
 exports.getMessages = async (req, res) => {
     try {
@@ -98,25 +190,13 @@ exports.getMessages = async (req, res) => {
         const limit     = parseInt(req.query.limit) || 50;
         const before    = req.query.before ? parseInt(req.query.before) : null;
         const userIdInt    = parseInt(userId);
-
-        // Patient sends partner_id = caregivers.id (relationship record).
-        // Messages are stored using caregiver_users.id, so translate before querying.
-        let partnerIdInt = parseInt(partnerId);
-        if (userRole === 'patient') {
-            const [mapping] = await db.execute(
-                `SELECT cu.id FROM caregivers cg
-                 JOIN caregiver_users cu ON cg.email = cu.email
-                 WHERE cg.id = ? AND cg.patient_id = ?`,
-                [partnerIdInt, userIdInt]
-            );
-            if (mapping.length > 0) partnerIdInt = mapping[0].id;
-        }
+        const partnerIdInt = parseInt(partnerId);
 
         const query = `
             SELECT
                 id, sender_id, sender_role,
                 receiver_id, receiver_role,
-                message, is_read,
+                message, message_type, audio_path, audio_duration, is_read,
                 DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
             FROM chat_messages
             WHERE (
@@ -142,9 +222,11 @@ exports.getMessages = async (req, res) => {
             [userIdInt, userRole, partnerIdInt]
         );
 
+        const messages = rows.reverse().map(m => ({ ...m, audio_url: _audioUrl(m.audio_path) }));
+
         return res.json({
             success:  true,
-            messages: rows.reverse(), // oldest first
+            messages,
         });
 
     } catch (error) {
@@ -188,6 +270,9 @@ exports.getConversations = async (req, res) => {
                 m.receiver_id,
                 m.receiver_role,
                 m.message,
+                m.message_type,
+                m.audio_path,
+                m.audio_duration,
                 m.is_read,
                 DATE_FORMAT(m.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
                 CASE
@@ -202,14 +287,8 @@ exports.getConversations = async (req, res) => {
                 END AS partner_role,
                 CASE
                     WHEN m.sender_id = ? AND m.sender_role = ?
-                    THEN (CASE m.receiver_role
-                        WHEN 'caregiver' THEN (SELECT name FROM caregiver_users WHERE id = m.receiver_id)
-                        WHEN 'patient'   THEN (SELECT name FROM users WHERE id = m.receiver_id)
-                    END)
-                    ELSE (CASE m.sender_role
-                        WHEN 'caregiver' THEN (SELECT name FROM caregiver_users WHERE id = m.sender_id)
-                        WHEN 'patient'   THEN (SELECT name FROM users WHERE id = m.sender_id)
-                    END)
+                    THEN (SELECT name FROM users WHERE id = m.receiver_id)
+                    ELSE (SELECT name FROM users WHERE id = m.sender_id)
                 END AS partner_name,
                 (SELECT COUNT(*) FROM chat_messages
                  WHERE receiver_id = ? AND receiver_role = ?
@@ -235,7 +314,9 @@ exports.getConversations = async (req, res) => {
             ]
         );
 
-        return res.json({ success: true, conversations: rows });
+        const conversations = rows.map(r => ({ ...r, audio_url: _audioUrl(r.audio_path) }));
+
+        return res.json({ success: true, conversations });
 
     } catch (error) {
         console.error('[chatController] getConversations error:', error);

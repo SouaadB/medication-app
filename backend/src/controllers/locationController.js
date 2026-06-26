@@ -62,20 +62,20 @@ exports.updateLocation = async (req, res) => {
 // Caregiver gets patient location
 exports.getPatientLocation = async (req, res) => {
     const { patient_id } = req.params;
-    const caregiverEmail = req.user.email;
-    
-    console.log(`📍 Getting location for patient ${patient_id} by caregiver ${caregiverEmail}`);
-    
+    const caregiverId = req.user.id;
+
+    console.log(`📍 Getting location for patient ${patient_id} by caregiver ${caregiverId}`);
+
     try {
         // Check if caregiver has permission
         const [permission] = await db.execute(
-            `SELECT view_location FROM caregivers 
-             WHERE patient_id = ? AND email = ? AND status = 'ACTIVE'`,
-            [patient_id, caregiverEmail]
+            `SELECT view_location FROM caregiver_assignment
+             WHERE patient_id = ? AND caregiver_id = ? AND status = 'ACTIVE'`,
+            [patient_id, caregiverId]
         );
-        
+
         if (permission.length === 0 || permission[0].view_location !== 1) {
-            console.log(`❌ Caregiver ${caregiverEmail} has no permission to view location for patient ${patient_id}`);
+            console.log(`❌ Caregiver ${caregiverId} has no permission to view location for patient ${patient_id}`);
             return res.status(403).json({ error: 'No permission to view location' });
         }
         

@@ -82,7 +82,13 @@ function startNotificationJobs() {
         } catch (e) { console.error('[Job 7] ❌', e.message); }
     });
 
-   
+    // Job 8: Auto refill reminders — every day at 09:00
+    cron.schedule('0 9 * * *', async () => {
+        try {
+            const sent = await NotificationService.generateRefillReminders();
+            console.log(`[Job 8] ✅ ran at ${new Date().toLocaleTimeString()} — ${sent} refill reminders sent`);
+        } catch (e) { console.error('[Job 8] ❌', e.message); }
+    });
 }
 
 module.exports = { startNotificationJobs };

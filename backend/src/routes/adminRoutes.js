@@ -33,9 +33,10 @@ router.get('/patients', protect, authorize('admin'), async (req, res) => {
         // Get caregivers for each patient
         for (let patient of patients) {
             const [caregivers] = await db.execute(`
-                SELECT c.id, c.name, c.email, c.relationship, c.status, c.created_at
-                FROM caregivers c
-                WHERE c.patient_id = ? AND c.status = 'ACTIVE'
+                SELECT u.id, u.name, u.email, ca.relationship, ca.status, ca.created_at
+                FROM caregiver_assignment ca
+                JOIN users u ON u.id = ca.caregiver_id
+                WHERE ca.patient_id = ? AND ca.status = 'ACTIVE'
             `, [patient.id]);
             patient.caregivers = caregivers;
         }
@@ -59,28 +60,29 @@ router.get('/patients', protect, authorize('admin'), async (req, res) => {
 router.get('/caregivers', protect, authorize('admin'), async (req, res) => {
     try {
         const [caregivers] = await db.execute(`
-            SELECT 
-                cu.id, 
-                cu.name, 
-                cu.email, 
-                cu.created_at,
+            SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.created_at,
                 COALESCE(
-                    (SELECT COUNT(*) FROM caregivers WHERE email = cu.email AND status = 'ACTIVE'), 
+                    (SELECT COUNT(*) FROM caregiver_assignment WHERE caregiver_id = u.id AND status = 'ACTIVE'),
                     0
                 ) as patients_count
-            FROM caregiver_users cu
-            ORDER BY cu.created_at DESC
+            FROM users u
+            WHERE u.role = 'caregiver'
+            ORDER BY u.created_at DESC
         `);
 
         // Get patients for each caregiver
         for (let caregiver of caregivers) {
             const [patients] = await db.execute(`
                 SELECT p.id, u.name, u.email
-                FROM caregivers c
-                JOIN patients p ON c.patient_id = p.id
+                FROM caregiver_assignment ca
+                JOIN patients p ON ca.patient_id = p.id
                 JOIN users u ON p.id = u.id
-                WHERE c.email = ? AND c.status = 'ACTIVE'
-            `, [caregiver.email]);
+                WHERE ca.caregiver_id = ? AND ca.status = 'ACTIVE'
+            `, [caregiver.id]);
             caregiver.patients = patients;
         }
 
@@ -109,7 +111,7 @@ router.get('/statistics', protect, authorize('admin'), async (req, res) => {
         const [adminCount] = await db.execute('SELECT COUNT(*) as total FROM admins');
         
         // Get total caregivers
-        const [caregiverCount] = await db.execute('SELECT COUNT(*) as total FROM caregiver_users');
+        const [caregiverCount] = await db.execute("SELECT COUNT(*) as total FROM users WHERE role = 'caregiver'");
 
         // Get active patients
         const [activePatients] = await db.execute('SELECT COUNT(*) as total FROM patients WHERE is_active = 1');
@@ -149,10 +151,9 @@ router.get('/patients/:id', protect, authorize('admin'), async (req, res) => {
                 u.email, 
                 u.phone, 
                 u.created_at,
-                p.chifa_card_registration_number, 
-                p.date_of_birth, 
-                p.age,
-                p.smartphone_skill_level, 
+                p.chifa_card_registration_number,
+                p.date_of_birth,
+                p.smartphone_skill_level,
                 p.is_active,
                 COALESCE(
                     (SELECT ROUND(AVG(CASE WHEN ms.status = 'TAKEN' THEN 100 ELSE 0 END), 1) 
@@ -187,9 +188,10 @@ router.get('/patients/:id', protect, authorize('admin'), async (req, res) => {
         
         // Get patient's caregivers
         const [caregivers] = await db.execute(`
-            SELECT c.id, c.name, c.email, c.relationship, c.status, c.created_at
-            FROM caregivers c
-            WHERE c.patient_id = ? AND c.status = 'ACTIVE'
+            SELECT u.id, u.name, u.email, ca.relationship, ca.status, ca.created_at
+            FROM caregiver_assignment ca
+            JOIN users u ON u.id = ca.caregiver_id
+            WHERE ca.patient_id = ? AND ca.status = 'ACTIVE'
         `, [id]);
         patient.caregivers = caregivers;
         
@@ -249,26 +251,20 @@ router.delete('/caregivers/:id', protect, authorize('admin'), async (req, res) =
     try {
         // Get caregiver info
         const [caregiver] = await db.execute(
-            'SELECT id, name, email FROM caregiver_users WHERE id = ?',
+            "SELECT id, name, email FROM users WHERE id = ? AND role = 'caregiver'",
             [id]
         );
-        
+
         if (caregiver.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Caregiver not found'
             });
         }
-        
-        // Delete caregiver user
-        await db.execute('DELETE FROM caregiver_users WHERE id = ?', [id]);
-        
-        // Update caregivers table to revoke access
-        await db.execute(
-            'UPDATE caregivers SET status = \'REVOKED\' WHERE email = ?',
-            [caregiver[0].email]
-        );
-        
+
+        // Deleting the user row cascades to caregivers + caregiver_assignment
+        await db.execute('DELETE FROM users WHERE id = ?', [id]);
+
         res.json({
             success: true,
             message: `Caregiver "${caregiver[0].name}" deleted successfully`

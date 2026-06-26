@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../services/chat_service.dart';
 
 class ChatPage extends StatefulWidget {
@@ -30,6 +35,20 @@ class _ChatPageState extends State<ChatPage> {
   String? _myRole;
   Timer? _pollTimer;
 
+  // ── Voice recording ──────────────────────────────────────────────────────
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  bool _isUploadingVoice = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  String? _recordingPath;
+
+  // ── Voice playback ───────────────────────────────────────────────────────
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  int? _playingMessageId;
+  Duration _playPosition = Duration.zero;
+  Duration _playDuration = Duration.zero;
+
   static const Color _primary = Color(0xFF1565C0);
 
   @override
@@ -40,14 +59,142 @@ class _ChatPageState extends State<ChatPage> {
       // Poll every 4 seconds for new messages
       _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _fetchMessages(silent: true));
     });
+
+    _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) setState(() => _playPosition = pos);
+    });
+    _audioPlayer.onDurationChanged.listen((dur) {
+      if (mounted) setState(() => _playDuration = dur);
+    });
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() {
+        _playingMessageId = null;
+        _playPosition = Duration.zero;
+      });
+    });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _recordTimer?.cancel();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // ── Recording flow ───────────────────────────────────────────────────────
+  Future<void> _startRecording() async {
+    final micStatus = await Permission.microphone.request();
+    if (!micStatus.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Microphone permission is required to send voice messages'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
+
+    if (!await _audioRecorder.hasPermission()) return;
+
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    await _audioRecorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc),
+      path: filePath,
+    );
+
+    setState(() {
+      _isRecording = true;
+      _recordSeconds = 0;
+      _recordingPath = filePath;
+    });
+
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _recordSeconds++);
+    });
+  }
+
+  Future<void> _cancelRecording() async {
+    _recordTimer?.cancel();
+    try {
+      await _audioRecorder.stop();
+      if (_recordingPath != null) {
+        final f = File(_recordingPath!);
+        if (await f.exists()) await f.delete();
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordingPath = null;
+        _recordSeconds = 0;
+      });
+    }
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    _recordTimer?.cancel();
+    final durationSeconds = _recordSeconds;
+
+    String? path;
+    try {
+      path = await _audioRecorder.stop();
+    } catch (_) {}
+    path ??= _recordingPath;
+
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordingPath = null;
+        _recordSeconds = 0;
+      });
+    }
+
+    if (path == null || durationSeconds < 1) return;
+
+    setState(() => _isUploadingVoice = true);
+    final ok = await ChatService.sendVoiceMessage(widget.partnerId, path, durationSeconds);
+    if (mounted) {
+      setState(() => _isUploadingVoice = false);
+      if (ok) {
+        await _fetchMessages(silent: true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to send voice message'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
+
+  // ── Playback flow ────────────────────────────────────────────────────────
+  Future<void> _togglePlayback(ChatMessage msg) async {
+    if (msg.audioUrl == null) return;
+
+    if (_playingMessageId == msg.id) {
+      await _audioPlayer.pause();
+      setState(() => _playingMessageId = null);
+      return;
+    }
+
+    await _audioPlayer.stop();
+    setState(() {
+      _playingMessageId = msg.id;
+      _playPosition = Duration.zero;
+      _playDuration = Duration(seconds: msg.audioDuration ?? 0);
+    });
+    await _audioPlayer.play(UrlSource(msg.audioUrl!));
   }
 
   Future<void> _loadIdentity() async {
@@ -304,6 +451,60 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildVoiceContent(ChatMessage msg, bool isMe) {
+    final isPlaying = _playingMessageId == msg.id;
+    final totalSeconds = msg.audioDuration ?? 0;
+    final progress = isPlaying && _playDuration.inMilliseconds > 0
+        ? (_playPosition.inMilliseconds / _playDuration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+    final fgColor = isMe ? Colors.white : _primary;
+
+    return SizedBox(
+      width: 180,
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => _togglePlayback(msg),
+          child: Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
+              color: isMe ? Colors.white.withOpacity(0.2) : _primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: fgColor, size: 20,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: isMe ? Colors.white.withOpacity(0.25) : Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(fgColor),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isPlaying ? _formatDuration(_playPosition) : _formatDuration(Duration(seconds: totalSeconds)),
+              style: TextStyle(fontSize: 11, color: isMe ? Colors.white.withOpacity(0.7) : Colors.grey.shade500),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildBubble(ChatMessage msg) {
     final isMe      = _isMe(msg);
     final isOptimistic = msg.id < 0;
@@ -357,12 +558,15 @@ class _ChatPageState extends State<ChatPage> {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  Text(msg.message,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isMe ? Colors.white : const Color(0xFF0F172A),
-                        height: 1.4,
-                      )),
+                  if (msg.isVoice)
+                    _buildVoiceContent(msg, isMe)
+                  else
+                    Text(msg.message,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isMe ? Colors.white : const Color(0xFF0F172A),
+                          height: 1.4,
+                        )),
                   const SizedBox(height: 4),
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(_formatTime(msg.createdAt),
@@ -404,53 +608,117 @@ class _ChatPageState extends State<ChatPage> {
               blurRadius: 10, offset: const Offset(0, -2)),
         ],
       ),
-      child: Row(children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4F7FB),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: TextField(
-              controller: _controller,
-              maxLines: 4,
-              minLines: 1,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
-              decoration: InputDecoration(
-                hintText: 'Write a message...',
-                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-              ),
-              onSubmitted: (_) => _send(),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        GestureDetector(
-          onTap: _send,
-          child: Container(
-            width: 46, height: 46,
-            decoration: BoxDecoration(
-              color: _isSending ? Colors.grey.shade300 : _primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: _primary.withOpacity(0.3),
-                    blurRadius: 8, offset: const Offset(0, 3)),
-              ],
-            ),
-            child: _isSending
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-          ),
-        ),
-      ]),
+      child: _isRecording ? _buildRecordingRow() : _buildTextInputRow(),
     );
+  }
+
+  Widget _buildRecordingRow() {
+    return Row(children: [
+      GestureDetector(
+        onTap: _cancelRecording,
+        child: Container(
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade200, shape: BoxShape.circle),
+          child: const Icon(Icons.close_rounded, color: Colors.grey, size: 20),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F7FB),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(children: [
+            Container(width: 10, height: 10,
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+            const SizedBox(width: 10),
+            Text('Recording…  ${_formatDuration(Duration(seconds: _recordSeconds))}',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+      const SizedBox(width: 10),
+      GestureDetector(
+        onTap: _stopAndSendRecording,
+        child: Container(
+          width: 46, height: 46,
+          decoration: BoxDecoration(
+            color: _primary,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: _primary.withOpacity(0.3),
+                  blurRadius: 8, offset: const Offset(0, 3)),
+            ],
+          ),
+          child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildTextInputRow() {
+    return Row(children: [
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F7FB),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: TextField(
+            controller: _controller,
+            maxLines: 4,
+            minLines: 1,
+            textCapitalization: TextCapitalization.sentences,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+            decoration: InputDecoration(
+              hintText: 'Write a message...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
+            ),
+            onSubmitted: (_) => _send(),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _controller,
+        builder: (context, value, _) {
+          final hasText = value.text.trim().isNotEmpty;
+          final busy = _isSending || _isUploadingVoice;
+
+          return GestureDetector(
+            onTap: busy
+                ? null
+                : (hasText ? _send : _startRecording),
+            child: Container(
+              width: 46, height: 46,
+              decoration: BoxDecoration(
+                color: busy ? Colors.grey.shade300 : _primary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: _primary.withOpacity(0.3),
+                      blurRadius: 8, offset: const Offset(0, 3)),
+                ],
+              ),
+              child: busy
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : Icon(hasText ? Icons.send_rounded : Icons.mic_rounded,
+                      color: Colors.white, size: 20),
+            ),
+          );
+        },
+      ),
+    ]);
   }
 }

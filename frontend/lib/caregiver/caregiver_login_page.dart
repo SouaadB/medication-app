@@ -156,7 +156,10 @@ class _CaregiverLoginPageState extends State<CaregiverLoginPage>
                         BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 14, offset: const Offset(0, 6)),
                       ],
                     ),
-                    child: const Icon(Icons.favorite_rounded, size: 36, color: primary),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset('assets/icon/app_icon.png', width: 78, height: 78, fit: BoxFit.cover),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const Text('MediCare', style: TextStyle(color: Colors.white, fontSize: 26,

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
@@ -12,6 +11,9 @@ class ChatMessage {
   final int receiverId;
   final String receiverRole;
   final String message;
+  final String messageType; // 'text' or 'voice'
+  final String? audioUrl;
+  final int? audioDuration; // seconds
   final bool isRead;
   final DateTime createdAt;
 
@@ -22,20 +24,28 @@ class ChatMessage {
     required this.receiverId,
     required this.receiverRole,
     required this.message,
+    this.messageType = 'text',
+    this.audioUrl,
+    this.audioDuration,
     required this.isRead,
     required this.createdAt,
   });
 
+  bool get isVoice => messageType == 'voice';
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
-      id:           json['id'],
-      senderId:     json['sender_id'],
-      senderRole:   json['sender_role'],
-      receiverId:   json['receiver_id'],
-      receiverRole: json['receiver_role'],
-      message:      json['message'],
-      isRead:       json['is_read'] == 1 || json['is_read'] == true,
-      createdAt:    DateTime.parse(json['created_at']).toLocal(),
+      id:             json['id'],
+      senderId:       json['sender_id'],
+      senderRole:     json['sender_role'],
+      receiverId:     json['receiver_id'],
+      receiverRole:   json['receiver_role'],
+      message:        json['message'],
+      messageType:    json['message_type'] ?? 'text',
+      audioUrl:       json['audio_url'],
+      audioDuration:  json['audio_duration'],
+      isRead:         json['is_read'] == 1 || json['is_read'] == true,
+      createdAt:      DateTime.parse(json['created_at']).toLocal(),
     );
   }
 }
@@ -51,7 +61,7 @@ class ChatService {
     'Authorization': 'Bearer $token',
   };
 
-  // Send a message
+  // Send a text message
   static Future<bool> sendMessage(int receiverId, String message) async {
     try {
       final token = await _getToken();
@@ -64,6 +74,26 @@ class ChatService {
       ).timeout(const Duration(seconds: 10));
 
       return resp.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Send a voice message — uploads the recorded audio file.
+  static Future<bool> sendVoiceMessage(int receiverId, String filePath, int durationSeconds) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return false;
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/chat/send-voice');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['receiver_id'] = receiverId.toString()
+        ..fields['duration'] = durationSeconds.toString()
+        ..files.add(await http.MultipartFile.fromPath('audio', filePath));
+
+      final streamedResp = await request.send().timeout(const Duration(seconds: 30));
+      return streamedResp.statusCode == 201;
     } catch (_) {
       return false;
     }

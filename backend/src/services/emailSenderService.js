@@ -98,32 +98,44 @@ class EmailSenderService {
         }
     }
 
-    async sendCaregiverAddedNotification(email, caregiverName, patientName) {
+    // Sent when a patient invites a caregiver who ALREADY has an active
+    // MediCare account (e.g. invited before by a different patient). No new
+    // credentials are issued — the caregiver must click Accept to prove
+    // consent before this new patient appears on their dashboard.
+    async sendCaregiverAddedNotification(email, caregiverName, patientName, inviteToken) {
         try {
+            const acceptUrl = `${process.env.APP_URL}/api/caregivers/confirm-invite?token=${inviteToken}`;
+
             const mailOptions = {
                 from: `"MediCare" <${process.env.EMAIL_USER}>`,
                 to: email,
-                subject: '📋 A new patient has added you as caregiver on MediCare',
+                subject: '📋 A new patient has invited you as caregiver on MediCare',
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #22C55E; border-radius: 10px;">
                         <div style="text-align: center;">
-                            <h1 style="color: #22C55E;">New Patient Added</h1>
+                            <h1 style="color: #22C55E;">New Patient Invitation</h1>
                             <div style="font-size: 48px; margin: 20px 0;">👨‍⚕️</div>
                             <h2 style="color: #333;">Hello ${caregiverName},</h2>
                             <p style="font-size: 16px; color: #666; line-height: 1.6;">
-                                <strong>${patientName}</strong> has added you as their caregiver on <strong>MediCare</strong>.
-                                You can now monitor their medication adherence from your existing caregiver account.
+                                <strong>${patientName}</strong> has invited you to be their caregiver on <strong>MediCare</strong>,
+                                using your existing caregiver account.
                             </p>
+                            <a href="${acceptUrl}"
+                               style="display:inline-block;background:#22C55E;color:white;padding:14px 28px;
+                                      border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0;">
+                                Accept Invitation
+                            </a>
                             <p style="font-size: 14px; color: #999; margin-top: 30px;">
-                                Simply log in with your existing credentials to see your updated patient list.<br>
-                                If you did not expect this, please ignore this email.
+                                If you don't want to supervise this patient, simply ignore this email — nothing will change
+                                until you accept.<br>
+                                This invitation will expire in 7 days.
                             </p>
                         </div>
                     </div>
                 `
             };
             await this._send(mailOptions.to, mailOptions.subject, mailOptions.html);
-            console.log(`✅ Caregiver added notification sent to ${email}`);
+            console.log(`✅ Caregiver invitation (existing account) sent to ${email}`);
             return true;
         } catch (error) {
             console.error('❌ Error sending caregiver added notification:', error);

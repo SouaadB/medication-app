@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../config/api_config.dart';
 import '../services/language_service.dart';
 
@@ -22,6 +23,7 @@ class _SignUpPageState extends State<SignUpPage>
   final TextEditingController _dateOfBirthController = TextEditingController();
   String? _selectedSkillLevel;
   bool _isLoading       = false;
+  bool _isScanningChifa = false;
   bool _obscurePassword = true;
     bool _hasMinLength   = false;
   bool _hasUppercase   = false;
@@ -89,6 +91,46 @@ class _SignUpPageState extends State<SignUpPage>
         _dateOfBirthController.text =
             '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}';
       });
+    }
+  }
+
+  Future<void> _scanChifaCard() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (pickedFile == null) return;
+    if (!mounted) return;
+
+    setState(() => _isScanningChifa = true);
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/auth/scan-chifa'),
+      );
+      request.files.add(await http.MultipartFile.fromPath('card', pickedFile.path));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() => _chifaCardController.text = data['scrnNumber']);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(data['message'] ?? 'Could not read your Chifa card'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error scanning card: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isScanningChifa = false);
     }
   }
 
@@ -313,13 +355,43 @@ if (response.statusCode == 201 && data['success'] == true) {
 
                       _label(lang.translate('chifaNumber')),
                       const SizedBox(height: 8),
-                      _formField(
+                      TextFormField(
                         controller: _chifaCardController,
-                        hint: '9 digits',
-                        icon: Icons.card_membership_outlined,
-                        keyboardType: TextInputType.number,
-                        validator: (v) => (v == null || v.length != 9)
-                            ? 'Chifa number must be 9 digits' : null,
+                        readOnly: true,
+                        onTap: _isScanningChifa ? null : _scanChifaCard,
+                        style: const TextStyle(fontSize: 15, color: darkText),
+                        validator: (v) => (v == null || v.length != 12)
+                            ? 'Please scan your Chifa card for confirmation' : null,
+                        decoration: InputDecoration(
+                          hintText: 'Please scan your chifa card for confirmation',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                          prefixIcon: Icon(Icons.card_membership_outlined, color: Colors.grey.shade400, size: 20),
+                          suffixIcon: _isScanningChifa
+                              ? const Padding(
+                                  padding: EdgeInsets.all(14),
+                                  child: SizedBox(width: 18, height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: primary)),
+                                )
+                              : IconButton(
+                                  onPressed: _scanChifaCard,
+                                  icon: const Icon(Icons.camera_alt_outlined, color: primary, size: 20),
+                                ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: primary, width: 1.5),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: Colors.red),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 14),
 

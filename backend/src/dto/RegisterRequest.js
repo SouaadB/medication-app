@@ -9,9 +9,10 @@ class RegisterRequest {
         this.smartphoneSkillLevel = data.smartphoneSkillLevel;
     }
 
-    // Validate CHIFA number (exactly 9 digits)
+    // Validate SCRN / Carte Chifa registration number (exactly 12 digits,
+    // read from the top of the scanned card)
     static isValidChifaNumber(number) {
-        const chifaRegex = /^[0-9]{9}$/;
+        const chifaRegex = /^[0-9]{12}$/;
         return chifaRegex.test(number);
     }
 

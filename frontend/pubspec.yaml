@@ -43,14 +43,24 @@ dependencies:
   flutter_background_service_android: ^6.3.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
- 
-  
+
+  # Voice messages (chat)
+  record: 6.2.0 # pinned exact — 6.2.1 pulls record_platform_interface 1.6.0, which has a breaking change not yet supported by record_linux/record_android/record_windows
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.0
+
+# record_platform_interface 1.6.0 has a breaking interface change that
+# record_android/record_linux/record_windows weren't updated for yet, even
+# though their own caret constraints (^1.4.0 / ^1.5.0) technically permit it.
+# Force the last known-good interface version until the whole record_* family
+# is bumped together to the v2 line (which also needs Dart SDK >=3.12).
+dependency_overrides:
+  record_platform_interface: 1.5.0
 
 flutter:
   uses-material-design: true

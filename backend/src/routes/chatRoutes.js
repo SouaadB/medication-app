@@ -11,6 +11,7 @@ router.use(protect);
 // GET    /api/chat/conversations     — get all conversations (inbox)
 
 router.post('/send',                   chatCtrl.sendMessage);
+router.post('/send-voice',             chatCtrl.uploadVoiceMiddleware, chatCtrl.sendVoiceMessage);
 router.get('/unread/count',            chatCtrl.getUnreadCount);
 router.get('/conversations',           chatCtrl.getConversations);
 router.get('/:partner_id',             chatCtrl.getMessages);

@@ -1,16 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    register, 
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+const {
+    register,
     verifyEmail,
-    login, 
-    getMe, 
+    login,
+    getMe,
     logout,
     forgotPassword,
     resetPassword,
     requestResetCode,
     verifyResetCode,
     resetPasswordWithCode,
+    scanChifaCard,
     // New caregiver password reset functions
     requestCaregiverResetCode,
     verifyCaregiverResetCode,
@@ -19,6 +22,7 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 router.post('/register', register);
+router.post('/scan-chifa', upload.single('card'), scanChifaCard);
 router.get('/verify-email',verifyEmail);
 router.post('/login', login);
 router.post('/logout', logout);

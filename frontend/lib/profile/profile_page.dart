@@ -302,12 +302,13 @@ class _ProfilePageState extends State<ProfilePage> {
               _buildCard(children: [
                 _field(
                   controller: _chifaController,
-                  label: 'Chifa Number',
+                  label: 'SCRN (Social Security Registration Number)',
                   icon: Icons.card_membership_outlined,
                   enabled: _isEditing,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Chifa number is required';
-                    if (v.trim().length != 9) return 'Chifa number must be 9 digits';
+                    if (v == null || v.trim().isEmpty) return 'SCRN is required';
+                    final len = v.trim().length;
+                    if (len != 9 && len != 12) return 'SCRN must be 9 or 12 digits';
                     return null;
                   },
                 ),
