@@ -179,10 +179,10 @@ async function detectPartialDayAdherence(patientId) {
 async function detectWeekendCliff(patientId) {
   const [rows] = await db.query(
     `SELECT
-       SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) BETWEEN 2 AND 6 AND status = 'TAKEN' THEN 1 ELSE 0 END) AS weekday_taken,
-       SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) BETWEEN 2 AND 6 THEN 1 ELSE 0 END)                       AS weekday_total,
-       SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) IN (1,7) AND status = 'TAKEN' THEN 1 ELSE 0 END)         AS weekend_taken,
-       SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) IN (1,7) THEN 1 ELSE 0 END)                               AS weekend_total
+  SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) BETWEEN 1 AND 5 AND status = 'TAKEN' THEN 1 ELSE 0 END) AS weekday_taken,
+  SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) BETWEEN 1 AND 5 THEN 1 ELSE 0 END)                       AS weekday_total,
+  SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) IN (6,7) AND status = 'TAKEN' THEN 1 ELSE 0 END)         AS weekend_taken,
+  SUM(CASE WHEN DAYOFWEEK(scheduled_date_time) IN (6,7) THEN 1 ELSE 0 END)                              AS weekend_total
      FROM medication_schedules
      WHERE patient_id = ?
        AND scheduled_date_time >= DATE_SUB(CURDATE(), INTERVAL 28 DAY)

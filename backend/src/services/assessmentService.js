@@ -310,7 +310,7 @@ const ACTION_LIBRARY = {
         priority: 10,
         action: '📅 Weekend routine check-in',
         reason: 'Some patients struggle with weekend medication routines.',
-        applicable: (risk, situation) => new Date().getDay() === 5 && situation.data_sufficient && situation.this_week_adherence < 80
+        applicable: (risk, situation) => new Date().getDay() === 4 && situation.data_sufficient && situation.this_week_adherence < 80
     },
     diabetes_miss: {
         priority: 11,

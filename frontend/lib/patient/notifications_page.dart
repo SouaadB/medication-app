@@ -735,6 +735,15 @@ if (type == 'ai_insight') {
     isInformational: true,
   );
 }
+// ── AUTO REFILL REMINDER ────────────────────────────────────────────────
+if (type == 'refill_reminder') {
+  return _NotifStyle(
+    color: Colors.indigo, bgColor: const Color(0xFFE8EAF6),
+    icon: Icons.local_pharmacy_outlined, stage: 'refill_reminder',
+    showTaken: false, showSnooze: false, showSkip: false, showDismiss: true,
+    isInformational: true,
+  );
+}
     // ── DEFAULT ───────────────────────────────────────────────────────────
     // Fallback for any unrecognised stage. Treated as a standard main reminder.
     return _NotifStyle(
@@ -743,6 +752,7 @@ if (type == 'ai_insight') {
       showTaken: true, showSnooze: true, showSkip: false, showDismiss: false,
     );
   }
+  
 
   // ── FILTER ─────────────────────────────────────────────────────────────────
 
@@ -761,6 +771,7 @@ if (type == 'ai_insight') {
               type != 'ai_insight' &&
               stage != 'MISSED' &&
               stage != 'INFORM_LATE' &&
+              type != 'refill_reminder' &&
               stage != 'SAFE_TO_EAT';
         }).toList();
       case 2: // Missed
