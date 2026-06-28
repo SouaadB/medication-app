@@ -22,6 +22,7 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
   int _completed = 0;
   int _pending   = 0;
   int _missed    = 0;
+  List<String> _asNeededMeds = [];
 
   static const String CACHE_PLANNING_KEY  = 'cached_planning_data';
   static const String CACHE_DATE_KEY      = 'cached_planning_date';
@@ -31,6 +32,29 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
   void initState() {
     super.initState();
     _loadScheduleForDate(_selectedDate);
+    _fetchAsNeededMeds();
+  }
+
+  Future<void> _fetchAsNeededMeds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+      final resp = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/treatments/my-treatments'),
+        headers: ApiConfig.getAuthHeaders(token),
+      ).timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final treatments = List<Map<String, dynamic>>.from(data['treatments'] ?? []);
+        final names = treatments
+            .where((t) => t['frequency'] == 'As needed' && t['is_active'] != 0)
+            .map((t) => t['medication_name']?.toString() ?? '')
+            .where((n) => n.isNotEmpty)
+            .toList();
+        if (mounted) setState(() => _asNeededMeds = names);
+      }
+    } catch (_) {}
   }
 
   // ── cache helpers ──────────────────────────────────────────────────────────
@@ -385,6 +409,52 @@ class _DailyPlanningPageState extends State<DailyPlanningPage> {
                                 ),
                               ),
                             ]),
+                          ),
+
+                        // "as needed" reminder banner
+                        if (_asNeededMeds.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF8E1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFFFCC02)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.info_outline, color: Color(0xFFE6A800), size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'As-needed medication reminder',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF7A5800),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'You have ${_asNeededMeds.length == 1 ? 'a medication' : 'medications'} to take only when necessary: '
+                                        '${_asNeededMeds.join(', ')}. '
+                                        'Take ${_asNeededMeds.length == 1 ? 'it' : 'them'} if you need to — '
+                                        '${_asNeededMeds.length == 1 ? 'it does' : 'they do'} not appear in the schedule.',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF7A5800),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
 
                         // ── FIX: stats grid ────────────────────────────────
